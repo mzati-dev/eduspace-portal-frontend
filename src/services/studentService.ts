@@ -76,6 +76,7 @@ export interface StudentData {
         weight_qa1: number;
         weight_qa2: number;
         weight_end_of_term: number;
+        pass_mark: number;
     };
 }
 
@@ -143,7 +144,7 @@ function calculateSubjectFinalScore(subject: Subject, gradeConfig: any): number 
 
 function calculateGradeFromConfig(subject: Subject, gradeConfig: any): string {
     const finalScore = calculateSubjectFinalScore(subject, gradeConfig);
-    return calculateGrade(finalScore);
+    return calculateGrade(finalScore, gradeConfig?.pass_mark || 50);
 }
 
 function calculateAssessmentStats(studentData: StudentData, gradeConfig: any) {
@@ -324,11 +325,12 @@ export const fetchStudentReportCard = async (id: string, term: string) => {
   return res.json();
 };
 
-export const calculateGrade = (score: number) => {
+export const calculateGrade = (score: number, passMark: number = 50) => {
   if (score >= 80) return 'A';
   if (score >= 70) return 'B';
   if (score >= 60) return 'C';
-  if (score >= 50) return 'D';
+  // if (score >= 50) return 'D';
+  if (score >= passMark) return 'D'; // Changed from 50 to passMark
   return 'F';
 };
 
@@ -402,6 +404,24 @@ export const fetchStudentsByClass = async (classId: string): Promise<any[]> => {
     return res.json();
   } catch (error) {
     console.error('Error fetching class students:', error);
+    return [];
+  }
+};
+
+// Add this function to your existing service file
+export const fetchClassResults = async (classId: string): Promise<any[]> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/students/class/${classId}/results`);
+    if (!res.ok) {
+      if (res.status === 404) {
+        console.log('No results found for this class');
+        return [];
+      }
+      throw new Error('Failed to fetch class results');
+    }
+    return await res.json();
+  } catch (error) {
+    console.error('Error fetching class results:', error);
     return [];
   }
 };

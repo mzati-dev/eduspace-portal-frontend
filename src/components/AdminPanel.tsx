@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Users, BookOpen, FileText, Plus, Edit2, Trash2, Save, X,
-  ChevronDown, ChevronUp, Search, AlertCircle, CheckCircle, Settings
+  ChevronDown, ChevronUp, Search, AlertCircle, CheckCircle, Settings,
+  Award,
+  Printer,
+  Download,
+  TrendingUp
 } from 'lucide-react';
 import {
   fetchAllStudents, fetchAllSubjects, createStudent, updateStudent, deleteStudent,
   upsertAssessment, upsertReportCard, fetchStudentAssessments, fetchStudentReportCard,
   calculateGrade, SubjectRecord, createSubject, deleteSubject,
-  fetchAllClasses, createClass, deleteClass, fetchStudentsByClass, Class, calculateAndUpdateRanks
+  fetchAllClasses, createClass, deleteClass, fetchStudentsByClass, Class, calculateAndUpdateRanks, fetchClassResults
 } from '@/services/studentService';
 import {
   getActiveGradeConfig, getAllGradeConfigs, createGradeConfig,
@@ -41,6 +45,24 @@ interface Assessment {
   end_of_term: number;
 }
 
+interface ClassResultStudent {
+  id: string;
+  name: string;
+  examNumber: string;
+  rank: number;
+  totalScore: number;
+  average: number;
+  overallGrade: string;
+  subjects: {
+    name: string;
+    qa1: number;
+    qa2: number;
+    endOfTerm: number;
+    finalScore: number;
+    grade: string;
+  }[];
+}
+
 const generateAcademicYears = () => {
   const currentYear = new Date().getFullYear();
   const years = [];
@@ -52,7 +74,7 @@ const generateAcademicYears = () => {
 };
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
-  const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'subjects' | 'results' | 'gradeConfig'>('classes');
+  const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'subjects' | 'results' | 'gradeConfig' | 'classResults'>('classes');
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<SubjectRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,7 +132,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     weight_qa1: 30,
     weight_qa2: 30,
     weight_end_of_term: 40,
+    pass_mark: 50, // Add this line
   });
+
+  // ADD THESE 4 LINES FOR CLASS RESULTS
+  const [classResults, setClassResults] = useState<ClassResultStudent[]>([]);
+  const [selectedClassForResults, setSelectedClassForResults] = useState<string>('');
+  const [activeAssessmentType, setActiveAssessmentType] = useState<'qa1' | 'qa2' | 'endOfTerm' | 'overall'>('overall');
+  const [resultsLoading, setResultsLoading] = useState(false);
 
   useEffect(() => {
     if (studentForm.class_id) {
@@ -353,6 +382,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     if (!selectedStudent) return;
     setSavingResults(true);
     try {
+      // Get the pass mark from active config
+      const passMark = activeConfig?.pass_mark || 50;
       // 1. Save assessments
       for (const assessment of assessments) {
         if (assessment.qa1 > 0) {
@@ -361,7 +392,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             subject_id: assessment.subject_id,
             assessment_type: 'qa1',
             score: assessment.qa1,
-            grade: calculateGrade(assessment.qa1)
+            // grade: calculateGrade(assessment.qa1)
+            grade: calculateGrade(assessment.qa1, passMark) // Pass the pass mark
           });
         }
         if (assessment.qa2 > 0) {
@@ -370,7 +402,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             subject_id: assessment.subject_id,
             assessment_type: 'qa2',
             score: assessment.qa2,
-            grade: calculateGrade(assessment.qa2)
+            // grade: calculateGrade(assessment.qa2)
+            grade: calculateGrade(assessment.qa2, passMark) // Pass the pass mark
           });
         }
         if (assessment.end_of_term > 0) {
@@ -379,7 +412,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             subject_id: assessment.subject_id,
             assessment_type: 'end_of_term',
             score: assessment.end_of_term,
-            grade: calculateGrade(assessment.end_of_term)
+            // grade: calculateGrade(assessment.end_of_term)
+            grade: calculateGrade(assessment.end_of_term, passMark) // Pass the pass mark
           });
         }
       }
@@ -454,7 +488,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       weight_qa1: config.weight_qa1,
       weight_qa2: config.weight_qa2,
       weight_end_of_term: config.weight_end_of_term,
+      pass_mark: config.pass_mark || 50, // Add this line
     });
+  };
+
+  const loadClassResults = async (classId: string) => {
+    setResultsLoading(true);
+    try {
+      const results = await fetchClassResults(classId);
+      setClassResults(results);
+    } catch (error) {
+      console.error('Failed to load class results:', error);
+      showMessage('Failed to load class results', true);
+    } finally {
+      setResultsLoading(false);
+    }
   };
 
   return (
@@ -536,6 +584,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
           >
             <FileText className="w-4 h-4" />
             Enter Results
+          </button>
+
+          <button
+            onClick={() => setActiveTab('classResults')}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'classResults'
+              ? 'bg-indigo-600 text-white'
+              : 'bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+          >
+            <Award className="w-4 h-4" />
+            Class Results
           </button>
           <button
             onClick={() => setActiveTab('gradeConfig')}
@@ -999,6 +1058,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
           </div>
         ) : activeTab === 'gradeConfig' ? (
           <div className="space-y-6">
+            {/* ... grade config content (KEEP THIS AS IS) ... */}
+
+
             <div className="flex justify-between items-center">
               <div>
                 <h2 className="text-lg font-semibold text-slate-800">Grade Calculation Configuration</h2>
@@ -1016,6 +1078,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     weight_qa1: 30,
                     weight_qa2: 30,
                     weight_end_of_term: 40,
+                    pass_mark: 50, // Add this line
                   });
                 }}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
@@ -1051,6 +1114,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                       )}
                       <p className="text-xs text-emerald-600">
                         <span className="font-medium">Total Weight:</span> {activeConfig.weight_qa1 + activeConfig.weight_qa2 + activeConfig.weight_end_of_term}%
+                      </p>
+                      <p className="text-sm text-emerald-700">
+                        <span className="font-medium">Pass Mark:</span> {activeConfig.pass_mark || 50}%
                       </p>
                     </div>
                   </div>
@@ -1196,6 +1262,47 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                       </div>
                     )}
 
+                    {/* PASS MARK SECTION - ADDED HERE */}
+                    <div className="space-y-4 p-4 bg-slate-50 rounded-lg">
+                      <h4 className="font-medium text-slate-800">Pass Mark Configuration</h4>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Minimum Pass Mark (0-100%)
+                        </label>
+                        <div className="flex items-center gap-4">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            value={configForm.pass_mark}
+                            onChange={(e) => setConfigForm({
+                              ...configForm,
+                              pass_mark: parseInt(e.target.value)
+                            })}
+                            className="flex-1"
+                          />
+                          <div className="w-20">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={configForm.pass_mark}
+                              onChange={(e) => setConfigForm({
+                                ...configForm,
+                                pass_mark: parseInt(e.target.value) || 50
+                              })}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                            <span className="text-xs text-slate-500">%</span>
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-600 mt-2">
+                          Students scoring below {configForm.pass_mark}% will receive grade 'F'
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="flex gap-3 pt-4">
                       <button
                         type="button"
@@ -1288,12 +1395,680 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
               </div>
             </div>
           </div>
+
+
+        ) : activeTab === 'classResults' ? (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-800">Class Results & Rankings</h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    View all students' results in each class, ranked by performance
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-4">
+                  {/* Class selection */}
+                  <div className="min-w-[200px]">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Select Class</label>
+                    <select
+                      value={selectedClassForResults}
+                      onChange={(e) => {
+                        setSelectedClassForResults(e.target.value);
+                        if (e.target.value) loadClassResults(e.target.value);
+                      }}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="">Select a class</option>
+                      {classes.map(cls => (
+                        <option key={cls.id} value={cls.id}>
+                          {cls.name} - {cls.term} ({cls.academic_year})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Assessment type selector */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">View Results For</label>
+                    <div className="flex gap-2">
+                      {[
+                        { id: 'overall', label: 'Overall' },
+                        { id: 'qa1', label: 'QA1' },
+                        { id: 'qa2', label: 'QA2' },
+                        { id: 'endOfTerm', label: 'End Term' }
+                      ].map(type => (
+                        <button
+                          key={type.id}
+                          onClick={() => setActiveAssessmentType(type.id as any)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeAssessmentType === type.id
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                        >
+                          {type.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {resultsLoading ? (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-slate-600">Loading results...</p>
+                </div>
+              ) : selectedClassForResults && classResults.length > 0 ? (
+                <div className="space-y-8">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-indigo-700 font-medium">Class Average</p>
+                          <p className="text-2xl font-bold text-indigo-800 mt-1">
+                            {(
+                              classResults.reduce((sum, student) => sum + student.average, 0) /
+                              classResults.length
+                            ).toFixed(1)}%
+                          </p>
+                        </div>
+                        <TrendingUp className="w-8 h-8 text-indigo-600 opacity-50" />
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-emerald-700 font-medium">Top Performer</p>
+                          <p className="text-lg font-bold text-emerald-800 mt-1">
+                            {classResults[0]?.name || 'N/A'}
+                          </p>
+                        </div>
+                        <Award className="w-8 h-8 text-emerald-600 opacity-50" />
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 border border-amber-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-amber-700 font-medium">Pass Rate</p>
+                          <p className="text-2xl font-bold text-amber-800 mt-1">
+                            {Math.round(
+                              (classResults.filter(s => s.overallGrade !== 'F').length /
+                                classResults.length) * 100
+                            )}%
+                          </p>
+                        </div>
+                        <CheckCircle className="w-8 h-8 text-amber-600 opacity-50" />
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-slate-700 font-medium">Total Students</p>
+                          <p className="text-2xl font-bold text-slate-800 mt-1">
+                            {classResults.length}
+                          </p>
+                        </div>
+                        <Users className="w-8 h-8 text-slate-600 opacity-50" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Results Table */}
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+                      <h3 className="font-semibold text-slate-800">
+                        {activeAssessmentType === 'overall' ? 'Overall Results' :
+                          activeAssessmentType === 'qa1' ? 'QA1 Results' :
+                            activeAssessmentType === 'qa2' ? 'QA2 Results' : 'End Term Results'}
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Ranked by {activeAssessmentType === 'overall' ? 'overall average' : activeAssessmentType} score
+                      </p>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Rank</th>
+                            <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Exam No.</th>
+                            <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Name</th>
+                            {activeAssessmentType === 'overall' ? (
+                              <>
+                                <th className="text-center px-4 py-3 text-sm font-semibold text-slate-600">Total Score</th>
+                                <th className="text-center px-4 py-3 text-sm font-semibold text-slate-600">Average</th>
+                                <th className="text-center px-4 py-3 text-sm font-semibold text-slate-600">Overall Grade</th>
+                                <th className="text-center px-4 py-3 text-sm font-semibold text-slate-600">Status</th>
+                              </>
+                              // ) : (
+                              //   subjects.map(subject => (
+                              //     <th key={subject.id} className="text-center px-4 py-3 text-sm font-semibold text-slate-600">
+                              //       {subject.name}
+                              //     </th>
+                              //   ))
+                              // )}
+                            ) : (
+                              (() => {
+                                const subjectsToShow = [];
+
+                                subjects.forEach(subject => {
+                                  const hasData = classResults.some(student => {
+                                    const s = student.subjects.find(s => s.name === subject.name);
+                                    return s && s.qa1 > 0 && s.qa2 > 0 && s.endOfTerm > 0;
+                                  });
+
+                                  if (hasData) subjectsToShow.push(subject);
+                                });
+
+                                return subjectsToShow.map(subject => (
+                                  <th key={subject.id} className="text-center px-4 py-3 text-sm font-semibold text-slate-600">
+                                    {subject.name}
+                                  </th>
+                                ));
+                              })()
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {classResults.map((student) => (
+                            <tr key={student.id} className="hover:bg-slate-50">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center">
+                                  {student.rank <= 3 ? (
+                                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${student.rank === 1 ? 'bg-amber-500' :
+                                      student.rank === 2 ? 'bg-slate-500' :
+                                        'bg-amber-700'
+                                      }`}>
+                                      {student.rank}
+                                    </span>
+                                  ) : (
+                                    <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-semibold text-slate-700">
+                                      {student.rank}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 font-mono text-sm text-indigo-600">{student.examNumber}</td>
+                              <td className="px-4 py-3 font-medium text-slate-800">{student.name}</td>
+
+                              {activeAssessmentType === 'overall' ? (
+                                <>
+                                  <td className="px-4 py-3 text-center font-bold text-slate-800">{student.totalScore.toFixed(1)}</td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className="text-xl font-bold text-indigo-700">{student.average.toFixed(1)}%</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${student.overallGrade === 'A' ? 'bg-emerald-100 text-emerald-700' :
+                                      student.overallGrade === 'B' ? 'bg-blue-100 text-blue-700' :
+                                        student.overallGrade === 'C' ? 'bg-amber-100 text-amber-700' :
+                                          student.overallGrade === 'D' ? 'bg-orange-100 text-orange-700' :
+                                            'bg-red-100 text-red-700'
+                                      }`}>
+                                      {student.overallGrade}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${student.overallGrade === 'F' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
+                                      }`}>
+                                      {student.overallGrade === 'F' ? 'Failed' : 'Passed'}
+                                    </span>
+                                  </td>
+                                </>
+                                // ) : (
+                                //   subjects.map(subject => {
+                                //     const studentSubject = student.subjects.find(s => s.name === subject.name);
+                                //     const score = studentSubject ?
+                                //       (activeAssessmentType === 'qa1' ? studentSubject.qa1 :
+                                //         activeAssessmentType === 'qa2' ? studentSubject.qa2 :
+                                //           studentSubject.endOfTerm) : 0;
+
+                                //     return (
+                                //       <td key={subject.id} className="px-4 py-3 text-center">
+                                //         {score > 0 ? (
+                                //           <div className="flex flex-col items-center">
+                                //             <span className={`font-bold ${score >= 80 ? 'text-emerald-700' :
+                                //               score >= 60 ? 'text-blue-700' :
+                                //                 score >= 50 ? 'text-amber-700' :
+                                //                   'text-red-700'
+                                //               }`}>
+                                //               {score}%
+                                //             </span>
+                                //             <span className="text-xs text-slate-500">
+                                //               {calculateGrade(score, activeConfig?.pass_mark || 50)}
+                                //             </span>
+                                //           </div>
+                                //         ) : (
+                                //           <span className="text-slate-400">-</span>
+                                //         )}
+                                //       </td>
+                                //     );
+                                //   })
+                                // )}
+                              ) : (
+                                (() => {
+                                  const subjectsToShow = [];
+
+                                  subjects.forEach(subject => {
+                                    const hasData = classResults.some(student => {
+                                      const s = student.subjects.find(s => s.name === subject.name);
+                                      return s && s.qa1 > 0 && s.qa2 > 0 && s.endOfTerm > 0;
+                                    });
+
+                                    if (hasData) subjectsToShow.push(subject);
+                                  });
+
+                                  return subjectsToShow.map(subject => {
+                                    const studentSubject = student.subjects.find(s => s.name === subject.name);
+                                    const score = studentSubject ?
+                                      (activeAssessmentType === 'qa1' ? studentSubject.qa1 :
+                                        activeAssessmentType === 'qa2' ? studentSubject.qa2 :
+                                          studentSubject.endOfTerm) : 0;
+
+                                    return (
+                                      <td key={subject.id} className="px-4 py-3 text-center">
+                                        {score > 0 ? (
+                                          <div className="flex flex-col items-center">
+                                            <span className={`font-bold ${score >= 80 ? 'text-emerald-700' :
+                                              score >= 60 ? 'text-blue-700' :
+                                                score >= 50 ? 'text-amber-700' :
+                                                  'text-red-700'
+                                              }`}>
+                                              {score}%
+                                            </span>
+                                            <span className="text-xs text-slate-500">
+                                              {calculateGrade(score, activeConfig?.pass_mark || 50)}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-slate-400">-</span>
+                                        )}
+                                      </td>
+                                    );
+                                  });
+                                })()
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Print/Export buttons */}
+                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                      <button
+                        onClick={() => window.print()}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium flex items-center gap-2"
+                      >
+                        <Printer className="w-4 h-4" />
+                        Print Results
+                      </button>
+                      <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium flex items-center gap-2">
+                        <Download className="w-4 h-4" />
+                        Export as PDF
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedClassForResults ? (
+                <div className="text-center py-12 bg-slate-50 rounded-xl">
+                  <p className="text-slate-500">No results found for this class. Enter student results first.</p>
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-slate-50 rounded-xl">
+                  <p className="text-slate-500">Select a class to view results</p>
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
+          // ) : activeTab === 'gradeConfig' ? (
+          //   <div className="space-y-6">
+          //     <div className="flex justify-between items-center">
+          //       <div>
+          //         <h2 className="text-lg font-semibold text-slate-800">Grade Calculation Configuration</h2>
+          //         <p className="text-sm text-slate-500 mt-1">
+          //           Configure how final grades are calculated for report cards
+          //         </p>
+          //       </div>
+          //       <button
+          //         onClick={() => {
+          //           setShowConfigForm(true);
+          //           setEditingConfig(null);
+          //           setConfigForm({
+          //             configuration_name: '',
+          //             calculation_method: 'weighted_average',
+          //             weight_qa1: 30,
+          //             weight_qa2: 30,
+          //             weight_end_of_term: 40,
+          //             pass_mark: 50, // Add this line
+          //           });
+          //         }}
+          //         className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+          //       >
+          //         <Plus className="w-4 h-4" />
+          //         New Configuration
+          //       </button>
+          //     </div>
+
+          //     {activeConfig && (
+          //       <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl p-5">
+          //         <div className="flex items-center justify-between">
+          //           <div>
+          //             <div className="flex items-center gap-2 mb-2">
+          //               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white">
+          //                 Active
+          //               </span>
+          //               <h3 className="text-lg font-semibold text-emerald-800">{activeConfig.configuration_name}</h3>
+          //             </div>
+          //             <div className="space-y-2">
+          //               <p className="text-sm text-emerald-700">
+          //                 <span className="font-medium">Method:</span>{' '}
+          //                 {activeConfig.calculation_method === 'average_all' && 'Average of All Tests'}
+          //                 {activeConfig.calculation_method === 'end_of_term_only' && 'End of Term Only'}
+          //                 {activeConfig.calculation_method === 'weighted_average' && 'Weighted Average'}
+          //               </p>
+          //               {activeConfig.calculation_method === 'weighted_average' && (
+          //                 <div className="flex gap-6 text-sm text-emerald-700">
+          //                   <div><span className="font-medium">QA1:</span> {activeConfig.weight_qa1}%</div>
+          //                   <div><span className="font-medium">QA2:</span> {activeConfig.weight_qa2}%</div>
+          //                   <div><span className="font-medium">End Term:</span> {activeConfig.weight_end_of_term}%</div>
+          //                 </div>
+          //               )}
+          //               <p className="text-xs text-emerald-600">
+          //                 <span className="font-medium">Total Weight:</span> {activeConfig.weight_qa1 + activeConfig.weight_qa2 + activeConfig.weight_end_of_term}%
+          //               </p>
+          //               <p className="text-sm text-emerald-700">
+          //                 <span className="font-medium">Pass Mark:</span> {activeConfig.pass_mark || 50}%
+          //               </p>
+          //             </div>
+          //           </div>
+          //           <Settings className="w-8 h-8 text-emerald-600" />
+          //         </div>
+          //       </div>
+          //     )}
+
+          //     {(showConfigForm || editingConfig) && (
+          //       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          //         <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+          //           <div className="flex items-center justify-between mb-6">
+          //             <h3 className="text-lg font-semibold text-slate-800">
+          //               {editingConfig ? 'Edit Configuration' : 'New Grade Configuration'}
+          //             </h3>
+          //             <button
+          //               onClick={() => { setShowConfigForm(false); setEditingConfig(null); }}
+          //               className="p-2 hover:bg-slate-100 rounded-lg"
+          //             >
+          //               <X className="w-5 h-5 text-slate-500" />
+          //             </button>
+          //           </div>
+          //           <form onSubmit={handleSaveConfig} className="space-y-4">
+          //             <div>
+          //               <label className="block text-sm font-medium text-slate-700 mb-1">Configuration Name</label>
+          //               <input
+          //                 type="text"
+          //                 value={configForm.configuration_name}
+          //                 onChange={(e) => setConfigForm({ ...configForm, configuration_name: e.target.value })}
+          //                 placeholder="e.g., Standard Weighting, End Term Focus, etc."
+          //                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          //                 required
+          //               />
+          //             </div>
+
+          //             <div>
+          //               <label className="block text-sm font-medium text-slate-700 mb-3">Calculation Method</label>
+          //               <div className="space-y-3">
+          //                 <label className="flex items-center gap-3 cursor-pointer">
+          //                   <input
+          //                     type="radio"
+          //                     name="calculation_method"
+          //                     value="average_all"
+          //                     checked={configForm.calculation_method === 'average_all'}
+          //                     onChange={(e) => setConfigForm({ ...configForm, calculation_method: e.target.value as any })}
+          //                     className="w-4 h-4 text-indigo-600"
+          //                   />
+          //                   <div>
+          //                     <p className="font-medium text-slate-800">Average of All Tests</p>
+          //                     <p className="text-sm text-slate-500">(QA1 + QA2 + End of Term) ÷ 3</p>
+          //                   </div>
+          //                 </label>
+
+          //                 <label className="flex items-center gap-3 cursor-pointer">
+          //                   <input
+          //                     type="radio"
+          //                     name="calculation_method"
+          //                     value="end_of_term_only"
+          //                     checked={configForm.calculation_method === 'end_of_term_only'}
+          //                     onChange={(e) => setConfigForm({ ...configForm, calculation_method: e.target.value as any })}
+          //                     className="w-4 h-4 text-indigo-600"
+          //                   />
+          //                   <div>
+          //                     <p className="font-medium text-slate-800">End of Term Only</p>
+          //                     <p className="text-sm text-slate-500">Use only the End of Term score</p>
+          //                   </div>
+          //                 </label>
+
+          //                 <label className="flex items-center gap-3 cursor-pointer">
+          //                   <input
+          //                     type="radio"
+          //                     name="calculation_method"
+          //                     value="weighted_average"
+          //                     checked={configForm.calculation_method === 'weighted_average'}
+          //                     onChange={(e) => setConfigForm({ ...configForm, calculation_method: e.target.value as any })}
+          //                     className="w-4 h-4 text-indigo-600"
+          //                   />
+          //                   <div>
+          //                     <p className="font-medium text-slate-800">Weighted Average</p>
+          //                     <p className="text-sm text-slate-500">Custom weights for each assessment</p>
+          //                   </div>
+          //                 </label>
+          //               </div>
+          //             </div>
+
+          //             {configForm.calculation_method === 'weighted_average' && (
+          //               <div className="space-y-4 p-4 bg-slate-50 rounded-lg">
+          //                 <h4 className="font-medium text-slate-800">Set Weights (Must total 100%)</h4>
+          //                 <div className="grid grid-cols-3 gap-4">
+          //                   <div>
+          //                     <label className="block text-sm font-medium text-slate-700 mb-1">QA1 %</label>
+          //                     <input
+          //                       type="number"
+          //                       min="0"
+          //                       max="100"
+          //                       value={configForm.weight_qa1}
+          //                       onChange={(e) => {
+          //                         const value = parseInt(e.target.value) || 0;
+          //                         setConfigForm({ ...configForm, weight_qa1: value });
+          //                       }}
+          //                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          //                     />
+          //                   </div>
+          //                   <div>
+          //                     <label className="block text-sm font-medium text-slate-700 mb-1">QA2 %</label>
+          //                     <input
+          //                       type="number"
+          //                       min="0"
+          //                       max="100"
+          //                       value={configForm.weight_qa2}
+          //                       onChange={(e) => {
+          //                         const value = parseInt(e.target.value) || 0;
+          //                         setConfigForm({ ...configForm, weight_qa2: value });
+          //                       }}
+          //                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          //                     />
+          //                   </div>
+          //                   <div>
+          //                     <label className="block text-sm font-medium text-slate-700 mb-1">End Term %</label>
+          //                     <input
+          //                       type="number"
+          //                       min="0"
+          //                       max="100"
+          //                       value={configForm.weight_end_of_term}
+          //                       onChange={(e) => {
+          //                         const value = parseInt(e.target.value) || 0;
+          //                         setConfigForm({ ...configForm, weight_end_of_term: value });
+          //                       }}
+          //                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          //                     />
+          //                   </div>
+          //                 </div>
+          //                 <div className="text-center">
+          //                   <p className={`text-sm font-medium ${configForm.weight_qa1 + configForm.weight_qa2 + configForm.weight_end_of_term === 100
+          //                     ? 'text-emerald-600'
+          //                     : 'text-red-600'
+          //                     }`}>
+          //                     Total: {configForm.weight_qa1 + configForm.weight_qa2 + configForm.weight_end_of_term}%
+          //                     {configForm.weight_qa1 + configForm.weight_qa2 + configForm.weight_end_of_term !== 100 &&
+          //                       ' (Must equal 100%)'}
+          //                   </p>
+          //                 </div>
+          //               </div>
+          //             )}
+
+          //             {/* PASS MARK SECTION - ADDED HERE */}
+          //             <div className="space-y-4 p-4 bg-slate-50 rounded-lg">
+          //               <h4 className="font-medium text-slate-800">Pass Mark Configuration</h4>
+          //               <div>
+          //                 <label className="block text-sm font-medium text-slate-700 mb-2">
+          //                   Minimum Pass Mark (0-100%)
+          //                 </label>
+          //                 <div className="flex items-center gap-4">
+          //                   <input
+          //                     type="range"
+          //                     min="0"
+          //                     max="100"
+          //                     step="5"
+          //                     value={configForm.pass_mark}
+          //                     onChange={(e) => setConfigForm({
+          //                       ...configForm,
+          //                       pass_mark: parseInt(e.target.value)
+          //                     })}
+          //                     className="flex-1"
+          //                   />
+          //                   <div className="w-20">
+          //                     <input
+          //                       type="number"
+          //                       min="0"
+          //                       max="100"
+          //                       value={configForm.pass_mark}
+          //                       onChange={(e) => setConfigForm({
+          //                         ...configForm,
+          //                         pass_mark: parseInt(e.target.value) || 50
+          //                       })}
+          //                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          //                     />
+          //                     <span className="text-xs text-slate-500">%</span>
+          //                   </div>
+          //                 </div>
+          //                 <p className="text-sm text-slate-600 mt-2">
+          //                   Students scoring below {configForm.pass_mark}% will receive grade 'F'
+          //                 </p>
+          //               </div>
+          //             </div>
+
+          //             <div className="flex gap-3 pt-4">
+          //               <button
+          //                 type="button"
+          //                 onClick={() => { setShowConfigForm(false); setEditingConfig(null); }}
+          //                 className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+          //               >
+          //                 Cancel
+          //               </button>
+          //               <button
+          //                 type="submit"
+          //                 disabled={
+          //                   configForm.calculation_method === 'weighted_average' &&
+          //                   configForm.weight_qa1 + configForm.weight_qa2 + configForm.weight_end_of_term !== 100
+          //                 }
+          //                 className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+          //               >
+          //                 <Save className="w-4 h-4" />
+          //                 {editingConfig ? 'Update' : 'Save'} Configuration
+          //               </button>
+          //             </div>
+          //           </form>
+          //         </div>
+          //       </div>
+          //     )}
+
+          //     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          //       <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+          //         <h3 className="font-semibold text-slate-800">All Configurations</h3>
+          //         <p className="text-sm text-slate-500 mt-1">
+          //           Select a configuration to make it active for all report cards
+          //         </p>
+          //       </div>
+          //       <div className="divide-y divide-slate-100">
+          //         {gradeConfigs.map((config) => (
+          //           <div key={config.id} className="p-6 hover:bg-slate-50">
+          //             <div className="flex items-center justify-between">
+          //               <div className="flex-1">
+          //                 <div className="flex items-center gap-3 mb-2">
+          //                   <h4 className="font-semibold text-slate-800">{config.configuration_name}</h4>
+          //                   {config.is_active && (
+          //                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white">
+          //                       Active
+          //                     </span>
+          //                   )}
+          //                 </div>
+          //                 <div className="space-y-2">
+          //                   <p className="text-sm text-slate-600">
+          //                     <span className="font-medium">Method:</span>{' '}
+          //                     {config.calculation_method === 'average_all' && 'Average of All Tests'}
+          //                     {config.calculation_method === 'end_of_term_only' && 'End of Term Only'}
+          //                     {config.calculation_method === 'weighted_average' && 'Weighted Average'}
+          //                   </p>
+          //                   {config.calculation_method === 'weighted_average' && (
+          //                     <div className="flex gap-6 text-sm text-slate-600">
+          //                       <div><span className="font-medium">QA1:</span> {config.weight_qa1}%</div>
+          //                       <div><span className="font-medium">QA2:</span> {config.weight_qa2}%</div>
+          //                       <div><span className="font-medium">End Term:</span> {config.weight_end_of_term}%</div>
+          //                     </div>
+          //                   )}
+          //                   <p className="text-xs text-slate-500">
+          //                     Created: {new Date(config.created_at).toLocaleDateString()}
+          //                   </p>
+          //                 </div>
+          //               </div>
+          //               <div className="flex items-center gap-2">
+          //                 {!config.is_active && (
+          //                   <button
+          //                     onClick={() => handleActivateConfig(config.id)}
+          //                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition-colors"
+          //                   >
+          //                     Activate
+          //                   </button>
+          //                 )}
+          //                 <button
+          //                   onClick={() => startEditConfig(config)}
+          //                   className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+          //                   title="Edit"
+          //                 >
+          //                   <Edit2 className="w-4 h-4" />
+          //                 </button>
+          //               </div>
+          //             </div>
+          //           </div>
+          //         ))}
+          //         {gradeConfigs.length === 0 && (
+          //           <div className="text-center py-12 text-slate-500">
+          //             No configurations found. Create your first grade calculation configuration.
+          //           </div>
+          //         )}
+          //       </div>
+          //     </div>
+          //   </div>
+          // ) : (
           <div className="space-y-6">
             {!selectedStudent ? (
               <>
                 <h2 className="text-lg font-semibold text-slate-800">Select a Student to Enter Results</h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {students.map((student) => (
                     <button
                       key={student.id}
@@ -1308,6 +2083,49 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                       </p>
                     </button>
                   ))}
+                </div> */}
+
+                <div className="space-y-8">
+                  {classes.map(cls => {
+                    const classStudents = students.filter(s => s.class?.id === cls.id);
+                    if (classStudents.length === 0) return null;
+
+                    return (
+                      <div key={cls.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-slate-800">
+                            {cls.name} - {cls.term} ({cls.academic_year})
+                          </h3>
+                          <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-sm rounded-full">
+                            {classStudents.length} students
+                          </span>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {classStudents.map((student) => (
+                            <button
+                              key={student.id}
+                              onClick={() => loadStudentResults(student)}
+                              className="bg-slate-50 rounded-xl p-4 border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all text-left hover:bg-indigo-50"
+                            >
+                              <p className="font-mono text-sm text-indigo-600 mb-1">{student.examNumber}</p>
+                              <p className="font-semibold text-slate-800">{student.name}</p>
+                              <p className="text-sm text-slate-500">
+                                {student.class?.name || 'No Class'}
+                                {student.class?.term || 'Term 1, 2024/2025'}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {students.length === 0 && (
+                    <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
+                      <p className="text-slate-500">No students found. Add your first student to get started.</p>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (

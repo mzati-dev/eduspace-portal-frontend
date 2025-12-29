@@ -9,6 +9,7 @@ export interface GradeConfiguration {
     weight_qa1: number;
     weight_qa2: number;
     weight_end_of_term: number;
+    pass_mark: number;
     is_active: boolean;
     created_at: string;
 }
@@ -100,6 +101,8 @@ export function calculateFinalScore(
     }
 }
 
+
+
 // Default configuration for initial setup
 export const defaultConfig: GradeConfiguration = {
     id: 'default',
@@ -109,6 +112,7 @@ export const defaultConfig: GradeConfiguration = {
     weight_qa1: 30,
     weight_qa2: 30,
     weight_end_of_term: 40,
+    pass_mark: 50,
     is_active: true,
     created_at: new Date().toISOString(),
 };
