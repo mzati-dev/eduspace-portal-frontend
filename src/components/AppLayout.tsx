@@ -38,21 +38,39 @@ const AppLayout: React.FC = () => {
     }
   };
 
+  // const getGradeColor = (grade: string) => {
+  //   if (grade.includes('A')) return 'text-emerald-600 bg-emerald-50';
+  //   if (grade === 'B') return 'text-blue-600 bg-blue-50';
+  //   if (grade === 'C') return 'text-amber-600 bg-amber-50';
+  //   return 'text-red-600 bg-red-50';
+  // };
+
   const getGradeColor = (grade: string) => {
+    if (grade === 'N/A') return 'text-slate-600 bg-slate-100'; // ADD THIS LINE
     if (grade.includes('A')) return 'text-emerald-600 bg-emerald-50';
     if (grade === 'B') return 'text-blue-600 bg-blue-50';
     if (grade === 'C') return 'text-amber-600 bg-amber-50';
     return 'text-red-600 bg-red-50';
   };
 
-  const getScoreColor = (score: number) => {
-    // Get pass mark from config
-    const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+  // const getScoreColor = (score: number) => {
+  //   // Get pass mark from config
+  //   const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
 
+  //   if (score >= 80) return 'bg-emerald-500';
+  //   if (score >= 60) return 'bg-blue-500';
+  //   // if (score >= 50) return 'bg-amber-500';
+  //   if (score >= passMark) return 'bg-amber-500'; // Use passMark
+  //   return 'bg-red-500';
+  // };
+
+  const getScoreColor = (score: number) => {
+    if (score === null || score === undefined || score <= 0) return 'bg-slate-300'; // Add this line
+
+    const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
     if (score >= 80) return 'bg-emerald-500';
     if (score >= 60) return 'bg-blue-500';
-    // if (score >= 50) return 'bg-amber-500';
-    if (score >= passMark) return 'bg-amber-500'; // Use passMark
+    if (score >= passMark) return 'bg-amber-500';
     return 'bg-red-500';
   };
 
@@ -65,18 +83,82 @@ const AppLayout: React.FC = () => {
     return 'stable';
   };
 
+  // const calculateAverage = (subjects: Subject[], type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => {
+  //   if (subjects.length === 0) return '0.0';
+  //   if (type === 'overall') {
+  //     const total = subjects.reduce((acc, s) => acc + (s.qa1 + s.qa2 + s.endOfTerm) / 3, 0);
+  //     return (total / subjects.length).toFixed(1);
+  //   }
+  //   const total = subjects.reduce((acc, s) => acc + s[type], 0);
+  //   return (total / subjects.length).toFixed(1);
+  // };
+
   const calculateAverage = (subjects: Subject[], type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => {
-    if (subjects.length === 0) return '0.0';
+    if (subjects.length === 0) return 'N/A';
+
     if (type === 'overall') {
-      const total = subjects.reduce((acc, s) => acc + (s.qa1 + s.qa2 + s.endOfTerm) / 3, 0);
-      return (total / subjects.length).toFixed(1);
+      // Only include subjects that have valid final scores
+      const validSubjects = subjects.filter(s => {
+        const finalScore = s.finalScore || ((s.qa1 + s.qa2 + s.endOfTerm) / 3);
+        return finalScore > 0;
+      });
+
+      if (validSubjects.length === 0) return 'N/A';
+
+      const total = validSubjects.reduce((acc, s) => {
+        const finalScore = s.finalScore || ((s.qa1 + s.qa2 + s.endOfTerm) / 3);
+        return acc + finalScore;
+      }, 0);
+      return (total / validSubjects.length).toFixed(1);
     }
-    const total = subjects.reduce((acc, s) => acc + s[type], 0);
-    return (total / subjects.length).toFixed(1);
+
+    // Only include subjects with actual scores (> 0 and not null)
+    const validSubjects = subjects.filter(s => s[type] !== null && s[type] !== undefined && s[type] > 0);
+    if (validSubjects.length === 0) return 'N/A';
+
+    const total = validSubjects.reduce((acc, s) => acc + s[type], 0);
+    return (total / validSubjects.length).toFixed(1);
   };
 
   const handlePrint = () => {
     window.print();
+  };
+
+
+  // ADD THIS FUNCTION RIGHT HERE - YOU'RE MISSING IT
+  const hasValidScore = (score: number | null | undefined): boolean => {
+    return score !== null && score !== undefined && score > 0;
+  };
+
+  // Add this function to check if student has any scores for an assessment type
+  const hasAssessmentScores = (assessmentType: TabType): boolean => {
+    if (!studentData || !studentData.subjects || studentData.subjects.length === 0) {
+      return false;
+    }
+
+    return studentData.subjects.some(subject => {
+      const score = subject[assessmentType];
+      return score !== null && score !== undefined && score > 0;
+    });
+  };
+
+  // Add this function to check if report card can be generated
+  const canGenerateReportCard = (): boolean => {
+    if (!studentData || !studentData.gradeConfiguration) return true;
+
+    const config = studentData.gradeConfiguration;
+
+    // If using "end_of_term_only" method and no end of term scores, cannot generate report
+    if (config.calculation_method === 'end_of_term_only' && !hasAssessmentScores('endOfTerm')) {
+      return false;
+    }
+
+    // For other methods, check if there's at least one score in any assessment type
+    const hasAnyScores = hasAssessmentScores('qa1') ||
+      hasAssessmentScores('qa2') ||
+      hasAssessmentScores('endOfTerm');
+
+    return hasAnyScores;
   };
 
   const tabs = [
@@ -224,125 +306,253 @@ const AppLayout: React.FC = () => {
                     </div>
                   </div>
                   {studentData.assessmentStats ? (
+                    // <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 md:ml-auto">
+                    //   <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200">
+                    //     <div className="flex items-center justify-between mb-2">
+                    //       <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">QA1</span>
+                    //       <FileText className="w-4 h-4 text-indigo-600" />
+                    //     </div>
+                    //     <div className="space-y-2">
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Rank:</span>
+                    //         <span className="text-sm font-bold text-indigo-800">
+                    //           {studentData.assessmentStats.qa1.classRank}/{studentData.totalStudents}
+                    //         </span>
+                    //       </div>
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Average:</span>
+                    //         <span className="text-sm font-bold text-indigo-800">
+                    //           {studentData.assessmentStats.qa1.termAverage}%
+                    //         </span>
+                    //       </div>
+                    //       {/* <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600"> Pass Mark: </span>
+                    //         <span className="text-sm font-bold text-emerald-800">
+                    //           {studentData.gradeConfiguration?.pass_mark || 50}%
+                    //         </span>
+                    //       </div> */}
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Overall Grade:</span>
+                    //         <span className={`text-sm font-bold ${getGradeColor(studentData.assessmentStats.qa1.overallGrade)}`}>
+                    //           {studentData.assessmentStats.qa1.overallGrade}
+                    //         </span>
+                    //       </div>
+
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Remark:</span>
+                    //         <span className={`text-xs font-bold ${studentData.assessmentStats?.qa1?.overallGrade === 'F' ? 'text-red-600' : 'text-emerald-600'}`}>
+                    //           {studentData.assessmentStats?.qa1?.overallGrade === 'F' ? 'FAILED' : 'PASSED'}
+                    //         </span>
+                    //       </div>
+                    //     </div>
+                    //   </div>
+                    //   <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
+                    //     <div className="flex items-center justify-between mb-2">
+                    //       <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">QA2</span>
+                    //       <FileText className="w-4 h-4 text-emerald-600" />
+                    //     </div>
+                    //     <div className="space-y-2">
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Rank:</span>
+                    //         <span className="text-sm font-bold text-emerald-800">
+                    //           {studentData.assessmentStats.qa2.classRank}/{studentData.totalStudents}
+                    //         </span>
+                    //       </div>
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Average:</span>
+                    //         <span className="text-sm font-bold text-emerald-800">
+                    //           {studentData.assessmentStats.qa2.termAverage}%
+                    //         </span>
+                    //       </div>
+                    //       {/* <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600"> Pass Mark: </span>
+                    //         <span className="text-sm font-bold text-emerald-800">
+                    //           {studentData.gradeConfiguration?.pass_mark || 50}%
+                    //         </span>
+                    //       </div> */}
+
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Overall Grade:</span>
+                    //         <span className={`text-sm font-bold ${getGradeColor(studentData.assessmentStats.qa2.overallGrade)}`}>
+                    //           {studentData.assessmentStats.qa2.overallGrade}
+                    //         </span>
+                    //       </div>
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Remark:</span>
+                    //         <span className={`text-xs font-bold ${studentData.assessmentStats?.qa2?.overallGrade === 'F' ? 'text-red-600' : 'text-emerald-600'}`}>
+                    //           {studentData.assessmentStats?.qa2?.overallGrade === 'F' ? 'FAILED' : 'PASSED'}
+                    //         </span>
+                    //       </div>
+
+                    //     </div>
+                    //   </div>
+                    //   <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 border border-amber-200">
+                    //     <div className="flex items-center justify-between mb-2">
+                    //       <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">End of Term</span>
+                    //       <Award className="w-4 h-4 text-amber-600" />
+                    //     </div>
+                    //     <div className="space-y-2">
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Rank:</span>
+                    //         <span className="text-sm font-bold text-amber-800">
+                    //           {studentData.assessmentStats.endOfTerm.classRank}/{studentData.totalStudents}
+                    //         </span>
+                    //       </div>
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Average:</span>
+                    //         <span className="text-sm font-bold text-amber-800">
+                    //           {studentData.assessmentStats.endOfTerm.termAverage}%
+                    //         </span>
+                    //       </div>
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Overall Grade:</span>
+                    //         <span className={`text-sm font-bold ${getGradeColor(studentData.assessmentStats.endOfTerm.overallGrade)}`}>
+                    //           {studentData.assessmentStats.endOfTerm.overallGrade}
+                    //         </span>
+                    //       </div>
+                    //       <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Remark:</span>
+                    //         <span className={`text-xs font-bold ${studentData.assessmentStats?.endOfTerm?.overallGrade === 'F' ? 'text-red-600' : 'text-emerald-600'}`}>
+                    //           {studentData.assessmentStats?.endOfTerm?.overallGrade === 'F' ? 'FAILED' : 'PASSED'}
+                    //         </span>
+                    //       </div>
+                    //       {/* <div className="flex justify-between items-center">
+                    //         <span className="text-xs text-slate-600">Attendance:</span>
+                    //         <span className="text-sm font-bold text-amber-800">
+                    //           {studentData.assessmentStats.endOfTerm.attendance.present}/
+                    //           {studentData.assessmentStats.endOfTerm.attendance.present +
+                    //             studentData.assessmentStats.endOfTerm.attendance.absent}
+                    //         </span>
+                    //       </div> */}
+                    //     </div>
+                    //   </div>
+                    // </div>
+
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 md:ml-auto">
+                      {/* QA1 Box */}
                       <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">QA1</span>
                           <FileText className="w-4 h-4 text-indigo-600" />
                         </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Rank:</span>
-                            <span className="text-sm font-bold text-indigo-800">
-                              {studentData.assessmentStats.qa1.classRank}/{studentData.totalStudents}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Average:</span>
-                            <span className="text-sm font-bold text-indigo-800">
-                              {studentData.assessmentStats.qa1.termAverage}%
-                            </span>
-                          </div>
-                          {/* <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600"> Pass Mark: </span>
-                            <span className="text-sm font-bold text-emerald-800">
-                              {studentData.gradeConfiguration?.pass_mark || 50}%
-                            </span>
-                          </div> */}
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Overall Grade:</span>
-                            <span className={`text-sm font-bold ${getGradeColor(studentData.assessmentStats.qa1.overallGrade)}`}>
-                              {studentData.assessmentStats.qa1.overallGrade}
-                            </span>
-                          </div>
 
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Remark:</span>
-                            <span className={`text-xs font-bold ${studentData.assessmentStats?.qa1?.overallGrade === 'F' ? 'text-red-600' : 'text-emerald-600'}`}>
-                              {studentData.assessmentStats?.qa1?.overallGrade === 'F' ? 'FAILED' : 'PASSED'}
-                            </span>
+                        {hasAssessmentScores('qa1') ? (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Rank:</span>
+                              <span className="text-sm font-bold text-indigo-800">
+                                {studentData.assessmentStats.qa1.classRank}/{studentData.totalStudents}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Average:</span>
+                              <span className="text-sm font-bold text-indigo-800">
+                                {studentData.assessmentStats.qa1.termAverage}%
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Overall Grade:</span>
+                              <span className={`text-sm font-bold ${getGradeColor(studentData.assessmentStats.qa1.overallGrade)}`}>
+                                {studentData.assessmentStats.qa1.overallGrade}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Remark:</span>
+                              <span className={`text-xs font-bold ${studentData.assessmentStats?.qa1?.overallGrade === 'F' ? 'text-red-600' : 'text-emerald-600'}`}>
+                                {studentData.assessmentStats?.qa1?.overallGrade === 'F' ? 'FAILED' : 'PASSED'}
+                              </span>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="text-center py-3">
+                            <p className="text-sm text-slate-500 italic">No QA1 scores recorded</p>
+                            <p className="text-xs text-slate-400">Student did not write this assessment</p>
+                          </div>
+                        )}
                       </div>
+
+                      {/* QA2 Box */}
                       <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">QA2</span>
                           <FileText className="w-4 h-4 text-emerald-600" />
                         </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Rank:</span>
-                            <span className="text-sm font-bold text-emerald-800">
-                              {studentData.assessmentStats.qa2.classRank}/{studentData.totalStudents}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Average:</span>
-                            <span className="text-sm font-bold text-emerald-800">
-                              {studentData.assessmentStats.qa2.termAverage}%
-                            </span>
-                          </div>
-                          {/* <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600"> Pass Mark: </span>
-                            <span className="text-sm font-bold text-emerald-800">
-                              {studentData.gradeConfiguration?.pass_mark || 50}%
-                            </span>
-                          </div> */}
 
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Overall Grade:</span>
-                            <span className={`text-sm font-bold ${getGradeColor(studentData.assessmentStats.qa2.overallGrade)}`}>
-                              {studentData.assessmentStats.qa2.overallGrade}
-                            </span>
+                        {hasAssessmentScores('qa2') ? (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Rank:</span>
+                              <span className="text-sm font-bold text-emerald-800">
+                                {studentData.assessmentStats.qa2.classRank}/{studentData.totalStudents}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Average:</span>
+                              <span className="text-sm font-bold text-emerald-800">
+                                {studentData.assessmentStats.qa2.termAverage}%
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Overall Grade:</span>
+                              <span className={`text-sm font-bold ${getGradeColor(studentData.assessmentStats.qa2.overallGrade)}`}>
+                                {studentData.assessmentStats.qa2.overallGrade}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Remark:</span>
+                              <span className={`text-xs font-bold ${studentData.assessmentStats?.qa2?.overallGrade === 'F' ? 'text-red-600' : 'text-emerald-600'}`}>
+                                {studentData.assessmentStats?.qa2?.overallGrade === 'F' ? 'FAILED' : 'PASSED'}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Remark:</span>
-                            <span className={`text-xs font-bold ${studentData.assessmentStats?.qa2?.overallGrade === 'F' ? 'text-red-600' : 'text-emerald-600'}`}>
-                              {studentData.assessmentStats?.qa2?.overallGrade === 'F' ? 'FAILED' : 'PASSED'}
-                            </span>
+                        ) : (
+                          <div className="text-center py-3">
+                            <p className="text-sm text-slate-500 italic">No QA2 scores recorded</p>
+                            <p className="text-xs text-slate-400">Student did not write this assessment</p>
                           </div>
-
-                        </div>
+                        )}
                       </div>
+
+                      {/* End of Term Box */}
                       <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 border border-amber-200">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">End of Term</span>
                           <Award className="w-4 h-4 text-amber-600" />
                         </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Rank:</span>
-                            <span className="text-sm font-bold text-amber-800">
-                              {studentData.assessmentStats.endOfTerm.classRank}/{studentData.totalStudents}
-                            </span>
+
+                        {hasAssessmentScores('endOfTerm') ? (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Rank:</span>
+                              <span className="text-sm font-bold text-amber-800">
+                                {studentData.assessmentStats.endOfTerm.classRank}/{studentData.totalStudents}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Average:</span>
+                              <span className="text-sm font-bold text-amber-800">
+                                {studentData.assessmentStats.endOfTerm.termAverage}%
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Overall Grade:</span>
+                              <span className={`text-sm font-bold ${getGradeColor(studentData.assessmentStats.endOfTerm.overallGrade)}`}>
+                                {studentData.assessmentStats.endOfTerm.overallGrade}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-slate-600">Remark:</span>
+                              <span className={`text-xs font-bold ${studentData.assessmentStats?.endOfTerm?.overallGrade === 'F' ? 'text-red-600' : 'text-emerald-600'}`}>
+                                {studentData.assessmentStats?.endOfTerm?.overallGrade === 'F' ? 'FAILED' : 'PASSED'}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Average:</span>
-                            <span className="text-sm font-bold text-amber-800">
-                              {studentData.assessmentStats.endOfTerm.termAverage}%
-                            </span>
+                        ) : (
+                          <div className="text-center py-3">
+                            <p className="text-sm text-slate-500 italic">No End of Term scores recorded</p>
+                            <p className="text-xs text-slate-400">Student did not write this assessment</p>
                           </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Overall Grade:</span>
-                            <span className={`text-sm font-bold ${getGradeColor(studentData.assessmentStats.endOfTerm.overallGrade)}`}>
-                              {studentData.assessmentStats.endOfTerm.overallGrade}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Remark:</span>
-                            <span className={`text-xs font-bold ${studentData.assessmentStats?.endOfTerm?.overallGrade === 'F' ? 'text-red-600' : 'text-emerald-600'}`}>
-                              {studentData.assessmentStats?.endOfTerm?.overallGrade === 'F' ? 'FAILED' : 'PASSED'}
-                            </span>
-                          </div>
-                          {/* <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-600">Attendance:</span>
-                            <span className="text-sm font-bold text-amber-800">
-                              {studentData.assessmentStats.endOfTerm.attendance.present}/
-                              {studentData.assessmentStats.endOfTerm.attendance.present +
-                                studentData.assessmentStats.endOfTerm.attendance.absent}
-                            </span>
-                          </div> */}
-                        </div>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -420,356 +630,398 @@ const AppLayout: React.FC = () => {
                 <div className="p-6">
                   {(activeTab === 'qa1' || activeTab === 'qa2' || activeTab === 'endOfTerm') && (
                     <div>
-                      <div className="flex items-center justify-between mb-6">
-                        <div>
-                          <h4 className="text-xl font-bold text-slate-800">
-                            {activeTab === 'qa1' ? 'Quarterly Assessment 1' : activeTab === 'qa2' ? 'Quarterly Assessment 2' : 'End of Term Examination'}
+                      {/* ADD THIS CHECK AT THE BEGINNING */}
+                      {!hasAssessmentScores(activeTab) ? (
+                        <div className="text-center py-12 bg-slate-50 rounded-xl">
+                          <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                          <h4 className="text-lg font-semibold text-slate-700 mb-2">
+                            No {activeTab === 'qa1' ? 'Quarterly Assessment 1' :
+                              activeTab === 'qa2' ? 'Quarterly Assessment 2' :
+                                'End of Term'} Scores
                           </h4>
-                          <p className="text-slate-500">Average Score: <span className="font-semibold text-indigo-600">{calculateAverage(studentData.subjects, activeTab)}%</span></p>
-
-
+                          <p className="text-slate-500 max-w-md mx-auto">
+                            This student did not write the {activeTab === 'qa1' ? 'first quarterly assessment' :
+                              activeTab === 'qa2' ? 'second quarterly assessment' :
+                                'end of term examination'}.
+                            Scores will appear here once entered by the teacher.
+                          </p>
                         </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center justify-between mb-6">
+                            <p className="text-slate-500">
+                              Average Score: <span className="font-semibold text-indigo-600">
+                                {calculateAverage(studentData.subjects, activeTab) === 'N/A' ? 'No tests conducted' : `${calculateAverage(studentData.subjects, activeTab)}%`}
+                              </span>
+                            </p>
+                          </div>
 
+                          <div className="grid gap-4">
+                            {studentData.subjects.map((subject, index) => {
+                              const score = subject[activeTab];
+                              const hasScore = hasValidScore(score);
 
+                              const gradeForThisTab = (() => {
+                                if (!hasScore) return 'N/A';
+                                const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+                                if (score >= 80) return 'A';
+                                if (score >= 70) return 'B';
+                                if (score >= 60) return 'C';
+                                if (score >= passMark) return 'D';
+                                return 'F';
+                              })();
 
-
-
-
-
-
-                      </div>
-
-
-                      <div className="grid gap-4">
-                        {studentData.subjects.map((subject, index) => {
-                          const score = subject[activeTab];
-                          const gradeForThisTab = (() => {
-                            // Get pass mark from config for this test tab too
-                            const passMark = studentData.gradeConfiguration?.pass_mark || 50;
-                            if (score >= 80) return 'A';
-                            if (score >= 70) return 'B';
-                            if (score >= 60) return 'C';
-                            if (score >= 50) return 'D';
-                            if (score >= passMark) return 'D'; // Use passMark, not 50
-                            return 'F';
-                          })();
-                          return (
-                            <div key={index} className="bg-slate-50 rounded-xl p-4 hover:bg-slate-100 transition-colors">
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                <div className="flex-1">
-                                  <h5 className="font-semibold text-slate-800">{subject.name}</h5>
-                                  <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                    <div
-                                      className={`h-full ${getScoreColor(score)} transition-all duration-500`}
-                                      style={{ width: `${score}%` }}
-                                    ></div>
+                              return (
+                                <div key={index} className="bg-slate-50 rounded-xl p-4 hover:bg-slate-100 transition-colors">
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                    <div className="flex-1">
+                                      <h5 className="font-semibold text-slate-800">{subject.name}</h5>
+                                      {hasScore ? (
+                                        <>
+                                          <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                            <div
+                                              className={`h-full ${getScoreColor(score)} transition-all duration-500`}
+                                              style={{ width: `${Math.min(score, 100)}%` }}
+                                            ></div>
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <div className="mt-2 text-sm text-amber-600 italic">
+                                          No test conducted for {activeTab === 'qa1' ? 'Quarterly Assessment 1' :
+                                            activeTab === 'qa2' ? 'Quarterly Assessment 2' :
+                                              'End of Term Examination'}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                      <div className="text-right">
+                                        {hasScore ? (
+                                          <>
+                                            <p className="text-2xl font-bold text-slate-800">{score}%</p>
+                                            <p className="text-xs text-slate-500">Score</p>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <p className="text-2xl font-bold text-slate-400">N/A</p>
+                                            <p className="text-xs text-slate-400">No Score</p>
+                                          </>
+                                        )}
+                                      </div>
+                                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getGradeColor(gradeForThisTab)}`}>
+                                        {gradeForThisTab}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <div className="text-right">
-                                    <p className="text-2xl font-bold text-slate-800">{score}%</p>
-                                    <p className="text-xs text-slate-500">Score</p>
-                                  </div>
-                                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getGradeColor(gradeForThisTab)}`}>
-                                    {gradeForThisTab}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   {activeTab === 'reportCard' && (
                     <div className="space-y-6">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                      {/* ADD THIS CHECK AT THE BEGINNING */}
+                      {!canGenerateReportCard() ? (
+                        <div className="text-center py-12 bg-slate-50 rounded-xl">
+                          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                          <h4 className="text-lg font-semibold text-slate-700 mb-2">
+                            Report Card Not Available
+                          </h4>
+                          <p className="text-slate-500 max-w-md mx-auto">
+                            {studentData.gradeConfiguration?.calculation_method === 'end_of_term_only'
+                              ? 'This report card uses "End of Term Only" calculation, but no end of term scores have been submitted yet. Please check back after end of term exams are graded.'
+                              : 'No assessment scores have been recorded for this student yet. Report card will be available once scores are entered.'
+                            }
+                          </p>
+                          <div className="mt-4 text-sm text-slate-400">
+                            Current grade calculation method: <span className="font-semibold">{studentData.gradeConfiguration?.configuration_name}</span>
+                          </div>
+                        </div>
+                      ) : (
                         <div>
-                          <h4 className="text-xl font-bold text-slate-800">Complete Report Card</h4>
-                          <p className="text-slate-500">{studentData.term} { }</p>
-                          {studentData.gradeConfiguration && (
-                            <p className="text-sm text-indigo-600 mt-1">
-                              Grade Calculation: {studentData.gradeConfiguration.configuration_name}
-                              {studentData.gradeConfiguration.calculation_method === 'weighted_average' &&
-                                ` (QA1: ${studentData.gradeConfiguration.weight_qa1}%, QA2: ${studentData.gradeConfiguration.weight_qa2}%, End Term: ${studentData.gradeConfiguration.weight_end_of_term}%)`}
-                            </p>
-                          )}
-                        </div>
+                          {/* ALL THE EXISTING REPORT CARD CONTENT GOES HERE */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                            <div>
+                              <h4 className="text-xl font-bold text-slate-800">Complete Report Card</h4>
+                              <p className="text-slate-500">{studentData.term} { }</p>
+                              {studentData.gradeConfiguration && (
+                                <p className="text-sm text-indigo-600 mt-1">
+                                  Grade Calculation: {studentData.gradeConfiguration.configuration_name}
+                                  {studentData.gradeConfiguration.calculation_method === 'weighted_average' &&
+                                    ` (QA1: ${studentData.gradeConfiguration.weight_qa1}%, QA2: ${studentData.gradeConfiguration.weight_qa2}%, End Term: ${studentData.gradeConfiguration.weight_end_of_term}%)`}
+                                </p>
+                              )}
+                            </div>
 
 
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handlePrint}
-                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors flex items-center gap-2"
-                          >
-                            <Printer className="w-4 h-4" />
-                            Print
-                          </button>
-                          <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
-                            <Download className="w-4 h-4" />
-                            Download PDF
-                          </button>
-                        </div>
-                      </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handlePrint}
+                                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+                              >
+                                <Printer className="w-4 h-4" />
+                                Print
+                              </button>
+                              <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
+                                <Download className="w-4 h-4" />
+                                Download PDF
+                              </button>
+                            </div>
+                          </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white">
-                          <p className="text-indigo-100 text-sm">Final Average</p>
-                          <p className="text-3xl font-bold">
-                            {studentData.assessmentStats?.overall?.termAverage || calculateAverage(studentData.subjects, 'overall')}%
-                          </p>
-                        </div>
-                        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white">
-                          <p className="text-emerald-100 text-sm">Class Position</p>
-                          <p className="text-3xl font-bold">{studentData.classRank}<span className="text-lg">/{studentData.totalStudents}</span></p>
-                        </div>
-                        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-4 text-white">
-                          <p className="text-amber-100 text-sm">Days Present</p>
-                          <p className="text-3xl font-bold">{studentData.attendance.present}</p>
-                        </div>
-                        <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl p-4 text-white">
-                          <p className="text-rose-100 text-sm">Days Absent</p>
-                          <p className="text-3xl font-bold">{studentData.attendance.absent}</p>
-                        </div>
-                      </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white">
+                              <p className="text-indigo-100 text-sm">Final Average</p>
+                              <p className="text-3xl font-bold">
+                                {studentData.assessmentStats?.overall?.termAverage || calculateAverage(studentData.subjects, 'overall')}%
+                              </p>
+                            </div>
+                            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white">
+                              <p className="text-emerald-100 text-sm">Class Position</p>
+                              <p className="text-3xl font-bold">{studentData.classRank}<span className="text-lg">/{studentData.totalStudents}</span></p>
+                            </div>
+                            <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-4 text-white">
+                              <p className="text-amber-100 text-sm">Days Present</p>
+                              <p className="text-3xl font-bold">{studentData.attendance.present}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl p-4 text-white">
+                              <p className="text-rose-100 text-sm">Days Absent</p>
+                              <p className="text-3xl font-bold">{studentData.attendance.absent}</p>
+                            </div>
+                          </div>
 
-                      <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-                        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
-                          <h5 className="font-semibold text-slate-800">Final Results</h5>
-                          <p className="text-sm text-slate-500 mt-1">
-                            Based on {studentData.gradeConfiguration?.configuration_name || 'active grade configuration'}
-                          </p>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="bg-slate-100">
-                                <th className="text-left px-6 py-3 text-sm font-semibold text-slate-600">Subject</th>
-                                <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Total Marks</th>
-                                <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Marks Scored</th>
-                                <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Grade</th>
-                                <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Remark</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {studentData.subjects.map((subject, index) => {
-                                // Get final score based on grade configuration
-                                const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+                          <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+                              <h5 className="font-semibold text-slate-800">Final Results</h5>
+                              <p className="text-sm text-slate-500 mt-1">
+                                Based on {studentData.gradeConfiguration?.configuration_name || 'active grade configuration'}
+                              </p>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead>
+                                  <tr className="bg-slate-100">
+                                    <th className="text-left px-6 py-3 text-sm font-semibold text-slate-600">Subject</th>
+                                    <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Total Marks</th>
+                                    <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Marks Scored</th>
+                                    <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Grade</th>
+                                    <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Remark</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
 
-                                // ========== FIX 1: CHANGE REMARK LOGIC ==========
-                                // OLD: const remark = finalScore >= 50 ? 'Passed' : 'Failed';
-                                // NEW: Check grade letter instead of score
-                                const remark = subject.grade === 'F' ? 'Failed' : 'Passed';
-                                // ================================================
+                                  {studentData.subjects.map((subject, index) => {
+                                    // Check if subject has any valid scores
+                                    const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
 
-                                return (
-                                  <tr key={index} className="hover:bg-slate-50">
-                                    <td className="px-6 py-4 font-medium text-slate-800">{subject.name}</td>
-                                    <td className="px-6 py-4 text-center text-slate-600">100</td>
-                                    <td className="px-6 py-4 text-center font-semibold text-slate-800">
-                                      {finalScore.toFixed(1)}
+                                    if (!hasScores) return null; // Skip subjects with no scores
+
+                                    const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+                                    const remark = subject.grade === 'F' ? 'Failed' : 'Passed';
+
+                                    return (
+                                      <tr key={index} className="hover:bg-slate-50">
+                                        <td className="px-6 py-4 font-medium text-slate-800">{subject.name}</td>
+                                        <td className="px-6 py-4 text-center text-slate-600">100</td>
+                                        <td className="px-6 py-4 text-center font-semibold text-slate-800">
+                                          {finalScore.toFixed(1)}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getGradeColor(subject.grade)}`}>
+                                            {subject.grade}
+                                          </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${remark === 'Passed' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                            {remark}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="bg-indigo-50 font-bold">
+                                    <td className="px-6 py-4 text-slate-800">GRAND TOTAL</td>
+                                    <td className="px-6 py-4 text-center text-slate-800">
+                                      {studentData.subjects.length * 100}
+                                    </td>
+                                    <td className="px-6 py-4 text-center text-indigo-700">
+                                      {(() => {
+                                        const totalScored = studentData.subjects.reduce((sum, subject) => {
+                                          const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+                                          return sum + finalScore;
+                                        }, 0);
+                                        return totalScored.toFixed(1);
+                                      })()}
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getGradeColor(subject.grade)}`}>
-                                        {subject.grade}
-                                      </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${remark === 'Passed' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getGradeColor(
+                                        studentData.subjects.reduce((sum, subject) => {
+                                          const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+                                          return sum + (finalScore >= 50 ? 1 : 0);
+                                        }, 0) === studentData.subjects.length ? 'A' : 'F'
+                                      )
                                         }`}>
-                                        {remark}
+                                        {(() => {
+                                          const totalScored = studentData.subjects.reduce((sum, subject) => {
+                                            const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+                                            return sum + finalScore;
+                                          }, 0);
+                                          const average = totalScored / studentData.subjects.length;
+
+                                          // Get pass mark from config
+                                          const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+
+                                          if (average >= 80) return 'A';
+                                          if (average >= 70) return 'B';
+                                          if (average >= 60) return 'C';
+                                          // if (average >= 50) return 'D';
+                                          if (average >= passMark) return 'D'; // ← Changed from 50 to passMark
+                                          return 'F';
+                                        })()}
                                       </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                      {/* ========== FIX 2: OVERALL REMARK LOGIC ========== */}
+                                      {/* OLD: Checked if overallAverage >= 50 */}
+                                      {/* NEW: Calculate grade using pass mark from config, then check if grade is F */}
+                                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${(() => {
+                                        // Calculate overall grade letter first
+                                        const totalAverage = studentData.subjects.reduce((sum, subject) => {
+                                          const subjectAverage = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+                                          return sum + subjectAverage;
+                                        }, 0);
+                                        const overallAverage = totalAverage / studentData.subjects.length;
+
+                                        // Get pass mark from config or default to 50
+                                        const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+
+                                        // Calculate grade letter
+                                        let overallGrade = 'F';
+                                        if (overallAverage >= 80) overallGrade = 'A';
+                                        else if (overallAverage >= 70) overallGrade = 'B';
+                                        else if (overallAverage >= 60) overallGrade = 'C';
+                                        else if (overallAverage >= passMark) overallGrade = 'D';
+
+                                        // Use grade letter to determine pass/fail
+                                        return overallGrade === 'F' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700';
+                                      })()}`}>
+                                        {(() => {
+                                          const totalAverage = studentData.subjects.reduce((sum, subject) => {
+                                            const subjectAverage = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
+                                            return sum + subjectAverage;
+                                          }, 0);
+                                          const overallAverage = totalAverage / studentData.subjects.length;
+
+                                          // Get pass mark from config or default to 50
+                                          const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+
+                                          // Calculate grade letter using the pass mark from config
+                                          let overallGrade = 'F';
+                                          if (overallAverage >= 80) overallGrade = 'A';
+                                          else if (overallAverage >= 70) overallGrade = 'B';
+                                          else if (overallAverage >= 60) overallGrade = 'C';
+                                          else if (overallAverage >= passMark) overallGrade = 'D';
+
+                                          return overallGrade === 'F' ? 'FAILED' : 'PASSED';
+                                        })()}
+                                      </span>
+                                      {/* ================================================ */}
                                     </td>
                                   </tr>
-                                );
-                              })}
-                            </tbody>
-                            <tfoot>
-                              <tr className="bg-indigo-50 font-bold">
-                                <td className="px-6 py-4 text-slate-800">GRAND TOTAL</td>
-                                <td className="px-6 py-4 text-center text-slate-800">
-                                  {studentData.subjects.length * 100}
-                                </td>
-                                <td className="px-6 py-4 text-center text-indigo-700">
-                                  {(() => {
-                                    const totalScored = studentData.subjects.reduce((sum, subject) => {
-                                      const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
-                                      return sum + finalScore;
-                                    }, 0);
-                                    return totalScored.toFixed(1);
-                                  })()}
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getGradeColor(
-                                    studentData.subjects.reduce((sum, subject) => {
-                                      const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
-                                      return sum + (finalScore >= 50 ? 1 : 0);
-                                    }, 0) === studentData.subjects.length ? 'A' : 'F'
-                                  )
-                                    }`}>
-                                    {(() => {
-                                      const totalScored = studentData.subjects.reduce((sum, subject) => {
-                                        const finalScore = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
-                                        return sum + finalScore;
-                                      }, 0);
-                                      const average = totalScored / studentData.subjects.length;
+                                </tfoot>
+                              </table>
+                            </div>
+                          </div>
 
-                                      // Get pass mark from config
-                                      const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 border border-slate-200">
+                              <h5 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                                <User className="w-5 h-5 text-indigo-600" />
+                                Teacher's Remarks
+                              </h5>
+                              <p className="text-slate-600 italic">"{studentData.teacherRemarks}"</p>
+                            </div>
 
-                                      if (average >= 80) return 'A';
-                                      if (average >= 70) return 'B';
-                                      if (average >= 60) return 'C';
-                                      // if (average >= 50) return 'D';
-                                      if (average >= passMark) return 'D'; // ← Changed from 50 to passMark
-                                      return 'F';
-                                    })()}
+                            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-6 border border-emerald-200">
+                              <h5 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                                <TrendingUp className="w-5 h-5 text-emerald-600" />
+                                Performance Summary
+                              </h5>
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-slate-600">Total Subjects:</span>
+                                  <span className="font-semibold text-emerald-700">{studentData.subjects.length}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-slate-600">Subjects Passed:</span>
+                                  <span className="font-semibold text-emerald-700">
+                                    {studentData.subjects.filter(subject =>
+                                      subject.grade && subject.grade !== 'F' && subject.grade !== 'N/A'
+                                    ).length}
                                   </span>
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                  {/* ========== FIX 2: OVERALL REMARK LOGIC ========== */}
-                                  {/* OLD: Checked if overallAverage >= 50 */}
-                                  {/* NEW: Calculate grade using pass mark from config, then check if grade is F */}
-                                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${(() => {
-                                    // Calculate overall grade letter first
-                                    const totalAverage = studentData.subjects.reduce((sum, subject) => {
-                                      const subjectAverage = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
-                                      return sum + subjectAverage;
-                                    }, 0);
-                                    const overallAverage = totalAverage / studentData.subjects.length;
-
-                                    // Get pass mark from config or default to 50
-                                    const passMark = studentData.gradeConfiguration?.pass_mark || 50;
-
-                                    // Calculate grade letter
-                                    let overallGrade = 'F';
-                                    if (overallAverage >= 80) overallGrade = 'A';
-                                    else if (overallAverage >= 70) overallGrade = 'B';
-                                    else if (overallAverage >= 60) overallGrade = 'C';
-                                    else if (overallAverage >= passMark) overallGrade = 'D';
-
-                                    // Use grade letter to determine pass/fail
-                                    return overallGrade === 'F' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700';
-                                  })()}`}>
-                                    {(() => {
-                                      const totalAverage = studentData.subjects.reduce((sum, subject) => {
-                                        const subjectAverage = subject.finalScore || ((subject.qa1 + subject.qa2 + subject.endOfTerm) / 3);
-                                        return sum + subjectAverage;
-                                      }, 0);
-                                      const overallAverage = totalAverage / studentData.subjects.length;
-
-                                      // Get pass mark from config or default to 50
-                                      const passMark = studentData.gradeConfiguration?.pass_mark || 50;
-
-                                      // Calculate grade letter using the pass mark from config
-                                      let overallGrade = 'F';
-                                      if (overallAverage >= 80) overallGrade = 'A';
-                                      else if (overallAverage >= 70) overallGrade = 'B';
-                                      else if (overallAverage >= 60) overallGrade = 'C';
-                                      else if (overallAverage >= passMark) overallGrade = 'D';
-
-                                      return overallGrade === 'F' ? 'FAILED' : 'PASSED';
-                                    })()}
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-slate-600">Overall Average:</span>
+                                  <span className="font-bold text-emerald-800">
+                                    {studentData.assessmentStats?.overall?.termAverage || calculateAverage(studentData.subjects, 'overall')}%
                                   </span>
-                                  {/* ================================================ */}
-                                </td>
-                              </tr>
-                            </tfoot>
-                          </table>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 border border-slate-200">
-                          <h5 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                            <User className="w-5 h-5 text-indigo-600" />
-                            Teacher's Remarks
-                          </h5>
-                          <p className="text-slate-600 italic">"{studentData.teacherRemarks}"</p>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-6 border border-emerald-200">
-                          <h5 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-emerald-600" />
-                            Performance Summary
-                          </h5>
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-slate-600">Total Subjects:</span>
-                              <span className="font-semibold text-emerald-700">{studentData.subjects.length}</span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-slate-600">Subjects Passed:</span>
-                              <span className="font-semibold text-emerald-700">
-                                {/* ========== FIX 3: SUBJECTS PASSED COUNT ========== */}
-                                {/* OLD: Checked if finalScore >= 50 */}
-                                {/* NEW: Check if grade is not F */}
-                                {studentData.subjects.filter(subject => subject.grade !== 'F').length}
-                                {/* ================================================= */}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-slate-600">Overall Average:</span>
-                              <span className="font-bold text-emerald-800">
-                                {studentData.assessmentStats?.overall?.termAverage || calculateAverage(studentData.subjects, 'overall')}%
-                              </span>
-                            </div>
-                            {/* <div className="flex justify-between items-center">
-                              <span className="text-sm text-slate-600">Pass Mark:</span>
-                              <span className="font-semibold text-emerald-700">
-                                {studentData.gradeConfiguration?.pass_mark || 50}%
-                              </span>
-                            </div> */}
                           </div>
-                        </div>
-                      </div>
 
-                      <div className="bg-white rounded-xl p-6 border border-slate-200">
-                        <h5 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                          <Calendar className="w-5 h-5 text-indigo-600" />
-                          Attendance Summary
-                        </h5>
-                        <div className="grid grid-cols-3 gap-4">
-                          <div className="text-center p-4 bg-emerald-50 rounded-lg">
-                            <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                            <p className="text-2xl font-bold text-emerald-700">{studentData.attendance.present}</p>
-                            <p className="text-sm text-emerald-600">Days Present</p>
+                          <div className="bg-white rounded-xl p-6 border border-slate-200">
+                            <h5 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                              <Calendar className="w-5 h-5 text-indigo-600" />
+                              Attendance Summary
+                            </h5>
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="text-center p-4 bg-emerald-50 rounded-lg">
+                                <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                                <p className="text-2xl font-bold text-emerald-700">{studentData.attendance.present}</p>
+                                <p className="text-sm text-emerald-600">Days Present</p>
+                              </div>
+                              <div className="text-center p-4 bg-red-50 rounded-lg">
+                                <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                                <p className="text-2xl font-bold text-red-700">{studentData.attendance.absent}</p>
+                                <p className="text-sm text-red-600">Days Absent</p>
+                              </div>
+                              <div className="text-center p-4 bg-amber-50 rounded-lg">
+                                <Calendar className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                                <p className="text-2xl font-bold text-amber-700">{studentData.attendance.late}</p>
+                                <p className="text-sm text-amber-600">Days Late</p>
+                              </div>
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-slate-200">
+                              <p className="text-sm text-slate-500 text-center">
+                                Attendance Rate: {Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100)}%
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-center p-4 bg-red-50 rounded-lg">
-                            <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                            <p className="text-2xl font-bold text-red-700">{studentData.attendance.absent}</p>
-                            <p className="text-sm text-red-600">Days Absent</p>
-                          </div>
-                          <div className="text-center p-4 bg-amber-50 rounded-lg">
-                            <Calendar className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-                            <p className="text-2xl font-bold text-amber-700">{studentData.attendance.late}</p>
-                            <p className="text-sm text-amber-600">Days Late</p>
-                          </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-slate-200">
-                          <p className="text-sm text-slate-500 text-center">
-                            Attendance Rate: {Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100)}%
-                          </p>
-                        </div>
-                      </div>
 
-                      <div className="bg-slate-900 text-white rounded-xl p-6">
-                        <div className="text-center">
-                          <h6 className="text-lg font-bold mb-2">Report Card Generated</h6>
-                          <p className="text-slate-300 mb-4">
-                            This report card was generated based on the school's active grade calculation configuration.
-                            For any questions or clarifications, please contact the school administration.
-                          </p>
-                          <div className="flex flex-col md:flex-row justify-center items-center gap-6 text-sm text-slate-400">
-                            <div>Generated on: {new Date().toLocaleDateString('en-US', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}</div>
+                          <div className="bg-slate-900 text-white rounded-xl p-6">
+                            <div className="text-center">
+                              <h6 className="text-lg font-bold mb-2">Report Card Generated</h6>
+                              <p className="text-slate-300 mb-4">
+                                This report card was generated based on the school's active grade calculation configuration.
+                                For any questions or clarifications, please contact the school administration.
+                              </p>
+                              <div className="flex flex-col md:flex-row justify-center items-center gap-6 text-sm text-slate-400">
+                                <div>Generated on: {new Date().toLocaleDateString('en-US', {
+                                  weekday: 'long',
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}</div>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>

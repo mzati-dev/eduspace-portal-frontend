@@ -1546,33 +1546,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                                 <th className="text-center px-4 py-3 text-sm font-semibold text-slate-600">Overall Grade</th>
                                 <th className="text-center px-4 py-3 text-sm font-semibold text-slate-600">Status</th>
                               </>
-                              // ) : (
-                              //   subjects.map(subject => (
-                              //     <th key={subject.id} className="text-center px-4 py-3 text-sm font-semibold text-slate-600">
-                              //       {subject.name}
-                              //     </th>
-                              //   ))
-                              // )}
                             ) : (
-                              (() => {
-                                const subjectsToShow = [];
-
-                                subjects.forEach(subject => {
-                                  const hasData = classResults.some(student => {
-                                    const s = student.subjects.find(s => s.name === subject.name);
-                                    return s && s.qa1 > 0 && s.qa2 > 0 && s.endOfTerm > 0;
-                                  });
-
-                                  if (hasData) subjectsToShow.push(subject);
-                                });
-
-                                return subjectsToShow.map(subject => (
-                                  <th key={subject.id} className="text-center px-4 py-3 text-sm font-semibold text-slate-600">
-                                    {subject.name}
-                                  </th>
-                                ));
-                              })()
+                              subjects.map(subject => (
+                                <th key={subject.id} className="text-center px-4 py-3 text-sm font-semibold text-slate-600">
+                                  {subject.name}
+                                </th>
+                              ))
                             )}
+
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -1620,79 +1601,37 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                                     </span>
                                   </td>
                                 </>
-                                // ) : (
-                                //   subjects.map(subject => {
-                                //     const studentSubject = student.subjects.find(s => s.name === subject.name);
-                                //     const score = studentSubject ?
-                                //       (activeAssessmentType === 'qa1' ? studentSubject.qa1 :
-                                //         activeAssessmentType === 'qa2' ? studentSubject.qa2 :
-                                //           studentSubject.endOfTerm) : 0;
-
-                                //     return (
-                                //       <td key={subject.id} className="px-4 py-3 text-center">
-                                //         {score > 0 ? (
-                                //           <div className="flex flex-col items-center">
-                                //             <span className={`font-bold ${score >= 80 ? 'text-emerald-700' :
-                                //               score >= 60 ? 'text-blue-700' :
-                                //                 score >= 50 ? 'text-amber-700' :
-                                //                   'text-red-700'
-                                //               }`}>
-                                //               {score}%
-                                //             </span>
-                                //             <span className="text-xs text-slate-500">
-                                //               {calculateGrade(score, activeConfig?.pass_mark || 50)}
-                                //             </span>
-                                //           </div>
-                                //         ) : (
-                                //           <span className="text-slate-400">-</span>
-                                //         )}
-                                //       </td>
-                                //     );
-                                //   })
-                                // )}
                               ) : (
-                                (() => {
-                                  const subjectsToShow = [];
+                                subjects.map(subject => {
+                                  const studentSubject = student.subjects.find(s => s.name === subject.name);
+                                  const score = studentSubject ?
+                                    (activeAssessmentType === 'qa1' ? studentSubject.qa1 :
+                                      activeAssessmentType === 'qa2' ? studentSubject.qa2 :
+                                        studentSubject.endOfTerm) : 0;
 
-                                  subjects.forEach(subject => {
-                                    const hasData = classResults.some(student => {
-                                      const s = student.subjects.find(s => s.name === subject.name);
-                                      return s && s.qa1 > 0 && s.qa2 > 0 && s.endOfTerm > 0;
-                                    });
-
-                                    if (hasData) subjectsToShow.push(subject);
-                                  });
-
-                                  return subjectsToShow.map(subject => {
-                                    const studentSubject = student.subjects.find(s => s.name === subject.name);
-                                    const score = studentSubject ?
-                                      (activeAssessmentType === 'qa1' ? studentSubject.qa1 :
-                                        activeAssessmentType === 'qa2' ? studentSubject.qa2 :
-                                          studentSubject.endOfTerm) : 0;
-
-                                    return (
-                                      <td key={subject.id} className="px-4 py-3 text-center">
-                                        {score > 0 ? (
-                                          <div className="flex flex-col items-center">
-                                            <span className={`font-bold ${score >= 80 ? 'text-emerald-700' :
-                                              score >= 60 ? 'text-blue-700' :
-                                                score >= 50 ? 'text-amber-700' :
-                                                  'text-red-700'
-                                              }`}>
-                                              {score}%
-                                            </span>
-                                            <span className="text-xs text-slate-500">
-                                              {calculateGrade(score, activeConfig?.pass_mark || 50)}
-                                            </span>
-                                          </div>
-                                        ) : (
-                                          <span className="text-slate-400">-</span>
-                                        )}
-                                      </td>
-                                    );
-                                  });
-                                })()
+                                  return (
+                                    <td key={subject.id} className="px-4 py-3 text-center">
+                                      {score > 0 ? (
+                                        <div className="flex flex-col items-center">
+                                          <span className={`font-bold ${score >= 80 ? 'text-emerald-700' :
+                                            score >= 60 ? 'text-blue-700' :
+                                              score >= 50 ? 'text-amber-700' :
+                                                'text-red-700'
+                                            }`}>
+                                            {score}%
+                                          </span>
+                                          <span className="text-xs text-slate-500">
+                                            {calculateGrade(score, activeConfig?.pass_mark || 50)}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-slate-400">-</span>
+                                      )}
+                                    </td>
+                                  );
+                                })
                               )}
+
                             </tr>
                           ))}
                         </tbody>
