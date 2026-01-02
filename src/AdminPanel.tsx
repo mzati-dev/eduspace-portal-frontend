@@ -1,0 +1,588 @@
+import React, { useState, useEffect } from 'react';
+import {
+    ArrowLeft, AlertCircle, CheckCircle
+} from 'lucide-react';
+import {
+    fetchAllStudents, fetchAllSubjects, createStudent, updateStudent, deleteStudent,
+    upsertAssessment, upsertReportCard, fetchStudentAssessments, fetchStudentReportCard,
+    calculateGrade, SubjectRecord, createSubject, deleteSubject,
+    fetchAllClasses, createClass, deleteClass, calculateAndUpdateRanks, fetchClassResults
+} from '@/services/studentService';
+import {
+    getActiveGradeConfig, getAllGradeConfigs, createGradeConfig,
+    updateGradeConfig, setActiveConfig, GradeConfiguration, calculateFinalScore
+} from '@/services/gradeConfigService';
+import AdminHeader from './components/admin/AdminHeader';
+import AdminTabs from './components/admin/AdminTabs';
+import ClassesManagement from './components/admin/ClassesManagement';
+import StudentsManagement from './components/admin/StudentsManagement';
+import SubjectsManagement from './components/admin/SubjectsManagement';
+import ResultsManagement from './components/admin/ResultsManagement';
+import GradeConfigManagement from './components/admin/GradeConfigManagement';
+import ClassResultsManagement from './components/admin/ClassResultsManagement';
+import LoadingSpinner from './components/common/LoadingSpinner';
+import { Student, Assessment, ClassResultStudent } from './types/admin';
+
+interface AdminPanelProps {
+    onBack: () => void;
+}
+
+const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
+    const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'subjects' | 'results' | 'gradeConfig' | 'classResults'>('classes');
+    const [students, setStudents] = useState<Student[]>([]);
+    const [subjects, setSubjects] = useState<SubjectRecord[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    // Class management state
+    const [classes, setClasses] = useState<any[]>([]);
+    const [showClassForm, setShowClassForm] = useState(false);
+    const [classForm, setClassForm] = useState({
+        name: '',
+        academic_year: '',
+        term: 'Term 1'
+    });
+    const [classLoading, setClassLoading] = useState(false);
+
+    // Student form state
+    const [showStudentForm, setShowStudentForm] = useState(false);
+    const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+    const [studentForm, setStudentForm] = useState({
+        exam_number: '',
+        name: '',
+        class_id: '',
+        photo_url: ''
+    });
+
+    // Subject form state
+    const [showSubjectForm, setShowSubjectForm] = useState(false);
+    const [newSubjectName, setNewSubjectName] = useState('');
+    const [addingSubject, setAddingSubject] = useState(false);
+
+    // Results editing state
+    const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+    const [assessments, setAssessments] = useState<Assessment[]>([]);
+    const [reportCard, setReportCard] = useState({
+        class_rank: 0,
+        qa1_rank: 0,
+        qa2_rank: 0,
+        total_students: 0,
+        days_present: 0,
+        days_absent: 0,
+        days_late: 0,
+        teacher_remarks: ''
+    });
+    const [savingResults, setSavingResults] = useState(false);
+
+    // Grade configuration state
+    const [gradeConfigs, setGradeConfigs] = useState<GradeConfiguration[]>([]);
+    const [activeConfig, setActiveConfigState] = useState<GradeConfiguration | null>(null);
+    const [showConfigForm, setShowConfigForm] = useState(false);
+    const [editingConfig, setEditingConfig] = useState<GradeConfiguration | null>(null);
+    const [configForm, setConfigForm] = useState({
+        configuration_name: '',
+        calculation_method: 'weighted_average' as 'average_all' | 'end_of_term_only' | 'weighted_average',
+        weight_qa1: 30,
+        weight_qa2: 30,
+        weight_end_of_term: 40,
+        pass_mark: 50,
+    });
+
+    // Class results state
+    const [classResults, setClassResults] = useState<ClassResultStudent[]>([]);
+    const [selectedClassForResults, setSelectedClassForResults] = useState<string>('');
+    const [activeAssessmentType, setActiveAssessmentType] = useState<'qa1' | 'qa2' | 'endOfTerm' | 'overall'>('overall');
+    const [resultsLoading, setResultsLoading] = useState(false);
+
+    // Auto-generate exam number effect
+    useEffect(() => {
+        if (studentForm.class_id) {
+            const selectedClass = classes.find(c => c.id === studentForm.class_id);
+            if (selectedClass) {
+                const classNumberMatch = selectedClass.name.match(/\d+/);
+                const classNumber = classNumberMatch ? classNumberMatch[0] : '0';
+                const currentYear = new Date().getFullYear().toString().slice(-2);
+                const studentCount = students.filter(s => s.class?.id === selectedClass.id).length;
+                const nextNumber = studentCount + 1;
+                const examNumber = `${currentYear}-${classNumber}${nextNumber.toString().padStart(3, '0')}`;
+                setStudentForm(prev => ({ ...prev, exam_number: examNumber }));
+            }
+        }
+    }, [studentForm.class_id, classes, students]);
+
+    // Load data on mount
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const [studentsData, subjectsData, allConfigs, activeConfigData, classesData] = await Promise.all([
+                fetchAllStudents(),
+                fetchAllSubjects(),
+                getAllGradeConfigs(),
+                getActiveGradeConfig(),
+                fetchAllClasses()
+            ]);
+            setStudents(studentsData);
+            setSubjects(subjectsData);
+            setGradeConfigs(allConfigs);
+            setActiveConfigState(activeConfigData);
+            setClasses(classesData || []);
+        } catch (err) {
+            setError('Failed to load data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const showMessage = (msg: string, isError = false) => {
+        if (isError) {
+            setError(msg);
+            setTimeout(() => setError(''), 3000);
+        } else {
+            setSuccess(msg);
+            setTimeout(() => setSuccess(''), 3000);
+        }
+    };
+
+    // Class management handlers
+    const handleCreateClass = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setClassLoading(true);
+        try {
+            await createClass(classForm);
+            showMessage('Class created successfully!');
+            setShowClassForm(false);
+            setClassForm({ name: '', academic_year: '', term: 'Term 1' });
+            loadData();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to create class', true);
+        } finally {
+            setClassLoading(false);
+        }
+    };
+
+    const handleDeleteClass = async (classId: string) => {
+        if (!confirm('Delete this class? All students in this class will also be deleted.')) {
+            return;
+        }
+        try {
+            await deleteClass(classId);
+            showMessage('Class deleted successfully!');
+            loadData();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to delete class', true);
+        }
+    };
+
+    // Student management handlers
+    const handleCreateStudent = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await createStudent({
+                name: studentForm.name,
+                class_id: studentForm.class_id,
+                photo_url: studentForm.photo_url
+            });
+            showMessage('Student created successfully!');
+            setShowStudentForm(false);
+            setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '' });
+            loadData();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to create student', true);
+        }
+    };
+
+    const handleUpdateStudent = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingStudent) return;
+        try {
+            await updateStudent(editingStudent.id, {
+                name: studentForm.name,
+                class_id: studentForm.class_id,
+                photo_url: studentForm.photo_url
+            });
+            showMessage('Student updated successfully!');
+            setEditingStudent(null);
+            setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '' });
+            loadData();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to update student', true);
+        }
+    };
+
+    const handleDeleteStudent = async (student: Student) => {
+        if (!confirm(`Are you sure you want to delete ${student.name}? This will also delete all their assessments and report cards.`)) {
+            return;
+        }
+        try {
+            await deleteStudent(student.id);
+            showMessage('Student deleted successfully!');
+            loadData();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to delete student', true);
+        }
+    };
+
+    const startEditStudent = (student: Student) => {
+        setEditingStudent(student);
+        setStudentForm({
+            exam_number: student.examNumber,
+            name: student.name,
+            class_id: student.class?.id || '',
+            photo_url: student.photo_url || ''
+        });
+    };
+
+    // Subject management handlers
+    const handleAddSubject = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newSubjectName.trim()) return;
+        setAddingSubject(true);
+        try {
+            await createSubject({ name: newSubjectName.trim() });
+            showMessage('Subject added successfully!');
+            setNewSubjectName('');
+            setShowSubjectForm(false);
+            loadData();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to add subject', true);
+        } finally {
+            setAddingSubject(false);
+        }
+    };
+
+    const handleDeleteSubject = async (subject: SubjectRecord) => {
+        if (!confirm(`Delete subject "${subject.name}"? This will also delete all associated assessments.`)) {
+            return;
+        }
+        try {
+            await deleteSubject(subject.id);
+            showMessage('Subject deleted successfully!');
+            loadData();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to delete subject', true);
+        }
+    };
+
+    // Results management handlers
+    const loadStudentResults = async (student: Student) => {
+        setSelectedStudent(student);
+        try {
+            const [assessmentsData, reportCardData] = await Promise.all([
+                fetchStudentAssessments(student.id),
+                fetchStudentReportCard(student.id, student.term || 'Term 1, 2024/2025')
+            ]);
+
+            const assessmentMap = new Map<string, Assessment>();
+            subjects.forEach(sub => {
+                assessmentMap.set(sub.id, {
+                    subject_id: sub.id,
+                    subject_name: sub.name,
+                    qa1: 0,
+                    qa2: 0,
+                    end_of_term: 0
+                });
+            });
+
+            assessmentsData.forEach((a: any) => {
+                const existing = assessmentMap.get(a.subject_id);
+                if (existing) {
+                    if (a.assessment_type === 'qa1') existing.qa1 = a.score;
+                    if (a.assessment_type === 'qa2') existing.qa2 = a.score;
+                    if (a.assessment_type === 'end_of_term') existing.end_of_term = a.score;
+                }
+            });
+
+            setAssessments(Array.from(assessmentMap.values()));
+
+            if (reportCardData) {
+                setReportCard({
+                    class_rank: reportCardData.class_rank || 0,
+                    qa1_rank: reportCardData.qa1_rank || 0,
+                    qa2_rank: reportCardData.qa2_rank || 0,
+                    total_students: reportCardData.total_students || 0,
+                    days_present: reportCardData.days_present || 0,
+                    days_absent: reportCardData.days_absent || 0,
+                    days_late: reportCardData.days_late || 0,
+                    teacher_remarks: reportCardData.teacher_remarks || ''
+                });
+            } else {
+                setReportCard({
+                    class_rank: 0,
+                    qa1_rank: 0,
+                    qa2_rank: 0,
+                    total_students: 0,
+                    days_present: 0,
+                    days_absent: 0,
+                    days_late: 0,
+                    teacher_remarks: ''
+                });
+            }
+        } catch (err) {
+            showMessage('Failed to load student results', true);
+        }
+    };
+
+    const updateAssessmentScore = (subjectId: string, field: 'qa1' | 'qa2' | 'end_of_term', value: number) => {
+        setAssessments(prev => prev.map(a =>
+            a.subject_id === subjectId ? { ...a, [field]: Math.min(100, Math.max(0, value)) } : a
+        ));
+    };
+
+    const saveAllResults = async () => {
+        if (!selectedStudent) return;
+        setSavingResults(true);
+        try {
+            const passMark = activeConfig?.pass_mark || 50;
+
+            // Save assessments
+            for (const assessment of assessments) {
+                if (assessment.qa1 > 0) {
+                    await upsertAssessment({
+                        student_id: selectedStudent.id,
+                        subject_id: assessment.subject_id,
+                        assessment_type: 'qa1',
+                        score: assessment.qa1,
+                        grade: calculateGrade(assessment.qa1, passMark)
+                    });
+                }
+                if (assessment.qa2 > 0) {
+                    await upsertAssessment({
+                        student_id: selectedStudent.id,
+                        subject_id: assessment.subject_id,
+                        assessment_type: 'qa2',
+                        score: assessment.qa2,
+                        grade: calculateGrade(assessment.qa2, passMark)
+                    });
+                }
+                if (assessment.end_of_term > 0) {
+                    await upsertAssessment({
+                        student_id: selectedStudent.id,
+                        subject_id: assessment.subject_id,
+                        assessment_type: 'end_of_term',
+                        score: assessment.end_of_term,
+                        grade: calculateGrade(assessment.end_of_term, passMark)
+                    });
+                }
+            }
+
+            // Save report card
+            await upsertReportCard({
+                student_id: selectedStudent.id,
+                term: selectedStudent.term || 'Term 1, 2024/2025',
+                days_present: reportCard.days_present,
+                days_absent: reportCard.days_absent,
+                days_late: reportCard.days_late,
+                teacher_remarks: reportCard.teacher_remarks
+            });
+
+            // Auto-calculate ranks
+            if (selectedStudent.class?.id) {
+                await calculateAndUpdateRanks(
+                    selectedStudent.class.id,
+                    selectedStudent.term || 'Term 1, 2024/2025'
+                );
+            }
+
+            showMessage('Results saved and ranks auto-calculated!');
+            loadStudentResults(selectedStudent);
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to save results', true);
+        } finally {
+            setSavingResults(false);
+        }
+    };
+
+    // Grade config handlers
+    const handleSaveConfig = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (configForm.calculation_method === 'weighted_average' &&
+            configForm.weight_qa1 + configForm.weight_qa2 + configForm.weight_end_of_term !== 100) {
+            showMessage('Total weights must equal 100%', true);
+            return;
+        }
+        try {
+            if (editingConfig) {
+                await updateGradeConfig(editingConfig.id, configForm);
+                showMessage('Configuration updated successfully!');
+            } else {
+                await createGradeConfig(configForm);
+                showMessage('Configuration created successfully!');
+            }
+            setShowConfigForm(false);
+            setEditingConfig(null);
+            loadData();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to save configuration', true);
+        }
+    };
+
+    const handleActivateConfig = async (id: string) => {
+        try {
+            await setActiveConfig(id);
+            showMessage('Configuration activated successfully!');
+            loadData();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to activate configuration', true);
+        }
+    };
+
+    const startEditConfig = (config: GradeConfiguration) => {
+        setEditingConfig(config);
+        setConfigForm({
+            configuration_name: config.configuration_name,
+            calculation_method: config.calculation_method,
+            weight_qa1: config.weight_qa1,
+            weight_qa2: config.weight_qa2,
+            weight_end_of_term: config.weight_end_of_term,
+            pass_mark: config.pass_mark || 50,
+        });
+    };
+
+    // Class results handlers
+    const loadClassResults = async (classId: string) => {
+        setResultsLoading(true);
+        try {
+            const results = await fetchClassResults(classId);
+            setClassResults(results);
+        } catch (error) {
+            console.error('Failed to load class results:', error);
+            showMessage('Failed to load class results', true);
+        } finally {
+            setResultsLoading(false);
+        }
+    };
+
+    const handleTabChange = (tab: 'classes' | 'students' | 'subjects' | 'results' | 'gradeConfig' | 'classResults') => {
+        setActiveTab(tab);
+        setSelectedStudent(null);
+    };
+
+    return (
+        <div className="min-h-screen bg-slate-100">
+            <AdminHeader onBack={onBack} />
+
+            {error && (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-500" />
+                        <p className="text-red-700">{error}</p>
+                    </div>
+                </div>
+            )}
+
+            {success && (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3">
+                        <CheckCircle className="w-5 h-5 text-emerald-500" />
+                        <p className="text-emerald-700">{success}</p>
+                    </div>
+                </div>
+            )}
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+                <AdminTabs activeTab={activeTab} onTabChange={handleTabChange} />
+            </div>
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                {loading ? (
+                    <LoadingSpinner message="Loading admin data..." />
+                ) : activeTab === 'classes' ? (
+                    <ClassesManagement
+                        classes={classes}
+                        students={students}
+                        showClassForm={showClassForm}
+                        classForm={classForm}
+                        classLoading={classLoading}
+                        setShowClassForm={setShowClassForm}
+                        setClassForm={setClassForm}
+                        handleCreateClass={handleCreateClass}
+                        handleDeleteClass={handleDeleteClass}
+                        handleDeleteStudent={handleDeleteStudent}
+                        showMessage={showMessage}
+                    />
+                ) : activeTab === 'students' ? (
+                    <StudentsManagement
+                        students={students}
+                        classes={classes}
+                        showStudentForm={showStudentForm}
+                        editingStudent={editingStudent}
+                        studentForm={studentForm}
+                        setShowStudentForm={setShowStudentForm}
+                        setEditingStudent={setEditingStudent}
+                        setStudentForm={setStudentForm}
+                        handleCreateStudent={handleCreateStudent}
+                        handleUpdateStudent={handleUpdateStudent}
+                        handleDeleteStudent={handleDeleteStudent}
+                        startEditStudent={startEditStudent}
+                    />
+                ) : activeTab === 'subjects' ? (
+                    <SubjectsManagement
+                        subjects={subjects}
+                        showSubjectForm={showSubjectForm}
+                        newSubjectName={newSubjectName}
+                        addingSubject={addingSubject}
+                        setShowSubjectForm={setShowSubjectForm}
+                        setNewSubjectName={setNewSubjectName}
+                        handleAddSubject={handleAddSubject}
+                        handleDeleteSubject={handleDeleteSubject}
+                    />
+                ) : activeTab === 'gradeConfig' ? (
+                    <GradeConfigManagement
+                        gradeConfigs={gradeConfigs}
+                        activeConfig={activeConfig}
+                        showConfigForm={showConfigForm}
+                        editingConfig={editingConfig}
+                        configForm={configForm}
+                        setShowConfigForm={setShowConfigForm}
+                        setEditingConfig={setEditingConfig}
+                        setConfigForm={setConfigForm}
+                        handleSaveConfig={handleSaveConfig}
+                        handleActivateConfig={handleActivateConfig}
+                        startEditConfig={startEditConfig}
+                        loadData={loadData}
+                    />
+                ) : activeTab === 'classResults' ? (
+                    <ClassResultsManagement
+                        classes={classes}
+                        subjects={subjects}
+                        classResults={classResults}
+                        selectedClassForResults={selectedClassForResults}
+                        activeAssessmentType={activeAssessmentType}
+                        resultsLoading={resultsLoading}
+                        activeConfig={activeConfig}
+                        setSelectedClassForResults={setSelectedClassForResults}
+                        setActiveAssessmentType={setActiveAssessmentType}
+                        loadClassResults={loadClassResults}
+                        calculateGrade={calculateGrade}
+                    />
+                ) : (
+                    <ResultsManagement
+                        students={students}
+                        classes={classes}
+                        subjects={subjects}
+                        selectedStudent={selectedStudent}
+                        assessments={assessments}
+                        reportCard={reportCard}
+                        savingResults={savingResults}
+                        activeConfig={activeConfig}
+                        setSelectedStudent={setSelectedStudent}
+                        setAssessments={setAssessments}
+                        setReportCard={setReportCard}
+                        loadStudentResults={loadStudentResults}
+                        saveAllResults={saveAllResults}
+                        updateAssessmentScore={updateAssessmentScore}
+                        calculateGrade={calculateGrade}
+                        calculateFinalScore={calculateFinalScore}
+                    />
+                )}
+            </div>
+        </div>
+    );
+};
+
+export default AdminPanel;

@@ -1,0 +1,45 @@
+src/
+├── AppLayout.tsx
+├── AdminPanel.tsx
+├── types/
+│   ├── index.ts          # Shared types (Student, SubjectRecord, Class, GradeConfiguration)
+│   ├── app.ts           # AppLayout specific types
+│   └── admin.ts         # AdminPanel specific types (AdminTab, Assessment, etc.)
+├── components/
+│   ├── common/          # Shared components
+│   │   ├── LoadingSpinner.tsx
+│   │   ├── ErrorMessage.tsx
+│   │   ├── Header.tsx
+│   │   ├── Footer.tsx
+│   │   ├── HeroSection.tsx
+│   │   ├── FeaturesSection.tsx
+│   │   ├── HowItWorksSection.tsx
+│   │   └── Modal.tsx
+│   ├── app/             # AppLayout components
+│   │   └── SearchResults/
+│   │       ├── SearchResults.tsx
+│   │       ├── StudentInfo.tsx
+│   │       ├── AssessmentTabs.tsx
+│   │       ├── QAAssessment.tsx
+│   │       └── ReportCard.tsx
+│   └── admin/           # AdminPanel components
+│       ├── AdminHeader.tsx
+│       ├── AdminTabs.tsx
+│       ├── ClassesManagement.tsx
+│       ├── StudentsManagement.tsx
+│       ├── SubjectsManagement.tsx
+│       ├── ResultsManagement.tsx
+│       ├── GradeConfigManagement.tsx
+│       ├── ClassResultsManagement.tsx
+│       ├── forms/
+│       │   ├── ClassForm.tsx
+│       │   ├── StudentForm.tsx
+│       │   ├── SubjectForm.tsx
+│       │   └── GradeConfigForm.tsx
+│       └── tables/
+│           └── ClassResultsTable.tsx
+├── services/
+│   ├── studentService.ts
+│   └── gradeConfigService.ts
+└── utils/
+    └── helpers.ts
