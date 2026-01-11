@@ -68,9 +68,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         qa1_rank: 0,
         qa2_rank: 0,
         total_students: 0,
-        days_present: 0,
-        days_absent: 0,
-        days_late: 0,
+        // days_present: 0,
+        // days_absent: 0,
+        // days_late: 0,
+        days_present: undefined,      // ✅
+        days_absent: undefined,       // ✅
+        days_late: undefined,         // ✅
         teacher_remarks: ''
     });
     const [savingResults, setSavingResults] = useState(false);
@@ -268,7 +271,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         }
     };
 
-    // Results management handlers
+
+
     const loadStudentResults = async (student: Student) => {
         setSelectedStudent(student);
         try {
@@ -288,12 +292,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 });
             });
 
+            // FIXED: Handle different property names
             assessmentsData.forEach((a: any) => {
-                const existing = assessmentMap.get(a.subject_id);
-                if (existing) {
-                    if (a.assessment_type === 'qa1') existing.qa1 = a.score;
-                    if (a.assessment_type === 'qa2') existing.qa2 = a.score;
-                    if (a.assessment_type === 'end_of_term') existing.end_of_term = a.score;
+                // Get subject ID - could be nested or flat
+                const subjectId = a.subject_id || a.subject?.id;
+                // Get assessment type - could be different naming
+                const assessmentType = a.assessment_type || a.assessmentType;
+                const score = a.score || 0;
+
+                if (subjectId) {
+                    const existing = assessmentMap.get(subjectId);
+                    if (existing) {
+                        if (assessmentType === 'qa1') existing.qa1 = score;
+                        if (assessmentType === 'qa2') existing.qa2 = score;
+                        if (assessmentType === 'end_of_term') existing.end_of_term = score;
+                    }
                 }
             });
 
@@ -305,9 +318,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     qa1_rank: reportCardData.qa1_rank || 0,
                     qa2_rank: reportCardData.qa2_rank || 0,
                     total_students: reportCardData.total_students || 0,
-                    days_present: reportCardData.days_present || 0,
-                    days_absent: reportCardData.days_absent || 0,
-                    days_late: reportCardData.days_late || 0,
+                    // days_present: reportCardData.days_present || 0,
+                    // days_absent: reportCardData.days_absent || 0,
+                    // days_late: reportCardData.days_late || 0,
+                    days_present: reportCardData.days_present === 0 ? undefined : reportCardData.days_present,    // ✅
+                    days_absent: reportCardData.days_absent === 0 ? undefined : reportCardData.days_absent,      // ✅
+                    days_late: reportCardData.days_late === 0 ? undefined : reportCardData.days_late,            // ✅
                     teacher_remarks: reportCardData.teacher_remarks || ''
                 });
             } else {
@@ -316,9 +332,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     qa1_rank: 0,
                     qa2_rank: 0,
                     total_students: 0,
-                    days_present: 0,
-                    days_absent: 0,
-                    days_late: 0,
+                    // days_present: 0,
+                    // days_absent: 0,
+                    // days_late: 0,
+                    days_present: undefined,
+                    days_absent: undefined,
+                    days_late: undefined,
                     teacher_remarks: ''
                 });
             }
@@ -333,41 +352,162 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         ));
     };
 
+    // const saveAllResults = async () => {
+    //     if (!selectedStudent) return;
+    //     setSavingResults(true);
+    //     try {
+    //         const passMark = activeConfig?.pass_mark || 50;
+
+    //         // Save assessments
+    //         for (const assessment of assessments) {
+    //             if (assessment.qa1 > 0) {
+    //                 await upsertAssessment({
+    //                     student_id: selectedStudent.id,
+    //                     subject_id: assessment.subject_id,
+    //                     assessment_type: 'qa1',
+    //                     score: assessment.qa1,
+    //                     grade: calculateGrade(assessment.qa1, passMark)
+    //                 });
+    //             }
+    //             if (assessment.qa2 > 0) {
+    //                 await upsertAssessment({
+    //                     student_id: selectedStudent.id,
+    //                     subject_id: assessment.subject_id,
+    //                     assessment_type: 'qa2',
+    //                     score: assessment.qa2,
+    //                     grade: calculateGrade(assessment.qa2, passMark)
+    //                 });
+    //             }
+    //             if (assessment.end_of_term > 0) {
+    //                 await upsertAssessment({
+    //                     student_id: selectedStudent.id,
+    //                     subject_id: assessment.subject_id,
+    //                     assessment_type: 'end_of_term',
+    //                     score: assessment.end_of_term,
+    //                     grade: calculateGrade(assessment.end_of_term, passMark)
+    //                 });
+    //             }
+    //         }
+
+    //         // Save report card
+    //         await upsertReportCard({
+    //             student_id: selectedStudent.id,
+    //             term: selectedStudent.term || 'Term 1, 2024/2025',
+    //             days_present: reportCard.days_present,
+    //             days_absent: reportCard.days_absent,
+    //             days_late: reportCard.days_late,
+    //             teacher_remarks: reportCard.teacher_remarks
+    //         });
+
+    //         // Auto-calculate ranks
+    //         if (selectedStudent.class?.id) {
+    //             await calculateAndUpdateRanks(
+    //                 selectedStudent.class.id,
+    //                 selectedStudent.term || 'Term 1, 2024/2025'
+    //             );
+    //         }
+
+    //         showMessage('Results saved and ranks auto-calculated!');
+    //         loadStudentResults(selectedStudent);
+    //     } catch (err: any) {
+    //         showMessage(err.message || 'Failed to save results', true);
+    //     } finally {
+    //         setSavingResults(false);
+    //     }
+    // };
+
+    // const saveAllResults = async () => {
+    //     if (!selectedStudent) return;
+    //     setSavingResults(true);
+    //     try {
+    //         const passMark = activeConfig?.pass_mark || 50;
+
+    //         // Save ALL assessments (including 0)
+    //         for (const assessment of assessments) {
+    //             await upsertAssessment({
+    //                 student_id: selectedStudent.id,
+    //                 subject_id: assessment.subject_id,
+    //                 assessment_type: 'qa1',
+    //                 score: assessment.qa1,
+    //                 grade: calculateGrade(assessment.qa1, passMark)
+    //             });
+
+    //             await upsertAssessment({
+    //                 student_id: selectedStudent.id,
+    //                 subject_id: assessment.subject_id,
+    //                 assessment_type: 'qa2',
+    //                 score: assessment.qa2,
+    //                 grade: calculateGrade(assessment.qa2, passMark)
+    //             });
+
+    //             await upsertAssessment({
+    //                 student_id: selectedStudent.id,
+    //                 subject_id: assessment.subject_id,
+    //                 assessment_type: 'end_of_term',
+    //                 score: assessment.end_of_term,
+    //                 grade: calculateGrade(assessment.end_of_term, passMark)
+    //             });
+    //         }
+
+    //         // Save report card
+    //         await upsertReportCard({
+    //             student_id: selectedStudent.id,
+    //             term: selectedStudent.term || 'Term 1, 2024/2025',
+    //             days_present: reportCard.days_present,
+    //             days_absent: reportCard.days_absent,
+    //             days_late: reportCard.days_late,
+    //             teacher_remarks: reportCard.teacher_remarks
+    //         });
+
+    //         // Auto-calculate ranks
+    //         if (selectedStudent.class?.id) {
+    //             await calculateAndUpdateRanks(
+    //                 selectedStudent.class.id,
+    //                 selectedStudent.term || 'Term 1, 2024/2025'
+    //             );
+    //         }
+
+    //         showMessage('Results saved and ranks auto-calculated!');
+    //         loadStudentResults(selectedStudent);
+    //     } catch (err: any) {
+    //         showMessage(err.message || 'Failed to save results', true);
+    //     } finally {
+    //         setSavingResults(false);
+    //     }
+    // };
+
+
     const saveAllResults = async () => {
         if (!selectedStudent) return;
         setSavingResults(true);
         try {
             const passMark = activeConfig?.pass_mark || 50;
 
-            // Save assessments
+            // Save ALL assessments (including 0)
             for (const assessment of assessments) {
-                if (assessment.qa1 > 0) {
-                    await upsertAssessment({
-                        student_id: selectedStudent.id,
-                        subject_id: assessment.subject_id,
-                        assessment_type: 'qa1',
-                        score: assessment.qa1,
-                        grade: calculateGrade(assessment.qa1, passMark)
-                    });
-                }
-                if (assessment.qa2 > 0) {
-                    await upsertAssessment({
-                        student_id: selectedStudent.id,
-                        subject_id: assessment.subject_id,
-                        assessment_type: 'qa2',
-                        score: assessment.qa2,
-                        grade: calculateGrade(assessment.qa2, passMark)
-                    });
-                }
-                if (assessment.end_of_term > 0) {
-                    await upsertAssessment({
-                        student_id: selectedStudent.id,
-                        subject_id: assessment.subject_id,
-                        assessment_type: 'end_of_term',
-                        score: assessment.end_of_term,
-                        grade: calculateGrade(assessment.end_of_term, passMark)
-                    });
-                }
+                await upsertAssessment({
+                    student_id: selectedStudent.id,
+                    subject_id: assessment.subject_id,
+                    assessment_type: 'qa1',
+                    score: assessment.qa1,
+                    grade: calculateGrade(assessment.qa1, passMark)
+                });
+
+                await upsertAssessment({
+                    student_id: selectedStudent.id,
+                    subject_id: assessment.subject_id,
+                    assessment_type: 'qa2',
+                    score: assessment.qa2,
+                    grade: calculateGrade(assessment.qa2, passMark)
+                });
+
+                await upsertAssessment({
+                    student_id: selectedStudent.id,
+                    subject_id: assessment.subject_id,
+                    assessment_type: 'end_of_term',
+                    score: assessment.end_of_term,
+                    grade: calculateGrade(assessment.end_of_term, passMark)
+                });
             }
 
             // Save report card
@@ -388,7 +528,34 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 );
             }
 
-            showMessage('Results saved and ranks auto-calculated!');
+            // === START: AUTO-SWITCH TO END OF TERM ONLY IF QA1/QA2 ENTERED ===
+            // Check if QA1/QA2 scores were entered but NO End of Term
+            const hasQAScores = assessments.some(a => a.qa1 > 0 || a.qa2 > 0);
+            const hasNoEndTerm = assessments.every(a => a.end_of_term === 0);
+
+            if (hasQAScores && hasNoEndTerm) {
+                // Find or create an "end_of_term_only" configuration
+                const allConfigs = await getAllGradeConfigs();
+                let endOfTermConfig = allConfigs.find(c => c.calculation_method === 'end_of_term_only');
+
+                if (!endOfTermConfig) {
+                    // Create one if it doesn't exist
+                    endOfTermConfig = await createGradeConfig({
+                        configuration_name: 'End of Term Only (Auto)',
+                        calculation_method: 'end_of_term_only',
+                        pass_mark: activeConfig?.pass_mark || 50,
+                        is_active: false
+                    });
+                }
+
+                // Activate the end_of_term_only configuration
+                await setActiveConfig(endOfTermConfig.id);
+                showMessage('Results saved! Grade calculation switched to End of Term Only because only QA1/QA2 scores are entered');
+            } else {
+                showMessage('Results saved and ranks auto-calculated!');
+            }
+            // === END: AUTO-SWITCH TO END OF TERM ONLY ===
+
             loadStudentResults(selectedStudent);
         } catch (err: any) {
             showMessage(err.message || 'Failed to save results', true);
@@ -396,6 +563,68 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             setSavingResults(false);
         }
     };
+    // const saveAllResults = async () => {
+    //     if (!selectedStudent) return;
+    //     setSavingResults(true);
+    //     try {
+    //         const passMark = activeConfig?.pass_mark || 50;
+
+    //         // Save assessments - IMPORTANT: Save even when score is 0 to clear it
+    //         for (const assessment of assessments) {
+    //             // Always save QA1 score (even if 0)
+    //             await upsertAssessment({
+    //                 student_id: selectedStudent.id,
+    //                 subject_id: assessment.subject_id,
+    //                 assessment_type: 'qa1',
+    //                 score: assessment.qa1,
+    //                 grade: calculateGrade(assessment.qa1, passMark)
+    //             });
+
+    //             // Always save QA2 score (even if 0)
+    //             await upsertAssessment({
+    //                 student_id: selectedStudent.id,
+    //                 subject_id: assessment.subject_id,
+    //                 assessment_type: 'qa2',
+    //                 score: assessment.qa2,
+    //                 grade: calculateGrade(assessment.qa2, passMark)
+    //             });
+
+    //             // Always save end_of_term score (even if 0)
+    //             await upsertAssessment({
+    //                 student_id: selectedStudent.id,
+    //                 subject_id: assessment.subject_id,
+    //                 assessment_type: 'end_of_term',
+    //                 score: assessment.end_of_term,
+    //                 grade: calculateGrade(assessment.end_of_term, passMark)
+    //             });
+    //         }
+
+    //         // Save report card
+    //         await upsertReportCard({
+    //             student_id: selectedStudent.id,
+    //             term: selectedStudent.term || 'Term 1, 2024/2025',
+    //             days_present: reportCard.days_present,
+    //             days_absent: reportCard.days_absent,
+    //             days_late: reportCard.days_late,
+    //             teacher_remarks: reportCard.teacher_remarks
+    //         });
+
+    //         // Auto-calculate ranks
+    //         if (selectedStudent.class?.id) {
+    //             await calculateAndUpdateRanks(
+    //                 selectedStudent.class.id,
+    //                 selectedStudent.term || 'Term 1, 2024/2025'
+    //             );
+    //         }
+
+    //         showMessage('Results saved and ranks auto-calculated!');
+    //         loadStudentResults(selectedStudent);
+    //     } catch (err: any) {
+    //         showMessage(err.message || 'Failed to save results', true);
+    //     } finally {
+    //         setSavingResults(false);
+    //     }
+    // };
 
     // Grade config handlers
     const handleSaveConfig = async (e: React.FormEvent) => {
@@ -551,6 +780,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                         classes={classes}
                         subjects={subjects}
                         classResults={classResults}
+                        students={students}
                         selectedClassForResults={selectedClassForResults}
                         activeAssessmentType={activeAssessmentType}
                         resultsLoading={resultsLoading}
