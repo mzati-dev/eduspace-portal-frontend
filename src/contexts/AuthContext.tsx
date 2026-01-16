@@ -10,6 +10,9 @@ interface User {
   fullName: string;
   isEmailVerified: boolean;
   role: string; // Add this line
+  // ADD THESE TWO LINES:
+  schoolId?: string;
+  schoolName?: string;
 }
 
 interface AuthContextType {

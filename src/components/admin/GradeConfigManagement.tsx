@@ -59,12 +59,20 @@ const GradeConfigManagement: React.FC<GradeConfigManagementProps> = ({
                     onClick={() => {
                         setShowConfigForm(true);
                         setEditingConfig(null);
+                        // setConfigForm({
+                        //     configuration_name: '',
+                        //     calculation_method: 'weighted_average',
+                        //     weight_qa1: 30,
+                        //     weight_qa2: 30,
+                        //     weight_end_of_term: 40,
+                        //     pass_mark: 50,
+                        // });
                         setConfigForm({
                             configuration_name: '',
-                            calculation_method: 'weighted_average',
-                            weight_qa1: 30,
-                            weight_qa2: 30,
-                            weight_end_of_term: 40,
+                            calculation_method: 'end_of_term_only',  // ← Change from 'weighted_average'
+                            weight_qa1: 0,  // Optional: set to 0
+                            weight_qa2: 0,  // Optional: set to 0
+                            weight_end_of_term: 100,  // Optional: set to 100
                             pass_mark: 50,
                         });
                     }}

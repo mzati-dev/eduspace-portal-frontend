@@ -131,20 +131,6 @@ const GradeConfigForm: React.FC<GradeConfigFormProps> = ({
                                 Calculation Method
                             </label>
                             <div className="space-y-3">
-                                <label className="flex items-center gap-3 cursor-pointer p-3 hover:bg-slate-50 rounded-lg transition-colors">
-                                    <input
-                                        type="radio"
-                                        name="calculation_method"
-                                        value="average_all"
-                                        checked={configForm.calculation_method === 'average_all'}
-                                        onChange={(e) => setConfigForm({ ...configForm, calculation_method: e.target.value as any })}
-                                        className="w-4 h-4 text-indigo-600"
-                                    />
-                                    <div>
-                                        <p className="font-medium text-slate-800">Average of All Tests</p>
-                                        <p className="text-sm text-slate-500">(QA1 + QA2 + End of Term) ÷ 3</p>
-                                    </div>
-                                </label>
 
                                 <label className="flex items-center gap-3 cursor-pointer p-3 hover:bg-slate-50 rounded-lg transition-colors">
                                     <input
@@ -160,6 +146,23 @@ const GradeConfigForm: React.FC<GradeConfigFormProps> = ({
                                         <p className="text-sm text-slate-500">Use only the End of Term score</p>
                                     </div>
                                 </label>
+
+                                <label className="flex items-center gap-3 cursor-pointer p-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                    <input
+                                        type="radio"
+                                        name="calculation_method"
+                                        value="average_all"
+                                        checked={configForm.calculation_method === 'average_all'}
+                                        onChange={(e) => setConfigForm({ ...configForm, calculation_method: e.target.value as any })}
+                                        className="w-4 h-4 text-indigo-600"
+                                    />
+                                    <div>
+                                        <p className="font-medium text-slate-800">Average of All Tests</p>
+                                        <p className="text-sm text-slate-500">(QA1 + QA2 + End of Term) ÷ 3</p>
+                                    </div>
+                                </label>
+
+
 
                                 <label className="flex items-center gap-3 cursor-pointer p-3 hover:bg-slate-50 rounded-lg transition-colors">
                                     <input

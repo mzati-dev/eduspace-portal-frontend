@@ -99,6 +99,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     const [resultsLoading, setResultsLoading] = useState(false);
 
     // Auto-generate exam number effect
+    // useEffect(() => {
+    //     if (studentForm.class_id) {
+    //         const selectedClass = classes.find(c => c.id === studentForm.class_id);
+    //         if (selectedClass) {
+    //             const classNumberMatch = selectedClass.name.match(/\d+/);
+    //             const classNumber = classNumberMatch ? classNumberMatch[0] : '0';
+    //             const currentYear = new Date().getFullYear().toString().slice(-2);
+    //             const studentCount = students.filter(s => s.class?.id === selectedClass.id).length;
+    //             const nextNumber = studentCount + 1;
+    //             const examNumber = `${currentYear}-${classNumber}${nextNumber.toString().padStart(3, '0')}`;
+    //             setStudentForm(prev => ({ ...prev, exam_number: examNumber }));
+    //         }
+    //     }
+    // }, [studentForm.class_id, classes, students]);
+
+
+    // Auto-generate exam number effect
     useEffect(() => {
         if (studentForm.class_id) {
             const selectedClass = classes.find(c => c.id === studentForm.class_id);
@@ -108,7 +125,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 const currentYear = new Date().getFullYear().toString().slice(-2);
                 const studentCount = students.filter(s => s.class?.id === selectedClass.id).length;
                 const nextNumber = studentCount + 1;
-                const examNumber = `${currentYear}-${classNumber}${nextNumber.toString().padStart(3, '0')}`;
+
+                // Get school ID from localStorage (same as backend will use)
+                const userStr = localStorage.getItem('user');
+                let schoolIdPrefix = 'SCH'; // default
+                if (userStr) {
+                    try {
+                        const user = JSON.parse(userStr);
+                        schoolIdPrefix = user.schoolId ? user.schoolId.substring(0, 3) : 'SCH';
+                    } catch (e) {
+                        // keep default
+                    }
+                }
+
+                const examNumber = `${schoolIdPrefix}-${currentYear}-${classNumber}${nextNumber.toString().padStart(3, '0')}`;
                 setStudentForm(prev => ({ ...prev, exam_number: examNumber }));
             }
         }

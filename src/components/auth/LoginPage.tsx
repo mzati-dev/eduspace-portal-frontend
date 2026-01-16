@@ -75,6 +75,38 @@ const LoginPage: React.FC = () => {
   //   }
   // };
 
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setError('');
+  //   setLoading(true);
+
+  //   if (!email || !password) {
+  //     setError('Please fill in all fields');
+  //     setLoading(false);
+  //     return;
+  //   }
+
+  //   console.log("Sending login request...");
+  //   const result = await signIn(email, password);
+  //   console.log("Login result:", result);
+
+  //   if (result.error) {
+  //     setError(result.error.message);
+  //     setLoading(false);
+  //   } else {
+  //     // Get user from localStorage (saved by AuthContext)
+  //     const user = JSON.parse(localStorage.getItem('user') || '{}');
+  //     console.log('User role:', user.role);
+
+  //     // Redirect based on role
+  //     if (user.role === 'admin' || user.role === 'super_admin') {
+  //       navigate('/admin');
+  //     } else {
+  //       navigate('/');
+  //     }
+  //   }
+  // };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -98,11 +130,13 @@ const LoginPage: React.FC = () => {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       console.log('User role:', user.role);
 
-      // Redirect based on role
-      if (user.role === 'admin' || user.role === 'super_admin') {
-        navigate('/admin');
+      // Redirect based on role - UPDATED VERSION
+      if (user.role === 'super_admin') {
+        navigate('/super-admin'); // Super admin goes to special panel
+      } else if (user.role === 'admin' || user.role === 'school_admin') {
+        navigate('/admin'); // School admins go to regular admin panel
       } else {
-        navigate('/');
+        navigate('/'); // Regular users
       }
     }
   };
