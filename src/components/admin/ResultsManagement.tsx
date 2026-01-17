@@ -21,6 +21,7 @@ interface ResultsManagementProps {
     updateAssessmentScore: (subjectId: string, field: 'qa1' | 'qa2' | 'end_of_term', value: number) => void;
     calculateGrade: (score: number, passMark?: number) => string;
     calculateFinalScore: (qa1: number, qa2: number, endOfTerm: number, config: GradeConfiguration) => number;
+    isTeacherView?: boolean;
 }
 
 const ResultsManagement: React.FC<ResultsManagementProps> = ({

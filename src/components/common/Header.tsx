@@ -21,15 +21,23 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin }) => {
 
     return (
         <header className="bg-white shadow-sm border-b border-slate-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            {/* <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4"> */}
+            <div className="max-w-7xl mx-auto pl-0 pr-4 sm:pr-6 lg:pr-8 py-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-lg flex items-center justify-center">
-                            <BookOpen className="w-6 h-6 text-white" />
-                        </div>
+                        {/* Eduspace Portal Logo here */}
+                        <img src="/eduspace-logo.png" alt="Eduspace Portal" className="w-20 h-20" />
                         <div>
-                            <h1 className="text-xl font-bold text-slate-800">Parent Portal</h1>
-                            <p className="text-xs text-slate-500">Student Results System</p>
+                            <h1 className="text-2xl font-bold tracking-tight">
+                                <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                                    EduSpace
+                                </span>
+                                <span className="text-orange-400"> Portal</span>
+                                {/* <span className="text-gray-900"> Portal</span> */}
+                            </h1>
+                            <p className="text-sm text-gray-600 font-light">
+                                Your window to academic success
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-slate-600">

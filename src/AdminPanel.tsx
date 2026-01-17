@@ -22,13 +22,15 @@ import GradeConfigManagement from './components/admin/GradeConfigManagement';
 import ClassResultsManagement from './components/admin/ClassResultsManagement';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import { Student, Assessment, ClassResultStudent } from './types/admin';
+import TeachersManagement from './components/admin/TeachersManagement';
+import { createTeacher, deleteTeacher, fetchAllTeachers } from './services/teacherService';
 
 interface AdminPanelProps {
     onBack: () => void;
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
-    const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'subjects' | 'results' | 'gradeConfig' | 'classResults'>('classes');
+    const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults'>('classes');
     const [students, setStudents] = useState<Student[]>([]);
     const [subjects, setSubjects] = useState<SubjectRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -53,6 +55,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         name: '',
         class_id: '',
         photo_url: ''
+    });
+
+    // Teacher management state
+    const [teachers, setTeachers] = useState<any[]>([]);
+    const [showTeacherForm, setShowTeacherForm] = useState(false);
+    const [teacherForm, setTeacherForm] = useState({
+        name: '',
+        email: '',
+        password: '',
+
     });
 
     // Subject form state
@@ -164,6 +176,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             setGradeConfigs(allConfigs);
             setActiveConfigState(activeConfigData);
             setClasses(classesData || []);
+            await loadTeachers();
         } catch (err) {
             setError('Failed to load data');
         } finally {
@@ -268,6 +281,47 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             class_id: student.class?.id || '',
             photo_url: student.photo_url || ''
         });
+    };
+
+    // Teacher management handlers
+    const loadTeachers = async () => {
+        try {
+            const teachersData = await fetchAllTeachers();
+            setTeachers(teachersData);
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to load teachers', true);
+        }
+    };
+
+    const handleCreateTeacher = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await createTeacher({
+                name: teacherForm.name,
+                email: teacherForm.email,
+                password: teacherForm.password
+            });
+
+            showMessage('Teacher created successfully!');
+            setShowTeacherForm(false);
+            setTeacherForm({ name: '', email: '', password: '' });
+            loadTeachers();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to create teacher', true);
+        }
+    };
+
+    const handleDeleteTeacher = async (teacherId: string) => {
+        if (!confirm('Delete this teacher? This will remove their access to the system.')) {
+            return;
+        }
+        try {
+            await deleteTeacher(teacherId);
+            showMessage('Teacher deleted successfully!');
+            loadTeachers();
+        } catch (err: any) {
+            showMessage(err.message || 'Failed to delete teacher', true);
+        }
     };
 
     // Subject management handlers
@@ -716,7 +770,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         }
     };
 
-    const handleTabChange = (tab: 'classes' | 'students' | 'subjects' | 'results' | 'gradeConfig' | 'classResults') => {
+    const handleTabChange = (tab: 'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults') => {
         setActiveTab(tab);
         setSelectedStudent(null);
     };
@@ -779,67 +833,96 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                         handleDeleteStudent={handleDeleteStudent}
                         startEditStudent={startEditStudent}
                     />
-                ) : activeTab === 'subjects' ? (
-                    <SubjectsManagement
-                        subjects={subjects}
-                        showSubjectForm={showSubjectForm}
-                        newSubjectName={newSubjectName}
-                        addingSubject={addingSubject}
-                        setShowSubjectForm={setShowSubjectForm}
-                        setNewSubjectName={setNewSubjectName}
-                        handleAddSubject={handleAddSubject}
-                        handleDeleteSubject={handleDeleteSubject}
-                    />
-                ) : activeTab === 'gradeConfig' ? (
-                    <GradeConfigManagement
-                        gradeConfigs={gradeConfigs}
-                        activeConfig={activeConfig}
-                        showConfigForm={showConfigForm}
-                        editingConfig={editingConfig}
-                        configForm={configForm}
-                        setShowConfigForm={setShowConfigForm}
-                        setEditingConfig={setEditingConfig}
-                        setConfigForm={setConfigForm}
-                        handleSaveConfig={handleSaveConfig}
-                        handleActivateConfig={handleActivateConfig}
-                        startEditConfig={startEditConfig}
-                        loadData={loadData}
-                    />
-                ) : activeTab === 'classResults' ? (
-                    <ClassResultsManagement
-                        classes={classes}
-                        subjects={subjects}
-                        classResults={classResults}
-                        students={students}
-                        selectedClassForResults={selectedClassForResults}
-                        activeAssessmentType={activeAssessmentType}
-                        resultsLoading={resultsLoading}
-                        activeConfig={activeConfig}
-                        setSelectedClassForResults={setSelectedClassForResults}
-                        setActiveAssessmentType={setActiveAssessmentType}
-                        loadClassResults={loadClassResults}
-                        calculateGrade={calculateGrade}
-                    />
-                ) : (
-                    <ResultsManagement
-                        students={students}
-                        classes={classes}
-                        subjects={subjects}
-                        selectedStudent={selectedStudent}
-                        assessments={assessments}
-                        reportCard={reportCard}
-                        savingResults={savingResults}
-                        activeConfig={activeConfig}
-                        setSelectedStudent={setSelectedStudent}
-                        setAssessments={setAssessments}
-                        setReportCard={setReportCard}
-                        loadStudentResults={loadStudentResults}
-                        saveAllResults={saveAllResults}
-                        updateAssessmentScore={updateAssessmentScore}
-                        calculateGrade={calculateGrade}
-                        calculateFinalScore={calculateFinalScore}
-                    />
-                )}
+                )
+                    // : activeTab === 'teachers' ? (  // ADD THIS CONDITION
+                    //     <TeachersManagement
+                    //         teachers={teachers}
+                    //         showTeacherForm={showTeacherForm}
+                    //         teacherForm={teacherForm}
+                    //         setShowTeacherForm={setShowTeacherForm}
+                    //         setTeacherForm={setTeacherForm}
+                    //         handleCreateTeacher={handleCreateTeacher}
+                    //         handleDeleteTeacher={handleDeleteTeacher}
+                    //     />
+                    // )
+
+                    : activeTab === 'teachers' ? (  // ADD THIS CONDITION
+                        <TeachersManagement
+                            teachers={teachers}
+                            showTeacherForm={showTeacherForm}
+                            teacherForm={teacherForm}
+                            setShowTeacherForm={setShowTeacherForm}
+                            setTeacherForm={setTeacherForm}
+                            handleCreateTeacher={handleCreateTeacher}
+                            handleDeleteTeacher={handleDeleteTeacher}
+                            // ===== ADD THESE TWO PROPS =====
+                            classes={classes}
+                            subjects={subjects}
+                        // ===== END ADD PROPS =====
+                        />
+                    )
+
+                        : activeTab === 'subjects' ? (
+                            <SubjectsManagement
+                                subjects={subjects}
+                                showSubjectForm={showSubjectForm}
+                                newSubjectName={newSubjectName}
+                                addingSubject={addingSubject}
+                                setShowSubjectForm={setShowSubjectForm}
+                                setNewSubjectName={setNewSubjectName}
+                                handleAddSubject={handleAddSubject}
+                                handleDeleteSubject={handleDeleteSubject}
+                            />
+                        ) : activeTab === 'gradeConfig' ? (
+                            <GradeConfigManagement
+                                gradeConfigs={gradeConfigs}
+                                activeConfig={activeConfig}
+                                showConfigForm={showConfigForm}
+                                editingConfig={editingConfig}
+                                configForm={configForm}
+                                setShowConfigForm={setShowConfigForm}
+                                setEditingConfig={setEditingConfig}
+                                setConfigForm={setConfigForm}
+                                handleSaveConfig={handleSaveConfig}
+                                handleActivateConfig={handleActivateConfig}
+                                startEditConfig={startEditConfig}
+                                loadData={loadData}
+                            />
+                        ) : activeTab === 'classResults' ? (
+                            <ClassResultsManagement
+                                classes={classes}
+                                subjects={subjects}
+                                classResults={classResults}
+                                students={students}
+                                selectedClassForResults={selectedClassForResults}
+                                activeAssessmentType={activeAssessmentType}
+                                resultsLoading={resultsLoading}
+                                activeConfig={activeConfig}
+                                setSelectedClassForResults={setSelectedClassForResults}
+                                setActiveAssessmentType={setActiveAssessmentType}
+                                loadClassResults={loadClassResults}
+                                calculateGrade={calculateGrade}
+                            />
+                        ) : (
+                            <ResultsManagement
+                                students={students}
+                                classes={classes}
+                                subjects={subjects}
+                                selectedStudent={selectedStudent}
+                                assessments={assessments}
+                                reportCard={reportCard}
+                                savingResults={savingResults}
+                                activeConfig={activeConfig}
+                                setSelectedStudent={setSelectedStudent}
+                                setAssessments={setAssessments}
+                                setReportCard={setReportCard}
+                                loadStudentResults={loadStudentResults}
+                                saveAllResults={saveAllResults}
+                                updateAssessmentScore={updateAssessmentScore}
+                                calculateGrade={calculateGrade}
+                                calculateFinalScore={calculateFinalScore}
+                            />
+                        )}
             </div>
         </div>
     );

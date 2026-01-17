@@ -18,6 +18,7 @@ interface ClassResultsManagementProps {
     setActiveAssessmentType: (type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => void;
     loadClassResults: (classId: string) => Promise<void>;
     calculateGrade: (score: number, passMark?: number) => string;
+    isTeacherView?: boolean;
 }
 
 const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({

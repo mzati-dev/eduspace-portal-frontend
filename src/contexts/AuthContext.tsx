@@ -8,11 +8,13 @@ interface User {
   id: string;
   email: string;
   fullName: string;
+  name?: string; // ADD THIS for teachers
   isEmailVerified: boolean;
   role: string; // Add this line
   // ADD THESE TWO LINES:
   schoolId?: string;
   schoolName?: string;
+  created_at?: string; // ADD THIS for teachers
 }
 
 interface AuthContextType {
@@ -70,50 +72,106 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // const signIn = async (email: string, password: string) => {
+  //   try {
+  //     const response = await fetch(`${API_URL}/auth/login`, {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ email, password }),
+  //     });
+
+  //     const data = await response.json();
+  //     console.log('Login response:', data); // Add this line
+
+  //     // if (!response.ok) {
+  //     //   const errorData = await response.json();
+
+  //     //   return {
+  //     //     error: {
+  //     //       message: errorData.message || 'Login failed. Please try again.',
+  //     //     } as Error,
+  //     //   };
+  //     // }
+  //     if (!response.ok) {
+  //       return {
+  //         error: {
+  //           message: data.message || 'Login failed. Please try again.',
+  //         } as Error,
+  //       };
+  //     }
+
+  //     // const data = await response.json();
+  //     localStorage.setItem('token', data.access_token);
+  //     localStorage.setItem('user', JSON.stringify(data.user)); // Add this line
+  //     setToken(data.access_token);
+  //     setUser(data.user);
+
+  //     return { error: null };
+  //   } catch (error: any) {
+  //     return {
+  //       error: {
+  //         message: 'Login failed. Please try again.',
+  //       } as Error,
+  //     };
+  //   }
+  // };
   const signIn = async (email: string, password: string) => {
     try {
+      // First try regular login (admin/school_admin)
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
-      console.log('Login response:', data); // Add this line
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Regular login response:', data);
 
-      // if (!response.ok) {
-      //   const errorData = await response.json();
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setToken(data.access_token);
+        setUser(data.user);
 
-      //   return {
-      //     error: {
-      //       message: errorData.message || 'Login failed. Please try again.',
-      //     } as Error,
-      //   };
-      // }
-      if (!response.ok) {
-        return {
-          error: {
-            message: data.message || 'Login failed. Please try again.',
-          } as Error,
-        };
+        return { error: null };
       }
 
-      // const data = await response.json();
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user)); // Add this line
-      setToken(data.access_token);
-      setUser(data.user);
+      // If regular login fails, try teacher login
+      console.log('Regular login failed, trying teacher login...');
+      const teacherResponse = await fetch(`${API_URL}/auth/teachers/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-      return { error: null };
+      if (teacherResponse.ok) {
+        const data = await teacherResponse.json();
+        console.log('Teacher login response:', data);
+
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setToken(data.access_token);
+        setUser(data.user);
+
+        return { error: null };
+      }
+
+      // Both logins failed
+      const errorData = await teacherResponse.json();
+      return {
+        error: {
+          message: errorData.message || 'Invalid credentials',
+        } as Error,
+      };
+
     } catch (error: any) {
       return {
         error: {
-          message: 'Login failed. Please try again.',
+          message: error.message || 'Login failed. Please try again.',
         } as Error,
       };
     }
   };
-
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
       const response = await fetch(`${API_URL}/auth/register`, {

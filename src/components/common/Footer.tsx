@@ -8,12 +8,13 @@ const Footer: React.FC = () => {
                 <div className="grid md:grid-cols-4 gap-8">
                     <div className="md:col-span-2">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+                            {/* <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
                                 <BookOpen className="w-6 h-6 text-white" />
-                            </div>
+                            </div> */}
                             <div>
-                                <h4 className="text-lg font-bold">Parent Portal</h4>
-                                <p className="text-xs text-slate-400">Student Results System</p>
+                                <h4 className="text-lg font-bold">Eduspace Portal</h4>
+                                <p className="text-xs text-slate-400">Your window to academic success</p>
+                                {/* <p className="text-xs text-slate-400">Student Results System</p> */}
                             </div>
                         </div>
                         <p className="text-slate-400 text-sm max-w-md">
@@ -42,13 +43,13 @@ const Footer: React.FC = () => {
                             </li>
                             <li className="flex items-center gap-2">
                                 <Mail className="w-4 h-4" />
-                                <span>support@parentportal.edu</span>
+                                <span>support@eduspaceportal.edu</span>
                             </li>
                         </ul>
                     </div>
                 </div>
                 <div className="border-t border-slate-800 mt-8 pt-8 text-center text-slate-500 text-sm">
-                    <p>&copy; {new Date().getFullYear()} Parent Portal. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} Eduspace Portal. All rights reserved.</p>
                 </div>
             </div>
         </footer>

@@ -40,7 +40,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                 <input
                                     type="text"
-                                    placeholder="Enter Exam Number (e.g., 25-8001)"
+                                    placeholder="Enter Exam Number"
                                     value={examNumber}
                                     onChange={(e) => setExamNumber(e.target.value)}
                                     className="w-full pl-12 pr-4 py-4 rounded-xl border-0 shadow-lg text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-indigo-300 transition-all"

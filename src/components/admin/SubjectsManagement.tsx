@@ -12,6 +12,7 @@ interface SubjectsManagementProps {
     setNewSubjectName: (name: string) => void;
     handleAddSubject: (e: React.FormEvent) => Promise<void>;
     handleDeleteSubject: (subject: SubjectRecord) => Promise<void>;
+    isTeacherView?: boolean;
 }
 
 const SubjectsManagement: React.FC<SubjectsManagementProps> = ({
