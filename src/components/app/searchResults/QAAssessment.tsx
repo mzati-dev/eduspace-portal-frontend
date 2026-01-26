@@ -515,28 +515,12 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab }) =
                         {/* <span className="text-slate-400">•</span> */}
                         <Target className="w-4 h-4 text-slate-400 mx-2" />
                         <p className="text-slate-500">
-                            Total Scored: <span className="font-semibold text-emerald-600">
+                            Total Marks Scored: <span className="font-semibold text-emerald-600">
                                 {totalScored}/{subjectsWithScores.length * 100}
                             </span>
                         </p>
-                        {/* Total Enrollment */}
-                        <div className="flex items-center">
-                            <Users className="w-4 h-4 text-slate-400 mr-2" />
-                            <p className="text-slate-500">
-                                Enrollment: <span className="font-semibold text-slate-700">
-                                    {studentData.totalStudents || 'N/A'}
-                                </span>
-                            </p>
-                        </div>
-                        {/* Class Position */}
-                        <div className="flex items-center">
-                            <Award className="w-4 h-4 text-slate-400 mr-2" />
-                            <p className="text-slate-500">
-                                Position: <span className="font-semibold text-indigo-600">
-                                    {studentData.assessmentStats?.[assessmentType]?.classRank || 'N/A'}
-                                </span>
-                            </p>
-                        </div>
+
+
                     </div>
                 </div>
 

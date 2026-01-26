@@ -79,9 +79,15 @@ const StudentInfo: React.FC<StudentInfoProps> = ({ studentData }) => {
                             {hasAssessmentScores('qa1') ? (
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-xs text-slate-600">Rank:</span>
+                                        <span className="text-xs text-slate-600">Position:</span>
                                         <span className="text-sm font-bold text-indigo-800">
-                                            {studentData.assessmentStats.qa1.classRank}/{studentData.totalStudents}
+                                            {studentData.assessmentStats.qa1.classRank}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-600">Enrollment:</span>
+                                        <span className="text-sm font-bold text-indigo-800">
+                                            {studentData.totalStudents}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
@@ -121,9 +127,15 @@ const StudentInfo: React.FC<StudentInfoProps> = ({ studentData }) => {
                             {hasAssessmentScores('qa2') ? (
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-xs text-slate-600">Rank:</span>
+                                        <span className="text-xs text-slate-600">Position:</span>
                                         <span className="text-sm font-bold text-emerald-800">
-                                            {studentData.assessmentStats.qa2.classRank}/{studentData.totalStudents}
+                                            {studentData.assessmentStats.qa2.classRank}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-600">Enrollment:</span>
+                                        <span className="text-sm font-bold text-emerald-800">
+                                            {studentData.totalStudents}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
@@ -163,9 +175,15 @@ const StudentInfo: React.FC<StudentInfoProps> = ({ studentData }) => {
                             {hasAssessmentScores('endOfTerm') ? (
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-xs text-slate-600">Rank:</span>
+                                        <span className="text-xs text-slate-600">Position:</span>
                                         <span className="text-sm font-bold text-amber-800">
-                                            {studentData.assessmentStats.endOfTerm.classRank}/{studentData.totalStudents}
+                                            {studentData.assessmentStats.endOfTerm.classRank}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-600">Enrollment:</span>
+                                        <span className="text-sm font-bold text-amber-800">
+                                            {studentData.totalStudents}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
