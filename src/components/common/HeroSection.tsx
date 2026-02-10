@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, ChevronRight } from 'lucide-react';
+import { Search, ChevronRight, AlertCircle } from 'lucide-react';
 
 interface HeroSectionProps {
     examNumber: string;
@@ -40,7 +40,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                 <input
                                     type="text"
-                                    placeholder="Enter Exam Number"
+                                    placeholder="(e.g. 6cf-26-0101)"
                                     value={examNumber}
                                     onChange={(e) => setExamNumber(e.target.value)}
                                     className="w-full pl-12 pr-4 py-4 rounded-xl border-0 shadow-lg text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-indigo-300 transition-all"
@@ -63,6 +63,21 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                                     </>
                                 )}
                             </button>
+                        </div>
+                        {/* --- INSTRUCTION MESSAGE --- */}
+                        <div className="mt-4 flex items-center justify-center gap-2 text-amber-300 bg-white/10 backdrop-blur-sm py-2 px-4 rounded-lg border border-white/10 inline-flex">
+                            <AlertCircle className="w-5 h-5 shrink-0" />
+                            <p className="text-sm font-medium text-left">
+                                Use <strong>dashes ( - )</strong>, not underscores ( _ ) when entering exam number.
+                                <br className="sm:hidden" />
+                                <span className="opacity-90 ml-1">
+                                    Example: <strong>6cf-26-0101</strong>{" "}
+                                    <span className="block sm:inline text-red-500 font-semibold sm:ml-2">
+                                        NOT 6cf_26_0101
+                                    </span>
+                                </span>
+
+                            </p>
                         </div>
                     </form>
                 </div>

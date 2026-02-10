@@ -14,55 +14,65 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin }) => {
     };
 
     return (
-        <header className="bg-white shadow-sm border-b border-slate-200">
-            <div className="max-w-7xl mx-auto pl-0 pr-4 sm:pr-6 lg:pr-8 py-4">
-                <div className="flex items-center justify-between">
+        <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+                <div className="flex items-center justify-between gap-2">
 
-                    {/* LEFT SIDE: Logo & Pilot Message */}
-                    <div className="flex items-center gap-3">
-                        <img src="/eduspace-logo.png" alt="Eduspace Portal" className="w-20 h-20" />
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight flex flex-wrap items-center gap-2">
-                                <span>
+                    {/* LEFT SIDE: Logo & Text Group */}
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <img
+                            src="/eduspace-logo.png"
+                            alt="Eduspace Portal"
+                            className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 object-contain"
+                        />
+
+                        <div className="flex flex-col justify-center min-w-0">
+                            {/* 1. Main Title */}
+                            <div className="flex items-baseline gap-1">
+                                <h1 className="text-lg sm:text-2xl font-bold tracking-tight leading-tight whitespace-nowrap">
                                     <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
                                         EduSpace
                                     </span>
                                     <span className="text-orange-400"> Portal</span>
-                                </span>
+                                </h1>
+                            </div>
 
-                                {/* --- PILOT MESSAGE ADDED HERE --- */}
-                                <span className="text-xs sm:text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full whitespace-nowrap">
-                                    (Piloted at Progress Private Primary School)
-                                </span>
-                                {/* -------------------------------- */}
-                            </h1>
-                            <p className="text-sm text-gray-600 font-light">
+                            {/* 2. Pilot Message */}
+                            <p className="mt-0.5 text-[10px] sm:text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-lg w-fit leading-snug">
+                                (Piloted at Progress Private Primary School)
+                            </p>
+
+                            {/* 3. Tagline (NO TRUNCATION - SHOWS FULL TEXT) */}
+                            <p className="block text-[10px] sm:text-sm text-gray-500 font-light mt-0.5 whitespace-nowrap">
                                 A window to your child's academic success
                             </p>
                         </div>
                     </div>
 
                     {/* RIGHT SIDE: Buttons */}
-                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* Login Button */}
                         <button
                             onClick={handleLogin}
-                            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-indigo-100 shadow-sm hover:shadow-md hover:border-indigo-300 hover:bg-indigo-50/80 transition-all duration-300"
+                            className="group flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-white border border-indigo-100 shadow-sm hover:shadow-md hover:border-indigo-300 hover:bg-indigo-50/80 transition-all duration-300"
                         >
-                            <span className="font-bold text-sm bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+                            <span className="font-bold text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
                                 Login
                             </span>
                             <LogIn className="w-4 h-4 text-indigo-500 group-hover:text-indigo-700 group-hover:translate-x-0.5 transition-all duration-300" />
                         </button>
 
+                        {/* Contact Button */}
                         <a
                             href="#contact"
-                            className="relative group hidden sm:inline-flex items-center gap-2 px-6 py-2.5 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:-translate-y-0.5"
+                            className="relative group flex items-center justify-center p-2 sm:px-6 sm:py-2.5 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:-translate-y-0.5"
                         >
                             <div className="absolute inset-0 w-[200%] h-full bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 animate-gradient-xy" />
                             <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[1px]" />
+
                             <div className="relative flex items-center gap-2 text-white font-medium tracking-wide text-sm">
                                 <MessageSquare className="w-4 h-4 fill-white/20" />
-                                <span>Get in Touch</span>
+                                <span className="hidden sm:inline">Get in Touch</span>
                             </div>
                         </a>
                     </div>
