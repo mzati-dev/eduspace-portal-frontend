@@ -468,84 +468,206 @@ const ReportCard: React.FC<ReportCardProps> = ({
             y = (doc as any).lastAutoTable.finalY + 8; // update y for next section
 
 
+            // // ===== PERFORMANCE ANALYSIS =====
+
+            // // 🔴 ADDED
+            // doc.setFont('helvetica', 'bold');
+            // doc.text('PERFORMANCE ANALYSIS', 14, y);
+            // y += 4;
+            // doc.setFont('helvetica', 'normal');
+
+            // const bestSubject = studentData.subjects.reduce((best, cur) =>
+            //     calculateSubjectAverage(cur) > calculateSubjectAverage(best) ? cur : best
+            // );
+
+
+
+            // const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+            // // Get subjects with grades C, D, or F
+            // const weakSubjects = studentData.subjects.filter(subject => {
+            //     const subjectAverage = calculateSubjectAverage(subject);
+            //     const grade = calculateGrade(subjectAverage, passMark);
+            //     return ['D', 'F'].includes(grade);
+            // });
+
+            // const weakestSubject =
+            //     weakSubjects.length > 0
+            //         ? weakSubjects.reduce((w, c) =>
+            //             calculateSubjectAverage(c) < calculateSubjectAverage(w) ? c : w
+            //         )
+            //         : null;
+
+            // doc.text(`Strongest Subject: ${bestSubject.name}`, 14, y);
+            // doc.text(
+            //     `Score: ${Math.round(calculateSubjectAverage(bestSubject))}%`,
+            //     14,
+            //     y + 6
+            // );
+
+
+
+            // doc.text(
+            //     `Needs Improvement: ${weakestSubject ? weakestSubject.name : 'None'}`,
+            //     120,
+            //     y
+            // );
+
+            // doc.text(
+            //     weakestSubject
+            //         ? `Score: ${Math.round(
+            //             calculateSubjectAverage(weakestSubject)
+            //         )}%`
+            //         : '',
+            //     120,
+            //     y + 6
+            // );
+
+            // y += 14;
+
+            // const subjectsPassed = studentData.subjects.filter(
+            //     s => getSubjectGrade(s) && getSubjectGrade(s) !== 'F'
+            // ).length;
+
+            // const abGrades = studentData.subjects.filter(s =>
+            //     ['A', 'B'].includes(getSubjectGrade(s))
+            // ).length;
+
+            // const cdGrades = studentData.subjects.filter(s =>
+            //     ['C', 'D'].includes(getSubjectGrade(s))
+            // ).length;
+
+            // const belowPass = studentData.subjects.filter(
+            //     s => calculateSubjectAverage(s) < passMark
+            // ).length;
+
+            // doc.text(`Subjects Passed: ${subjectsPassed}/${studentData.subjects.length}`, 14, y);
+            // doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);
+            // doc.text(`C & D Grades: ${cdGrades}`, 14, y + 12);
+            // doc.text(`Subjects Below ${passMark}% Pass Mark : ${belowPass}`, 14, y + 18);
+
+            // y += 28;
+
             // ===== PERFORMANCE ANALYSIS =====
+            if (studentData.subjects.length > 0) {
+                doc.setFont('helvetica', 'bold');
+                doc.text('PERFORMANCE ANALYSIS', 14, y);
+                y += 4;
+                doc.setFont('helvetica', 'normal');
 
-            // 🔴 ADDED
-            doc.setFont('helvetica', 'bold');
-            doc.text('PERFORMANCE ANALYSIS', 14, y);
-            y += 4;
-            doc.setFont('helvetica', 'normal');
+                // 1. Pre-calculate scores and grades
+                const subjectsWithStats = studentData.subjects.map(s => ({
+                    name: s.name,
+                    score: calculateSubjectAverage(s),
+                    grade: getSubjectGrade(s)
+                }));
 
-            const bestSubject = studentData.subjects.reduce((best, cur) =>
-                calculateSubjectAverage(cur) > calculateSubjectAverage(best) ? cur : best
-            );
+                // 2. Strongest Subject Logic (Handles ties) - MATCHES ORIGINAL
+                const scores = subjectsWithStats.map(s => s.score);
+                const highestScore = Math.max(...scores);
+                const strongestSubjects = subjectsWithStats.filter(s => s.score === highestScore);
+                const strongestNames = strongestSubjects.map(s => s.name).join(', ');
 
+                // 3. Needs Improvement Logic (Lists all D and F with grades) - MATCHES ORIGINAL
+                const needsImprovement = subjectsWithStats.filter(s => ['D', 'F'].includes(s.grade));
+                const improvementNames = needsImprovement.length > 0
+                    ? needsImprovement.map(s => `${s.name} (${s.grade})`).join(', ')
+                    : 'None';
 
+                // --- Render Best Subjects (Left) - MATCHES ORIGINAL FORMAT ---
+                const strongLabel = `Best Subject${strongestSubjects.length > 1 ? 's' : ''}: `;
+                const strongLines = doc.splitTextToSize(`${strongLabel}${strongestNames}`, 95);
+                doc.text(strongLines, 14, y);
+                doc.text(`Score: ${Math.round(highestScore)}%`, 14, y + (strongLines.length * 5));
 
-            const passMark = studentData.gradeConfiguration?.pass_mark || 50;
-            // Get subjects with grades C, D, or F
-            const weakSubjects = studentData.subjects.filter(subject => {
-                const subjectAverage = calculateSubjectAverage(subject);
-                const grade = calculateGrade(subjectAverage, passMark);
-                return ['C', 'D', 'F'].includes(grade);
-            });
+                // --- Render Needs Improvement (Right) - MATCHES ORIGINAL FORMAT ---
+                const improvementLabel = `Needs Improvement: `;
+                const improvementLines = doc.splitTextToSize(`${improvementLabel}${improvementNames}`, 75);
+                doc.text(improvementLines, 120, y);
 
-            const weakestSubject =
-                weakSubjects.length > 0
-                    ? weakSubjects.reduce((w, c) =>
-                        calculateSubjectAverage(c) < calculateSubjectAverage(w) ? c : w
-                    )
-                    : null;
+                // If there are failures, show total flagged, otherwise show success message - MATCHES ORIGINAL
+                if (needsImprovement.length > 0) {
+                    doc.setFontSize(8);
+                    doc.text(`Total flagged: ${needsImprovement.length}`, 120, y + (improvementLines.length * 5) + 1);
+                    doc.setFontSize(10);
+                } else {
+                    doc.text(`All subjects are currently satisfactory`, 120, y + 5);
+                }
 
-            doc.text(`Strongest Subject: ${bestSubject.name}`, 14, y);
-            doc.text(
-                `Score: ${Math.round(calculateSubjectAverage(bestSubject))}%`,
-                14,
-                y + 6
-            );
+                // Move Y down based on whichever column was longer
+                y += Math.max(strongLines.length * 5 + 10, improvementLines.length * 5 + 10);
 
+                // --- Performance Stats - MATCHES ORIGINAL CALCULATIONS ---
+                const passMark = studentData.gradeConfiguration?.pass_mark || 50;
 
+                const subjectsPassed = subjectsWithStats.filter(s => s.grade !== 'F').length;
+                const abGrades = subjectsWithStats.filter(s => ['A', 'B'].includes(s.grade)).length;
+                const cdGrades = subjectsWithStats.filter(s => ['C', 'D'].includes(s.grade)).length;
+                const belowPass = subjectsWithStats.filter(s => s.score < passMark).length;
 
-            doc.text(
-                `Lowest Subject: ${weakestSubject ? weakestSubject.name : 'None'}`,
-                120,
-                y
-            );
+                doc.text(`Subjects Passed: ${subjectsPassed}/${subjectsWithStats.length}`, 14, y);
+                doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);
+                doc.text(`C & D Grades: ${cdGrades}`, 14, y + 12);
+                doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 18);
 
-            doc.text(
-                weakestSubject
-                    ? `Score: ${Math.round(
-                        calculateSubjectAverage(weakestSubject)
-                    )}%`
-                    : '',
-                120,
-                y + 6
-            );
+                y += 28;
+            }
 
-            y += 14;
+            // // ===== PERFORMANCE ANALYSIS =====
+            // doc.setFont('helvetica', 'bold');
+            // doc.text('PERFORMANCE ANALYSIS', 14, y);
+            // y += 4;
+            // doc.setFont('helvetica', 'normal');
 
-            const subjectsPassed = studentData.subjects.filter(
-                s => getSubjectGrade(s) && getSubjectGrade(s) !== 'F'
-            ).length;
+            // // 1. Pre-calculate scores and grades
+            // const subjectsWithStats = studentData.subjects.map(s => ({
+            //     name: s.name,
+            //     score: calculateSubjectAverage(s),
+            //     grade: getSubjectGrade(s)
+            // }));
 
-            const abGrades = studentData.subjects.filter(s =>
-                ['A', 'B'].includes(getSubjectGrade(s))
-            ).length;
+            // // 2. Strongest Subject Logic (Handles ties)
+            // const highestScore = Math.max(...subjectsWithStats.map(s => s.score));
+            // const strongestSubjects = subjectsWithStats.filter(s => s.score === highestScore);
+            // const strongestNames = strongestSubjects.map(s => s.name).join(', ');
 
-            const cdGrades = studentData.subjects.filter(s =>
-                ['C', 'D'].includes(getSubjectGrade(s))
-            ).length;
+            // // 3. Needs Improvement Logic (Lists all D and F)
+            // const improvementSubjects = subjectsWithStats.filter(s => ['D', 'F'].includes(s.grade));
+            // const improvementNames = improvementSubjects.length > 0
+            //     ? improvementSubjects.map(s => `${s.name} (${s.grade})`).join(', ')
+            //     : 'None';
 
-            const belowPass = studentData.subjects.filter(
-                s => calculateSubjectAverage(s) < passMark
-            ).length;
+            // // --- Draw Strongest Subjects (Left Column) ---
+            // const strongLabel = `Strongest Subject${strongestSubjects.length > 1 ? 's' : ''}: `;
+            // const strongLines = doc.splitTextToSize(`${strongLabel}${strongestNames}`, 95);
+            // doc.text(strongLines, 14, y);
+            // doc.text(`Score: ${Math.round(highestScore)}%`, 14, y + (strongLines.length * 5));
 
-            doc.text(`Subjects Passed: ${subjectsPassed}/${studentData.subjects.length}`, 14, y);
-            doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);
-            doc.text(`C & D Grades: ${cdGrades}`, 14, y + 12);
-            doc.text(`Subjects Below ${passMark}% Pass Mark : ${belowPass}`, 14, y + 18);
+            // // --- Draw Needs Improvement (Right Column) ---
+            // const improvementLabel = `Needs Improvement: `;
+            // const improvementLines = doc.splitTextToSize(`${improvementLabel}${improvementNames}`, 75);
+            // doc.text(improvementLines, 120, y);
+            // if (improvementSubjects.length > 0) {
+            //     doc.text(`Grade(s): ${improvementSubjects.map(s => s.grade).join(', ')}`, 120, y + (improvementLines.length * 5));
+            // } else {
+            //     doc.text(`All subjects passed C or above`, 120, y + 5);
+            // }
 
-            y += 28;
+            // // Adjust Y based on which column was taller
+            // y += Math.max(strongLines.length * 5 + 10, improvementLines.length * 5 + 10);
+
+            // // --- Grade Distribution Summary ---
+            // const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+            // const subjectsPassed = subjectsWithStats.filter(s => s.grade !== 'F').length;
+            // const abGrades = subjectsWithStats.filter(s => ['A', 'B'].includes(s.grade)).length;
+            // const cdGrades = subjectsWithStats.filter(s => ['C', 'D'].includes(s.grade)).length;
+            // const belowPass = subjectsWithStats.filter(s => s.score < passMark).length;
+
+            // doc.text(`Subjects Passed: ${subjectsPassed}/${studentData.subjects.length}`, 14, y);
+            // doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);
+            // doc.text(`C & D Grades: ${cdGrades}`, 14, y + 12);
+            // doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 18);
+
+            // y += 28;
 
             // ===== TEACHER REMARK =====
 
@@ -897,91 +1019,68 @@ const ReportCard: React.FC<ReportCardProps> = ({
                 </h5>
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
+                        {/* Strongest Subject(s) - ALL subjects with highest score */}
                         <div className="bg-white p-3 rounded-lg">
-                            <p className="text-sm text-slate-500">Strongest Subject</p>
+                            <p className="text-sm text-slate-500">Strongest Subject{studentData.subjects.filter(s => {
+                                const scores = studentData.subjects.map(calculateSubjectAverage);
+                                const highestScore = Math.max(...scores);
+                                return calculateSubjectAverage(s) === highestScore;
+                            }).length > 1 ? 's' : ''}</p>
                             <p className="font-bold text-emerald-700">
                                 {(() => {
-                                    const bestSubject = studentData.subjects.reduce((best, current) => {
-                                        const currentAvg = calculateSubjectAverage(current);
-                                        const bestAvg = calculateSubjectAverage(best);
-                                        return currentAvg > bestAvg ? current : best;
-                                    });
-                                    return bestSubject.name;
+                                    const scores = studentData.subjects.map(calculateSubjectAverage);
+                                    const highestScore = Math.max(...scores);
+                                    const strongestSubjects = studentData.subjects.filter(
+                                        s => calculateSubjectAverage(s) === highestScore
+                                    );
+                                    return strongestSubjects.map(s => s.name).join(', ');
                                 })()}
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
-                                Score: {Math.round(calculateSubjectAverage(studentData.subjects.reduce((best, current) => {
-                                    const currentAvg = calculateSubjectAverage(current);
-                                    const bestAvg = calculateSubjectAverage(best);
-                                    return currentAvg > bestAvg ? current : best;
-                                })))}%
+                                Score: {Math.round(Math.max(...studentData.subjects.map(calculateSubjectAverage)))}%
                             </p>
                         </div>
-                        {/* <div className="bg-white p-3 rounded-lg">
+
+                        {/* Needs Improvement - ALL subjects with D or F grades */}
+                        <div className="bg-white p-3 rounded-lg">
                             <p className="text-sm text-slate-500">Needs Improvement</p>
                             <p className="font-bold text-amber-700">
                                 {(() => {
-                                    const weakSubject = studentData.subjects.reduce((weak, current) => {
-                                        const currentAvg = calculateSubjectAverage(current);
-                                        const weakAvg = calculateSubjectAverage(weak);
-                                        return currentAvg < weakAvg ? current : weak;
-                                    });
-                                    return weakSubject.name;
-                                })()}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-1">
-                                Score: {Math.round(calculateSubjectAverage(studentData.subjects.reduce((weak, current) => {
-                                    const currentAvg = calculateSubjectAverage(current);
-                                    const weakAvg = calculateSubjectAverage(weak);
-                                    return currentAvg < weakAvg ? current : weak;
-                                })))}%
-                            </p>
-                        </div> */}
-
-                        <div className="bg-white p-3 rounded-lg">
-                            <p className="text-sm text-slate-500">Lowest Subject</p>
-                            <p className="font-bold text-amber-700">
-                                {(() => {
-
                                     const weakSubjects = studentData.subjects.filter(subject => {
                                         const grade = getSubjectGrade(subject);
-                                        return ['C', 'D', 'F'].includes(grade);
+                                        return ['D', 'F'].includes(grade);
                                     });
 
                                     if (weakSubjects.length === 0) {
                                         return "None";
                                     }
 
-                                    const weakestSubject = weakSubjects.reduce((weakest, current) => {
-                                        const currentAvg = calculateSubjectAverage(current);
-                                        const weakestAvg = calculateSubjectAverage(weakest);
-                                        return currentAvg < weakestAvg ? current : weakest;
-                                    });
-
-                                    return weakestSubject.name;
+                                    // Show all subjects with D/F grades, not just the weakest
+                                    return weakSubjects
+                                        .map(s => `${s.name} (${getSubjectGrade(s)})`)
+                                        .join(', ');
                                 })()}
                             </p>
-                            <p className="text-xs text-slate-500 mt-1">
-                                {(() => {
-                                    const weakSubjects = studentData.subjects.filter(subject => {
-                                        const grade = getSubjectGrade(subject);
-                                        return ['C', 'D', 'F'].includes(grade);
-                                    });
+                            {(() => {
+                                const weakSubjects = studentData.subjects.filter(subject => {
+                                    const grade = getSubjectGrade(subject);
+                                    return ['D', 'F'].includes(grade);
+                                });
 
-
-                                    if (weakSubjects.length === 0) {
-                                        return "";
-                                    }
-
-                                    const weakestSubject = weakSubjects.reduce((weakest, current) => {
-                                        const currentAvg = calculateSubjectAverage(current);
-                                        const weakestAvg = calculateSubjectAverage(weakest);
-                                        return currentAvg < weakestAvg ? current : weakest;
-                                    });
-
-                                    return `Score: ${Math.round(calculateSubjectAverage(weakestSubject))}%`;
-                                })()}
-                            </p>
+                                if (weakSubjects.length > 0) {
+                                    return (
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Total flagged: {weakSubjects.length}
+                                        </p>
+                                    );
+                                } else {
+                                    return (
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            All subjects are currently satisfactory
+                                        </p>
+                                    );
+                                }
+                            })()}
                         </div>
                     </div>
 

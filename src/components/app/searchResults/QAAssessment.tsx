@@ -344,6 +344,74 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab }) =
                 y += 10;
             }
 
+            // // ===== PERFORMANCE ANALYSIS =====
+            // if (subjectsWithValidScores.length > 0) {
+            //     doc.setFont('helvetica', 'bold');
+            //     doc.text('PERFORMANCE ANALYSIS', 14, y);
+            //     y += 4;
+            //     doc.setFont('helvetica', 'normal');
+
+            //     // Best subject
+            //     const bestSubject = subjectsWithValidScores.reduce((best, cur) =>
+            //         cur[assessmentType]! > best[assessmentType]! ? cur : best
+            //     );
+
+            //     // Weak subjects (C, D, F grades)
+            //     const weakSubjects = subjectsWithValidScores.filter(subject => {
+            //         const grade = calculateGrade(subject[assessmentType]!, passMark);
+            //         return ['C', 'D', 'F'].includes(grade);
+            //     });
+
+            //     const weakestSubject = weakSubjects.length > 0
+            //         ? weakSubjects.reduce((w, c) =>
+            //             c[assessmentType]! < w[assessmentType]! ? c : w
+            //         )
+            //         : null;
+
+            //     doc.text(`Best Subject: ${bestSubject.name}`, 14, y);
+            //     doc.text(`Score: ${bestSubject[assessmentType]}%`, 14, y + 6);
+
+            //     doc.text(
+            //         `Lowest Subject: ${weakestSubject ? weakestSubject.name : 'None'}`,
+            //         120,
+            //         y
+            //     );
+
+            //     if (weakestSubject) {
+            //         doc.text(
+            //             `Score: ${weakestSubject[assessmentType]}%`,
+            //             120,
+            //             y + 6
+            //         );
+            //     }
+
+            //     y += 14;
+
+            //     // Performance stats
+            //     const subjectsPassed = subjectsWithValidScores.filter(
+            //         s => calculateGrade(s[assessmentType]!, passMark) !== 'F'
+            //     ).length;
+
+            //     const abGrades = subjectsWithValidScores.filter(s =>
+            //         ['A', 'B'].includes(calculateGrade(s[assessmentType]!, passMark))
+            //     ).length;
+
+            //     const cdGrades = subjectsWithValidScores.filter(s =>
+            //         ['C', 'D'].includes(calculateGrade(s[assessmentType]!, passMark))
+            //     ).length;
+
+            //     const belowPass = subjectsWithValidScores.filter(
+            //         s => s[assessmentType]! < passMark
+            //     ).length;
+
+            //     doc.text(`Subjects Passed: ${subjectsPassed}/${subjectsWithValidScores.length}`, 14, y);
+            //     doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);
+            //     doc.text(`C & D Grades: ${cdGrades}`, 14, y + 12);
+            //     doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 18);
+
+            //     y += 28;
+            // }
+
             // ===== PERFORMANCE ANALYSIS =====
             if (subjectsWithValidScores.length > 0) {
                 doc.setFont('helvetica', 'bold');
@@ -351,58 +419,56 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab }) =
                 y += 4;
                 doc.setFont('helvetica', 'normal');
 
-                // Best subject
-                const bestSubject = subjectsWithValidScores.reduce((best, cur) =>
-                    cur[assessmentType]! > best[assessmentType]! ? cur : best
-                );
+                // 1. Find Highest Score and ALL subjects that have it
+                const scores = subjectsWithValidScores.map(s => s[assessmentType]);
+                const highestScore = Math.max(...scores);
+                const strongestSubjects = subjectsWithValidScores.filter(s => s[assessmentType] === highestScore);
+                const strongestNames = strongestSubjects.map(s => s.name).join(', ');
 
-                // Weak subjects (C, D, F grades)
-                const weakSubjects = subjectsWithValidScores.filter(subject => {
-                    const grade = calculateGrade(subject[assessmentType]!, passMark);
-                    return ['C', 'D', 'F'].includes(grade);
+                // 2. Find ALL subjects with D or F grades
+                const needsImprovement = subjectsWithValidScores.filter(s => {
+                    const grade = calculateGrade(s[assessmentType], passMark);
+                    return ['D', 'F'].includes(grade);
                 });
 
-                const weakestSubject = weakSubjects.length > 0
-                    ? weakSubjects.reduce((w, c) =>
-                        c[assessmentType]! < w[assessmentType]! ? c : w
-                    )
-                    : null;
+                // Create a string like "Maths (D), Science (F)"
+                const improvementNames = needsImprovement.length > 0
+                    ? needsImprovement.map(s => `${s.name} (${calculateGrade(s[assessmentType], passMark)})`).join(', ')
+                    : 'None';
 
-                doc.text(`Best Subject: ${bestSubject.name}`, 14, y);
-                doc.text(`Score: ${bestSubject[assessmentType]}%`, 14, y + 6);
+                // --- Render Best Subjects (Left) ---
+                const strongLabel = `Best Subject${strongestSubjects.length > 1 ? 's' : ''}: `;
+                const strongLines = doc.splitTextToSize(`${strongLabel}${strongestNames}`, 95);
+                doc.text(strongLines, 14, y);
+                doc.text(`Score: ${Math.round(highestScore)}%`, 14, y + (strongLines.length * 5));
 
-                doc.text(
-                    `Lowest Subject: ${weakestSubject ? weakestSubject.name : 'None'}`,
-                    120,
-                    y
-                );
+                // --- Render Needs Improvement (Right) ---
+                const improvementLabel = `Needs Improvement: `;
+                const improvementLines = doc.splitTextToSize(`${improvementLabel}${improvementNames}`, 75);
+                doc.text(improvementLines, 120, y);
 
-                if (weakestSubject) {
-                    doc.text(
-                        `Score: ${weakestSubject[assessmentType]}%`,
-                        120,
-                        y + 6
-                    );
+                // If there are failures, show a sub-message, otherwise show a success message
+                if (needsImprovement.length > 0) {
+                    doc.setFontSize(8);
+                    doc.text(`Total flagged: ${needsImprovement.length}`, 120, y + (improvementLines.length * 5) + 1);
+                    doc.setFontSize(10);
+                } else {
+                    doc.text(`All subjects are currently satisfactory`, 120, y + 5);
                 }
 
-                y += 14;
+                // Move Y down based on whichever column was longer
+                y += Math.max(strongLines.length * 5 + 10, improvementLines.length * 5 + 10);
 
-                // Performance stats
-                const subjectsPassed = subjectsWithValidScores.filter(
-                    s => calculateGrade(s[assessmentType]!, passMark) !== 'F'
-                ).length;
+                // --- Performance Stats ---
+                const stats = subjectsWithValidScores.map(s => ({
+                    score: s[assessmentType],
+                    grade: calculateGrade(s[assessmentType], passMark)
+                }));
 
-                const abGrades = subjectsWithValidScores.filter(s =>
-                    ['A', 'B'].includes(calculateGrade(s[assessmentType]!, passMark))
-                ).length;
-
-                const cdGrades = subjectsWithValidScores.filter(s =>
-                    ['C', 'D'].includes(calculateGrade(s[assessmentType]!, passMark))
-                ).length;
-
-                const belowPass = subjectsWithValidScores.filter(
-                    s => s[assessmentType]! < passMark
-                ).length;
+                const subjectsPassed = stats.filter(s => s.grade !== 'F').length;
+                const abGrades = stats.filter(s => ['A', 'B'].includes(s.grade)).length;
+                const cdGrades = stats.filter(s => ['C', 'D'].includes(s.grade)).length;
+                const belowPass = stats.filter(s => s.score < passMark).length;
 
                 doc.text(`Subjects Passed: ${subjectsPassed}/${subjectsWithValidScores.length}`, 14, y);
                 doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);

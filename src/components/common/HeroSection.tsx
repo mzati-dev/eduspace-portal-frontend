@@ -40,7 +40,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                 <input
                                     type="text"
-                                    placeholder="(e.g. 6cf-26-0101)"
+                                    placeholder="Enter Exam Number here..."
                                     value={examNumber}
                                     onChange={(e) => setExamNumber(e.target.value)}
                                     className="w-full pl-12 pr-4 py-4 rounded-xl border-0 shadow-lg text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-indigo-300 transition-all"
@@ -64,21 +64,17 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                                 )}
                             </button>
                         </div>
-                        {/* --- INSTRUCTION MESSAGE --- */}
-                        <div className="mt-4 flex items-center justify-center gap-2 text-amber-300 bg-white/10 backdrop-blur-sm py-2 px-4 rounded-lg border border-white/10 inline-flex">
-                            <AlertCircle className="w-5 h-5 shrink-0" />
-                            <p className="text-sm font-medium text-left">
-                                Use <strong>dashes ( - )</strong>, not underscores ( _ ) when entering exam number.
-                                <br className="sm:hidden" />
-                                <span className="opacity-90 ml-1">
-                                    Example: <strong>6cf-26-0101</strong>{" "}
-                                    <span className="block sm:inline text-red-500 font-semibold sm:ml-2">
-                                        NOT 6cf_26_0101
-                                    </span>
-                                </span>
 
+                        {/* --- INSTRUCTION MESSAGE - DIRECTLY BELOW INPUT --- */}
+                        <div className="mt-3 flex items-start justify-start gap-1.5 text-sm">
+                            <AlertCircle className="w-4 h-4 shrink-0 text-amber-300 mt-0.5" />
+                            <p className="text-indigo-100">
+                                <span className="font-semibold">Use dashes (-)</span>, not underscores.
+                                Example: <span className="font-mono font-bold bg-indigo-800/50 px-1.5 py-0.5 rounded">6cf-26-0101</span>
+                                {' '}(not <span className="font-mono">6cf_26_0101</span>)
                             </p>
                         </div>
+
                     </form>
                 </div>
             </div>

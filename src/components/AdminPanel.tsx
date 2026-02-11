@@ -1,3 +1,97 @@
+{/* <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white p-3 rounded-lg">
+                            <p className="text-sm text-slate-500">Strongest Subject</p>
+                            <p className="font-bold text-emerald-700">
+                                {(() => {
+                                    const bestSubject = studentData.subjects.reduce((best, current) => {
+                                        const currentAvg = calculateSubjectAverage(current);
+                                        const bestAvg = calculateSubjectAverage(best);
+                                        return currentAvg > bestAvg ? current : best;
+                                    });
+                                    return bestSubject.name;
+                                })()}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1">
+                                Score: {Math.round(calculateSubjectAverage(studentData.subjects.reduce((best, current) => {
+                                    const currentAvg = calculateSubjectAverage(current);
+                                    const bestAvg = calculateSubjectAverage(best);
+                                    return currentAvg > bestAvg ? current : best;
+                                })))}%
+                            </p>
+                        </div>
+                        {/* <div className="bg-white p-3 rounded-lg">
+                            <p className="text-sm text-slate-500">Needs Improvement</p>
+                            <p className="font-bold text-amber-700">
+                                {(() => {
+                                    const weakSubject = studentData.subjects.reduce((weak, current) => {
+                                        const currentAvg = calculateSubjectAverage(current);
+                                        const weakAvg = calculateSubjectAverage(weak);
+                                        return currentAvg < weakAvg ? current : weak;
+                                    });
+                                    return weakSubject.name;
+                                })()}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1">
+                                Score: {Math.round(calculateSubjectAverage(studentData.subjects.reduce((weak, current) => {
+                                    const currentAvg = calculateSubjectAverage(current);
+                                    const weakAvg = calculateSubjectAverage(weak);
+                                    return currentAvg < weakAvg ? current : weak;
+                                })))}%
+                            </p>
+                        </div> */}
+
+//     <div className="bg-white p-3 rounded-lg">
+//         <p className="text-sm text-slate-500">Needs Improvement</p>
+//         <p className="font-bold text-amber-700">
+//             {(() => {
+
+//                 const weakSubjects = studentData.subjects.filter(subject => {
+//                     const grade = getSubjectGrade(subject);
+//                     return ['D', 'F'].includes(grade);
+//                 });
+
+//                 if (weakSubjects.length === 0) {
+//                     return "None";
+//                 }
+
+//                 const weakestSubject = weakSubjects.reduce((weakest, current) => {
+//                     const currentAvg = calculateSubjectAverage(current);
+//                     const weakestAvg = calculateSubjectAverage(weakest);
+//                     return currentAvg < weakestAvg ? current : weakest;
+//                 });
+
+//                 return weakestSubject.name;
+//             })()}
+//         </p>
+//         <p className="text-xs text-slate-500 mt-1">
+//             {(() => {
+//                 const weakSubjects = studentData.subjects.filter(subject => {
+//                     const grade = getSubjectGrade(subject);
+//                     return ['C', 'D', 'F'].includes(grade);
+//                 });
+
+
+//                 if (weakSubjects.length === 0) {
+//                     return "";
+//                 }
+
+//                 const weakestSubject = weakSubjects.reduce((weakest, current) => {
+//                     const currentAvg = calculateSubjectAverage(current);
+//                     const weakestAvg = calculateSubjectAverage(weakest);
+//                     return currentAvg < weakestAvg ? current : weakest;
+//                 });
+
+//                 return `Score: ${Math.round(calculateSubjectAverage(weakestSubject))}%`;
+//             })()}
+//         </p>
+//     </div>
+// </div>
+
+
+
+
+
+
 // import React, { useState, useEffect } from 'react';
 // import {
 //   ArrowLeft, Users, BookOpen, FileText, Plus, Edit2, Trash2, Save, X,
@@ -2235,4 +2329,4 @@
 //   );
 // };
 
-// export default AdminPanel;
+// export default AdminPanel; */}

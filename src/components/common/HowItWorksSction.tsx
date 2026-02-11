@@ -1,3 +1,4 @@
+import { AlertCircle } from 'lucide-react';
 import React from 'react';
 
 const HowItWorksSection: React.FC = () => {
@@ -13,6 +14,8 @@ const HowItWorksSection: React.FC = () => {
                         <div className="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold">1</div>
                         <h4 className="text-lg font-semibold text-slate-800 mb-2">Enter Exam Number</h4>
                         <p className="text-slate-500">Type your child's unique exam number in the search box above.</p>
+
+
                     </div>
                     <div className="text-center">
                         <div className="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold">2</div>
