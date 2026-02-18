@@ -326,7 +326,8 @@ export const fetchStudentReportCard = async (id: string, term: string) => {
   return res.json();
 };
 
-export const calculateGrade = (score: number, passMark: number = 50) => {
+export const calculateGrade = (score: number, passMark: number = 50,  isAbsent?: boolean) => {
+  if (isAbsent) return 'AB';
   if (score >= 80) return 'A';
   if (score >= 70) return 'B';
   if (score >= 60) return 'C';

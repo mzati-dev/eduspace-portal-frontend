@@ -16,9 +16,12 @@ export interface Student {
 export interface Assessment {
     subject_id: string;
     subject_name: string;
-    qa1: number;
-    qa2: number;
-    end_of_term: number;
+    qa1: number | null;
+    qa2: number | null;
+    end_of_term: number | null;
+    qa1_absent?: boolean;
+    qa2_absent?: boolean;
+    end_of_term_absent?: boolean;
 }
 
 export interface ClassResultStudent {
@@ -36,6 +39,10 @@ export interface ClassResultStudent {
         endOfTerm: number;
         finalScore: number;
         grade: string;
+        // 👇 ADD THESE THREE LINES
+        qa1_absent?: boolean;
+        qa2_absent?: boolean;
+        endOfTerm_absent?: boolean;
     }[];
 }
 

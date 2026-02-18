@@ -27,6 +27,11 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
 }) => {
     // Function to calculate final score for a subject based on grade configuration
     const calculateSubjectFinalScore = (subject: any): number => {
+
+        if (subject.endOfTerm_absent) {
+            return 0;
+        }
+
         if (!activeConfig) {
             // Default to average of all tests if no config
             return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
@@ -34,7 +39,9 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
 
         switch (activeConfig.calculation_method) {
             case 'end_of_term_only':
-                return subject.endOfTerm;
+                // 👇 NEW: If absent, return 0
+                return subject.endOfTerm_absent ? 0 : subject.endOfTerm;
+            // return subject.endOfTerm;
 
             case 'weighted_average':
                 const weightQA1 = activeConfig.weight_qa1 || 0;
@@ -54,18 +61,50 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
     };
 
     // Function to calculate assessment-specific average for a student
+    // const calculateStudentAssessmentAverage = (student: ClassResultStudent): number => {
+    //     let totalScore = 0;
+    //     let subjectCount = 0;
+
+    //     student.subjects.forEach(subject => {
+
+    //         const score = activeAssessmentType === 'qa1'
+    //             ? subject.qa1
+    //             : activeAssessmentType === 'qa2'
+    //                 ? subject.qa2
+    //                 : subject.endOfTerm;
+
+    //         if (!isNaN(score) && score > 0) {
+    //             totalScore += score;
+    //             subjectCount++;
+    //         }
+    //     });
+
+    //     return subjectCount > 0 ? totalScore / subjectCount : 0;
+    // };
+
+    // ===== CHANGE 2: Update calculateStudentAssessmentAverage function (around line 45) =====
     const calculateStudentAssessmentAverage = (student: ClassResultStudent): number => {
         let totalScore = 0;
         let subjectCount = 0;
 
         student.subjects.forEach(subject => {
-            const score = activeAssessmentType === 'qa1'
-                ? subject.qa1
-                : activeAssessmentType === 'qa2'
-                    ? subject.qa2
-                    : subject.endOfTerm;
+            let score = 0;
+            // 👇 NEW: Check if absent
+            let isAbsent = false;
 
-            if (!isNaN(score) && score > 0) {
+            if (activeAssessmentType === 'qa1') {
+                score = subject.qa1;
+                isAbsent = subject.qa1_absent || false;  // 👈 NEW
+            } else if (activeAssessmentType === 'qa2') {
+                score = subject.qa2;
+                isAbsent = subject.qa2_absent || false;  // 👈 NEW
+            } else { // endOfTerm
+                score = subject.endOfTerm;
+                isAbsent = subject.endOfTerm_absent || false;  // 👈 NEW
+            }
+
+            // 👇 MODIFIED: Skip absent students
+            if (!isAbsent && !isNaN(score) && score > 0) {
                 totalScore += score;
                 subjectCount++;
             }
@@ -73,12 +112,29 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
 
         return subjectCount > 0 ? totalScore / subjectCount : 0;
     };
-
     // Function to calculate overall average for a student
+    // const calculateStudentOverallAverage = (student: ClassResultStudent): number => {
+    //     const validSubjects = student.subjects.filter(subject => {
+    //         const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
+    //         return hasScores;
+    //     });
+
+    //     if (validSubjects.length === 0) return 0;
+
+    //     const totalScore = validSubjects.reduce((sum, subject) => {
+    //         const finalScore = calculateSubjectFinalScore(subject);
+    //         return sum + finalScore;
+    //     }, 0);
+
+    //     return totalScore / validSubjects.length;
+    // };
+    // ===== CHANGE 3: Update calculateStudentOverallAverage function (around line 70) =====
     const calculateStudentOverallAverage = (student: ClassResultStudent): number => {
         const validSubjects = student.subjects.filter(subject => {
+            // 👇 MODIFIED: Include subjects that have scores OR were absent
             const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
-            return hasScores;
+            const hasAbsent = subject.qa1_absent || subject.qa2_absent || subject.endOfTerm_absent;  // 👈 NEW
+            return hasScores || hasAbsent;  // 👈 MODIFIED
         });
 
         if (validSubjects.length === 0) return 0;
@@ -103,10 +159,20 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
     };
 
     // Function to get subjects with scores for a student
+    // const getStudentSubjectsWithScores = (student: ClassResultStudent) => {
+    //     return student.subjects.filter(subject => {
+    //         const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
+    //         return hasScores;
+    //     });
+    // };
+
+    // ===== CHANGE 4: Update getStudentSubjectsWithScores function (around line 85) =====
     const getStudentSubjectsWithScores = (student: ClassResultStudent) => {
         return student.subjects.filter(subject => {
+            // 👇 MODIFIED: Include subjects that have scores OR were absent
             const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
-            return hasScores;
+            const hasAbsent = subject.qa1_absent || subject.qa2_absent || subject.endOfTerm_absent;  // 👈 NEW
+            return hasScores || hasAbsent;  // 👈 MODIFIED
         });
     };
 
@@ -128,6 +194,29 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
     };
 
     // Function to calculate total marks for a student
+    // const calculateTotalMarks = (student: ClassResultStudent): number => {
+    //     if (activeAssessmentType === 'overall') {
+    //         const average = calculateStudentOverallAverage(student);
+    //         const validSubjects = getStudentSubjectsWithScores(student);
+    //         return average * validSubjects.length;
+    //     }
+
+    //     let total = 0;
+    //     student.subjects.forEach(subject => {
+    //         const score = activeAssessmentType === 'qa1'
+    //             ? subject.qa1
+    //             : activeAssessmentType === 'qa2'
+    //                 ? subject.qa2
+    //                 : subject.endOfTerm;
+
+    //         if (!isNaN(score) && score > 0) {
+    //             total += score;
+    //         }
+    //     });
+    //     return total;
+    // };
+
+    // ===== CHANGE 5: Update calculateTotalMarks function =====
     const calculateTotalMarks = (student: ClassResultStudent): number => {
         if (activeAssessmentType === 'overall') {
             const average = calculateStudentOverallAverage(student);
@@ -137,13 +226,23 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
 
         let total = 0;
         student.subjects.forEach(subject => {
-            const score = activeAssessmentType === 'qa1'
-                ? subject.qa1
-                : activeAssessmentType === 'qa2'
-                    ? subject.qa2
-                    : subject.endOfTerm;
+            let score = 0;
+            // 👇 NEW: Check if absent
+            let isAbsent = false;
 
-            if (!isNaN(score) && score > 0) {
+            if (activeAssessmentType === 'qa1') {
+                score = subject.qa1;
+                isAbsent = subject.qa1_absent || false;  // 👈 NEW
+            } else if (activeAssessmentType === 'qa2') {
+                score = subject.qa2;
+                isAbsent = subject.qa2_absent || false;  // 👈 NEW
+            } else { // endOfTerm
+                score = subject.endOfTerm;
+                isAbsent = subject.endOfTerm_absent || false;  // 👈 NEW
+            }
+
+            // 👇 MODIFIED: Only add if not absent and score > 0
+            if (!isAbsent && !isNaN(score) && score > 0) {
                 total += score;
             }
         });
@@ -209,23 +308,52 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
     };
 
     // Get subjects for display
+    // const getFilteredSubjects = () => {
+    //     if (activeAssessmentType === 'overall') {
+    //         return getOverallSubjectsWithScores();
+    //     }
+
+    //     // Create a Set of subject names that have scores for at least one student
+    //     const subjectsWithScores = new Set<string>();
+
+    //     classResults.forEach(student => {
+    //         student.subjects.forEach(subject => {
+    //             const score = activeAssessmentType === 'qa1'
+    //                 ? subject.qa1
+    //                 : activeAssessmentType === 'qa2'
+    //                     ? subject.qa2
+    //                     : subject.endOfTerm;
+
+    //             if (!isNaN(score) && score > 0) {
+    //                 subjectsWithScores.add(subject.name);
+    //             }
+    //         });
+    //     });
+
+    //     return subjects.filter(subject => subjectsWithScores.has(subject.name));
+    // };
+    // ===== CHANGE 6: Update getFilteredSubjects function =====
     const getFilteredSubjects = () => {
         if (activeAssessmentType === 'overall') {
             return getOverallSubjectsWithScores();
         }
 
-        // Create a Set of subject names that have scores for at least one student
+        // Create a Set of subject names that have scores OR were absent for at least one student
         const subjectsWithScores = new Set<string>();
 
         classResults.forEach(student => {
             student.subjects.forEach(subject => {
-                const score = activeAssessmentType === 'qa1'
-                    ? subject.qa1
-                    : activeAssessmentType === 'qa2'
-                        ? subject.qa2
-                        : subject.endOfTerm;
+                let hasScoreOrAbsent = false;
 
-                if (!isNaN(score) && score > 0) {
+                if (activeAssessmentType === 'qa1') {
+                    hasScoreOrAbsent = subject.qa1 > 0 || subject.qa1_absent;  // 👈 MODIFIED
+                } else if (activeAssessmentType === 'qa2') {
+                    hasScoreOrAbsent = subject.qa2 > 0 || subject.qa2_absent;  // 👈 MODIFIED
+                } else { // endOfTerm
+                    hasScoreOrAbsent = subject.endOfTerm > 0 || subject.endOfTerm_absent;  // 👈 MODIFIED
+                }
+
+                if (hasScoreOrAbsent) {
                     subjectsWithScores.add(subject.name);
                 }
             });
@@ -370,9 +498,20 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
                                                     ? studentSubject.qa2
                                                     : studentSubject.endOfTerm;
 
+                                            // 👇 NEW: Check if absent
+                                            const isAbsent = activeAssessmentType === 'qa1'
+                                                ? studentSubject.qa1_absent
+                                                : activeAssessmentType === 'qa2'
+                                                    ? studentSubject.qa2_absent
+                                                    : studentSubject.endOfTerm_absent;
+
                                             return (
                                                 <td key={subject.id} className="px-4 py-3 text-center">
-                                                    {score > 0 ? (
+                                                    {isAbsent ? (  // 👈 NEW: Show AB when absent
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="font-bold text-slate-400">AB</span>
+                                                        </div>
+                                                    ) : score > 0 ? (
                                                         <div className="flex flex-col items-center">
                                                             <span className={`font-bold ${score >= 80 ? 'text-emerald-700' :
                                                                 score >= 60 ? 'text-blue-700' :

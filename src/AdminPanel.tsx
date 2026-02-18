@@ -370,9 +370,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 assessmentMap.set(sub.id, {
                     subject_id: sub.id,
                     subject_name: sub.name,
-                    qa1: 0,
-                    qa2: 0,
-                    end_of_term: 0
+                    qa1: null,
+                    qa2: null,
+                    end_of_term: null
                 });
             });
 
@@ -430,9 +430,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         }
     };
 
-    const updateAssessmentScore = (subjectId: string, field: 'qa1' | 'qa2' | 'end_of_term', value: number) => {
+    const updateAssessmentScore = (subjectId: string, field: 'qa1' | 'qa2' | 'end_of_term', value: number, isAbsent: boolean = false) => {
         setAssessments(prev => prev.map(a =>
-            a.subject_id === subjectId ? { ...a, [field]: Math.min(100, Math.max(0, value)) } : a
+            a.subject_id === subjectId ? {
+                ...a,
+                // [field]: Math.min(100, Math.max(0, value)),
+                [field]: value === null ? null : Math.min(100, Math.max(0, value)),
+                // Also update the corresponding absent flag
+                [`${field}_absent`]: isAbsent
+
+            } : a
         ));
     };
 
@@ -574,7 +581,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     subject_id: assessment.subject_id,
                     assessment_type: 'qa1',
                     score: assessment.qa1,
-                    grade: calculateGrade(assessment.qa1, passMark)
+                    is_absent: assessment.qa1_absent || false,
+                    grade: calculateGrade(assessment.qa1, passMark, assessment.qa1_absent)
                 });
 
                 await upsertAssessment({
@@ -582,7 +590,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     subject_id: assessment.subject_id,
                     assessment_type: 'qa2',
                     score: assessment.qa2,
-                    grade: calculateGrade(assessment.qa2, passMark)
+                    is_absent: assessment.qa2_absent || false,  // 👈 ADD THIS
+                    grade: calculateGrade(assessment.qa2, passMark, assessment.qa2_absent)
                 });
 
                 await upsertAssessment({
@@ -590,7 +599,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     subject_id: assessment.subject_id,
                     assessment_type: 'end_of_term',
                     score: assessment.end_of_term,
-                    grade: calculateGrade(assessment.end_of_term, passMark)
+                    is_absent: assessment.end_of_term_absent || false,  // 👈 ADD THIS
+                    grade: calculateGrade(assessment.end_of_term, passMark, assessment.end_of_term_absent)
                 });
             }
 

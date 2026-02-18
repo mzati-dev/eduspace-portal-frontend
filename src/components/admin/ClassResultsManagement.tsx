@@ -61,13 +61,37 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
 
             // --- 1. CALCULATION LOGIC (Identical to Table) ---
 
+            // const calculateSubjectFinalScore = (subject: any): number => {
+            //     if (!activeConfig) {
+            //         return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+            //     }
+            //     switch (activeConfig.calculation_method) {
+            //         case 'end_of_term_only':
+            //             return subject.endOfTerm;
+            //         case 'weighted_average':
+            //             const w1 = activeConfig.weight_qa1 || 0;
+            //             const w2 = activeConfig.weight_qa2 || 0;
+            //             const w3 = activeConfig.weight_end_of_term || 0;
+            //             return ((subject.qa1 * w1 / 100) + (subject.qa2 * w2 / 100) + (subject.endOfTerm * w3 / 100));
+            //         case 'average_all':
+            //         default:
+            //             return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
+            //     }
+            // };
+            // ===== CHANGE 1: Update calculateSubjectFinalScore in PDF generation =====
             const calculateSubjectFinalScore = (subject: any): number => {
+                // 👇 NEW: Handle absent end of term
+                if (subject.endOfTerm_absent) {
+                    return 0;
+                }
+
                 if (!activeConfig) {
                     return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
                 }
                 switch (activeConfig.calculation_method) {
                     case 'end_of_term_only':
-                        return subject.endOfTerm;
+                        // 👇 NEW: If absent, return 0
+                        return subject.endOfTerm_absent ? 0 : subject.endOfTerm;
                     case 'weighted_average':
                         const w1 = activeConfig.weight_qa1 || 0;
                         const w2 = activeConfig.weight_qa2 || 0;
@@ -78,11 +102,26 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
                         return (subject.qa1 + subject.qa2 + subject.endOfTerm) / 3;
                 }
             };
+            // const calculateStudentOverallAverage = (student: ClassResultStudent): number => {
+            //     const validSubjects = student.subjects.filter(subject => {
+            //         const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
+            //         return hasScores;
+            //     });
+            //     if (validSubjects.length === 0) return 0;
+            //     const totalScore = validSubjects.reduce((sum, subject) => {
+            //         const finalScore = calculateSubjectFinalScore(subject);
+            //         return sum + finalScore;
+            //     }, 0);
+            //     return totalScore / validSubjects.length;
+            // };
 
+            // ===== CHANGE 3: Update calculateStudentOverallAverage in PDF generation =====
             const calculateStudentOverallAverage = (student: ClassResultStudent): number => {
                 const validSubjects = student.subjects.filter(subject => {
+                    // 👇 MODIFIED: Include subjects that have scores OR were absent
                     const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
-                    return hasScores;
+                    const hasAbsent = subject.qa1_absent || subject.qa2_absent || subject.endOfTerm_absent;
+                    return hasScores || hasAbsent;
                 });
                 if (validSubjects.length === 0) return 0;
                 const totalScore = validSubjects.reduce((sum, subject) => {
@@ -92,12 +131,41 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
                 return totalScore / validSubjects.length;
             };
 
+            // const calculateStudentAssessmentAverage = (student: ClassResultStudent): number => {
+            //     let totalScore = 0;
+            //     let subjectCount = 0;
+            //     student.subjects.forEach(subject => {
+            //         const score = activeAssessmentType === 'qa1' ? subject.qa1 : activeAssessmentType === 'qa2' ? subject.qa2 : subject.endOfTerm;
+            //         if (!isNaN(score) && score > 0) {
+            //             totalScore += score;
+            //             subjectCount++;
+            //         }
+            //     });
+            //     return subjectCount > 0 ? totalScore / subjectCount : 0;
+            // };
+
+            // ===== CHANGE 2: Update calculateStudentAssessmentAverage in PDF generation =====
             const calculateStudentAssessmentAverage = (student: ClassResultStudent): number => {
                 let totalScore = 0;
                 let subjectCount = 0;
                 student.subjects.forEach(subject => {
-                    const score = activeAssessmentType === 'qa1' ? subject.qa1 : activeAssessmentType === 'qa2' ? subject.qa2 : subject.endOfTerm;
-                    if (!isNaN(score) && score > 0) {
+                    let score = 0;
+                    // 👇 NEW: Check if absent
+                    let isAbsent = false;
+
+                    if (activeAssessmentType === 'qa1') {
+                        score = subject.qa1;
+                        isAbsent = subject.qa1_absent || false;
+                    } else if (activeAssessmentType === 'qa2') {
+                        score = subject.qa2;
+                        isAbsent = subject.qa2_absent || false;
+                    } else { // endOfTerm
+                        score = subject.endOfTerm;
+                        isAbsent = subject.endOfTerm_absent || false;
+                    }
+
+                    // 👇 MODIFIED: Skip absent students
+                    if (!isAbsent && !isNaN(score) && score > 0) {
                         totalScore += score;
                         subjectCount++;
                     }
@@ -105,13 +173,40 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
                 return subjectCount > 0 ? totalScore / subjectCount : 0;
             };
 
+            // const getStudentSubjectsWithScores = (student: ClassResultStudent) => {
+            //     return student.subjects.filter(subject => {
+            //         const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
+            //         return hasScores;
+            //     });
+            // };
+
+            // ===== CHANGE 4: Update getStudentSubjectsWithScores in PDF generation =====
             const getStudentSubjectsWithScores = (student: ClassResultStudent) => {
                 return student.subjects.filter(subject => {
+                    // 👇 MODIFIED: Include subjects that have scores OR were absent
                     const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
-                    return hasScores;
+                    const hasAbsent = subject.qa1_absent || subject.qa2_absent || subject.endOfTerm_absent;
+                    return hasScores || hasAbsent;
                 });
             };
 
+            // const calculateTotalMarks = (student: ClassResultStudent): number => {
+            //     if (activeAssessmentType === 'overall') {
+            //         const average = calculateStudentOverallAverage(student);
+            //         const validSubjects = getStudentSubjectsWithScores(student);
+            //         return average * validSubjects.length;
+            //     }
+            //     let total = 0;
+            //     student.subjects.forEach(subject => {
+            //         const score = activeAssessmentType === 'qa1' ? subject.qa1 : activeAssessmentType === 'qa2' ? subject.qa2 : subject.endOfTerm;
+            //         if (!isNaN(score) && score > 0) {
+            //             total += score;
+            //         }
+            //     });
+            //     return total;
+            // };
+
+            // ===== CHANGE 5: Update calculateTotalMarks in PDF generation =====
             const calculateTotalMarks = (student: ClassResultStudent): number => {
                 if (activeAssessmentType === 'overall') {
                     const average = calculateStudentOverallAverage(student);
@@ -120,8 +215,23 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
                 }
                 let total = 0;
                 student.subjects.forEach(subject => {
-                    const score = activeAssessmentType === 'qa1' ? subject.qa1 : activeAssessmentType === 'qa2' ? subject.qa2 : subject.endOfTerm;
-                    if (!isNaN(score) && score > 0) {
+                    let score = 0;
+                    // 👇 NEW: Check if absent
+                    let isAbsent = false;
+
+                    if (activeAssessmentType === 'qa1') {
+                        score = subject.qa1;
+                        isAbsent = subject.qa1_absent || false;
+                    } else if (activeAssessmentType === 'qa2') {
+                        score = subject.qa2;
+                        isAbsent = subject.qa2_absent || false;
+                    } else { // endOfTerm
+                        score = subject.endOfTerm;
+                        isAbsent = subject.endOfTerm_absent || false;
+                    }
+
+                    // 👇 MODIFIED: Only add if not absent and score > 0
+                    if (!isAbsent && !isNaN(score) && score > 0) {
                         total += score;
                     }
                 });
@@ -131,14 +241,38 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
             // --- 2. PREPARE DATA & CALCULATIONS ---
 
             // Filter subjects
+            // const subjectsWithScores = new Set<string>();
+            // classResults.forEach(student => {
+            //     student.subjects.forEach(subject => {
+            //         const score = activeAssessmentType === 'overall'
+            //             ? (subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0 ? 1 : 0)
+            //             : (activeAssessmentType === 'qa1' ? subject.qa1 : activeAssessmentType === 'qa2' ? subject.qa2 : subject.endOfTerm);
+
+            //         if (score > 0) subjectsWithScores.add(subject.name);
+            //     });
+            // });
+            // const filteredSubjects = subjects.filter(subject => subjectsWithScores.has(subject.name));
+
+            // Filter subjects
             const subjectsWithScores = new Set<string>();
             classResults.forEach(student => {
                 student.subjects.forEach(subject => {
-                    const score = activeAssessmentType === 'overall'
-                        ? (subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0 ? 1 : 0)
-                        : (activeAssessmentType === 'qa1' ? subject.qa1 : activeAssessmentType === 'qa2' ? subject.qa2 : subject.endOfTerm);
+                    let hasScoreOrAbsent = false;
 
-                    if (score > 0) subjectsWithScores.add(subject.name);
+                    if (activeAssessmentType === 'overall') {
+                        hasScoreOrAbsent = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0 ||
+                            subject.qa1_absent || subject.qa2_absent || subject.endOfTerm_absent;
+                    } else if (activeAssessmentType === 'qa1') {
+                        hasScoreOrAbsent = subject.qa1 > 0 || subject.qa1_absent;
+                    } else if (activeAssessmentType === 'qa2') {
+                        hasScoreOrAbsent = subject.qa2 > 0 || subject.qa2_absent;
+                    } else { // endOfTerm
+                        hasScoreOrAbsent = subject.endOfTerm > 0 || subject.endOfTerm_absent;
+                    }
+
+                    if (hasScoreOrAbsent) {
+                        subjectsWithScores.add(subject.name);
+                    }
                 });
             });
             const filteredSubjects = subjects.filter(subject => subjectsWithScores.has(subject.name));
@@ -215,19 +349,62 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
                 previousMarks = student.calculatedTotalMarks;
 
                 // Subject Columns
+                // const subjectCols = filteredSubjects.map((subj) => {
+                //     const studentSubject = student.subjects?.find((s: any) => s.name === subj.name);
+                //     if (!studentSubject) return '-';
+
+                //     if (activeAssessmentType === 'overall') {
+                //         const hasScores = studentSubject.qa1 > 0 || studentSubject.qa2 > 0 || studentSubject.endOfTerm > 0;
+                //         if (!hasScores) return '-';
+                //         const finalScore = calculateSubjectFinalScore(studentSubject);
+                //         const grade = calculateGrade(finalScore, activeConfig?.pass_mark);
+                //         return `${finalScore.toFixed(1)} (${grade})`;
+                //     } else {
+                //         const score = activeAssessmentType === 'qa1' ? studentSubject.qa1 : activeAssessmentType === 'qa2' ? studentSubject.qa2 : studentSubject.endOfTerm;
+                //         if (score > 0) {
+                //             const grade = calculateGrade(score, activeConfig?.pass_mark);
+                //             return `${score} (${grade})`;
+                //         }
+                //         return '-';
+                //     }
+                // });
+
+                // Subject Columns
                 const subjectCols = filteredSubjects.map((subj) => {
                     const studentSubject = student.subjects?.find((s: any) => s.name === subj.name);
                     if (!studentSubject) return '-';
 
                     if (activeAssessmentType === 'overall') {
                         const hasScores = studentSubject.qa1 > 0 || studentSubject.qa2 > 0 || studentSubject.endOfTerm > 0;
-                        if (!hasScores) return '-';
+                        const hasAbsent = studentSubject.qa1_absent || studentSubject.qa2_absent || studentSubject.endOfTerm_absent;
+
+                        if (!hasScores && !hasAbsent) return '-';
+
+                        if (studentSubject.endOfTerm_absent) {
+                            return 'AB';
+                        }
+
                         const finalScore = calculateSubjectFinalScore(studentSubject);
                         const grade = calculateGrade(finalScore, activeConfig?.pass_mark);
                         return `${finalScore.toFixed(1)} (${grade})`;
                     } else {
-                        const score = activeAssessmentType === 'qa1' ? studentSubject.qa1 : activeAssessmentType === 'qa2' ? studentSubject.qa2 : studentSubject.endOfTerm;
-                        if (score > 0) {
+                        let score = 0;
+                        let isAbsent = false;
+
+                        if (activeAssessmentType === 'qa1') {
+                            score = studentSubject.qa1;
+                            isAbsent = studentSubject.qa1_absent;
+                        } else if (activeAssessmentType === 'qa2') {
+                            score = studentSubject.qa2;
+                            isAbsent = studentSubject.qa2_absent;
+                        } else { // endOfTerm
+                            score = studentSubject.endOfTerm;
+                            isAbsent = studentSubject.endOfTerm_absent;
+                        }
+
+                        if (isAbsent) {
+                            return 'AB';
+                        } else if (score > 0) {
                             const grade = calculateGrade(score, activeConfig?.pass_mark);
                             return `${score} (${grade})`;
                         }

@@ -18,7 +18,7 @@ interface ResultsManagementProps {
     setReportCard: (reportCard: ReportCardData) => void;
     loadStudentResults: (student: Student) => Promise<void>;
     saveAllResults: () => Promise<void>;
-    updateAssessmentScore: (subjectId: string, field: 'qa1' | 'qa2' | 'end_of_term', value: number) => void;
+    updateAssessmentScore: (subjectId: string, field: 'qa1' | 'qa2' | 'end_of_term', value: number, isAbsent?: boolean) => void;
     calculateGrade: (score: number, passMark?: number) => string;
     calculateFinalScore: (qa1: number, qa2: number, endOfTerm: number, config: GradeConfiguration) => number;
     isTeacherView?: boolean;
@@ -126,7 +126,7 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
     };
 
     const clearScore = (subjectId: string, field: 'qa1' | 'qa2' | 'end_of_term') => {
-        updateAssessmentScore(subjectId, field, 0);
+        updateAssessmentScore(subjectId, field, null, false);
     };
 
     const hasEndOfTermScores = () => {
@@ -339,25 +339,40 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {assessments.map((assessment) => {
-                                        let finalScore = (assessment.qa1 + assessment.qa2 + assessment.end_of_term) / 3;
+                                        // Use 0 for null values in calculations
+                                        const qa1 = assessment.qa1 ?? 0;
+                                        const qa2 = assessment.qa2 ?? 0;
+                                        const endTerm = assessment.end_of_term ?? 0;
+                                        // let finalScore = (assessment.qa1 + assessment.qa2 + assessment.end_of_term) / 3;
+                                        let finalScore = (qa1 + qa2 + endTerm) / 3;
                                         if (activeConfig) {
                                             finalScore = calculateFinalScore(
-                                                assessment.qa1,
-                                                assessment.qa2,
-                                                assessment.end_of_term,
+                                                qa1,
+                                                qa2,
+                                                endTerm,
                                                 activeConfig
+                                                // assessment.qa1,
+                                                // assessment.qa2,
+                                                // assessment.end_of_term,
+                                                // activeConfig
                                             );
                                         }
 
-                                        const hasQa1 = assessment.qa1 > 0;
-                                        const hasQa2 = assessment.qa2 > 0;
-                                        const hasEndTerm = assessment.end_of_term > 0;
+                                        // const hasQa1 = assessment.qa1 > 0;
+                                        // const hasQa2 = assessment.qa2 > 0;
+                                        // const hasEndTerm = assessment.end_of_term > 0;
+                                        // const hasAnyScore = hasQa1 || hasQa2 || hasEndTerm;
+
+                                        // Check if there's a score (including 0) OR if absent
+                                        const hasQa1 = assessment.qa1 !== null || assessment.qa1_absent;
+                                        const hasQa2 = assessment.qa2 !== null || assessment.qa2_absent;
+                                        const hasEndTerm = assessment.end_of_term !== null || assessment.end_of_term_absent;
                                         const hasAnyScore = hasQa1 || hasQa2 || hasEndTerm;
 
                                         return (
                                             <tr key={assessment.subject_id} className="hover:bg-slate-50">
                                                 <td className="px-6 py-4 font-medium text-slate-800">{assessment.subject_name}</td>
-                                                <td className="px-6 py-4">
+                                                {/* <td className="px-6 py-4">
                                                     <div className="relative">
                                                         <input
                                                             type="number"
@@ -372,8 +387,76 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                                                             <div className="absolute top-3 left-3 w-2 h-2 bg-emerald-500 rounded-full"></div>
                                                         )}
                                                     </div>
-                                                </td>
+                                                </td> */}
+
+                                                {/* QA1 Cell - Replace the existing QA1 td */}
                                                 <td className="px-6 py-4">
+                                                    <div className="relative flex items-center justify-center gap-1">
+                                                        {assessment.qa1_absent ? (
+                                                            // Show AB badge when absent
+                                                            <>
+                                                                <div className="w-20 px-3 py-2 border rounded-lg text-center mx-auto block bg-slate-100 text-slate-600 font-medium">
+                                                                    AB
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        // Mark as present (clear absent flag)
+                                                                        updateAssessmentScore(assessment.subject_id, 'qa1', assessment.qa1 || 0, false);
+                                                                    }}
+                                                                    className="p-1 text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded transition-colors"
+                                                                    title="Enter score"
+                                                                    type="button"
+                                                                >
+                                                                    ✎
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            // Show number input when present
+                                                            <>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    // value={assessment.qa1 === 0 ? 0 : assessment.qa1 || ''}
+                                                                    // value={assessment.qa1 === 0 && assessment.qa1_absent === false ? '' : assessment.qa1 ?? ''}
+                                                                    value={assessment.qa1 ?? ''}
+
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        if (value === '') {
+                                                                            updateAssessmentScore(assessment.subject_id, 'qa1', null, false);
+                                                                        } else {
+                                                                            const numValue = parseInt(value);
+                                                                            if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                                                                                updateAssessmentScore(assessment.subject_id, 'qa1', numValue, false);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    className={`w-20 px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mx-auto block ${assessment.qa1 > 0 ? 'border-emerald-300 bg-emerald-50' : 'border-slate-300'
+                                                                        }`}
+                                                                    placeholder=""
+                                                                />
+                                                                <button
+                                                                    onClick={() => {
+                                                                        // Mark as absent
+                                                                        updateAssessmentScore(assessment.subject_id, 'qa1', 0, true);
+                                                                    }}
+                                                                    className="p-1 text-xs bg-slate-200 hover:bg-slate-300 rounded transition-colors"
+                                                                    title="Mark as absent"
+                                                                    type="button"
+                                                                >
+                                                                    AB
+                                                                </button>
+                                                            </>
+                                                        )}
+
+                                                        {assessment.qa1 > 0 && !assessment.qa1_absent && (
+                                                            <div className="absolute top-3 left-3 w-2 h-2 bg-emerald-500 rounded-full"></div>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* <td className="px-6 py-4">
                                                     <div className="relative">
                                                         <input
                                                             type="number"
@@ -388,8 +471,65 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                                                             <div className="absolute top-3 left-3 w-2 h-2 bg-blue-500 rounded-full"></div>
                                                         )}
                                                     </div>
-                                                </td>
+                                                </td> */}
+                                                {/* QA2 Cell */}
                                                 <td className="px-6 py-4">
+                                                    <div className="relative flex items-center justify-center gap-1">
+                                                        {assessment.qa2_absent ? (
+                                                            <>
+                                                                <div className="w-20 px-3 py-2 border rounded-lg text-center mx-auto block bg-slate-100 text-slate-600 font-medium">
+                                                                    AB
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => updateAssessmentScore(assessment.subject_id, 'qa2', assessment.qa2 || 0, false)}
+                                                                    className="p-1 text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded transition-colors"
+                                                                    title="Enter score"
+                                                                    type="button"
+                                                                >
+                                                                    ✎
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    // value={assessment.qa2 === 0 ? 0 : assessment.qa2 || ''}
+                                                                    value={assessment.qa2 ?? ''}
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        if (value === '') {
+                                                                            updateAssessmentScore(assessment.subject_id, 'qa2', null, false);
+                                                                        } else {
+                                                                            const numValue = parseInt(value);
+                                                                            if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                                                                                updateAssessmentScore(assessment.subject_id, 'qa2', numValue, false);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    className={`w-20 px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mx-auto block ${assessment.qa2 > 0 ? 'border-blue-300 bg-blue-50' : 'border-slate-300'
+                                                                        }`}
+                                                                    placeholder=""
+                                                                />
+                                                                <button
+                                                                    onClick={() => updateAssessmentScore(assessment.subject_id, 'qa2', 0, true)}
+                                                                    className="p-1 text-xs bg-slate-200 hover:bg-slate-300 rounded transition-colors"
+                                                                    title="Mark as absent"
+                                                                    type="button"
+                                                                >
+                                                                    AB
+                                                                </button>
+                                                            </>
+                                                        )}
+
+                                                        {assessment.qa2 > 0 && !assessment.qa2_absent && (
+                                                            <div className="absolute top-3 left-3 w-2 h-2 bg-blue-500 rounded-full"></div>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* <td className="px-6 py-4">
                                                     <div className="relative">
                                                         <input
                                                             type="number"
@@ -404,10 +544,76 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                                                             <div className="absolute top-3 left-3 w-2 h-2 bg-amber-500 rounded-full"></div>
                                                         )}
                                                     </div>
+                                                </td> */}
+
+                                                {/* End of Term Cell */}
+                                                <td className="px-6 py-4">
+                                                    <div className="relative flex items-center justify-center gap-1">
+                                                        {assessment.end_of_term_absent ? (
+                                                            <>
+                                                                <div className="w-20 px-3 py-2 border rounded-lg text-center mx-auto block bg-slate-100 text-slate-600 font-medium">
+                                                                    AB
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => updateAssessmentScore(assessment.subject_id, 'end_of_term', assessment.end_of_term || 0, false)}
+                                                                    className="p-1 text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded transition-colors"
+                                                                    title="Enter score"
+                                                                    type="button"
+                                                                >
+                                                                    ✎
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    // value={assessment.end_of_term === 0 ? 0 : assessment.end_of_term || ''}
+                                                                    value={assessment.end_of_term ?? ''}
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        if (value === '') {
+                                                                            updateAssessmentScore(assessment.subject_id, 'end_of_term', null, false);
+                                                                        } else {
+                                                                            const numValue = parseInt(value);
+                                                                            if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                                                                                updateAssessmentScore(assessment.subject_id, 'end_of_term', numValue, false);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    className={`w-20 px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mx-auto block ${assessment.end_of_term > 0 ? 'border-amber-300 bg-amber-50' : 'border-slate-300'
+                                                                        }`}
+                                                                    placeholder=""
+                                                                />
+                                                                <button
+                                                                    onClick={() => updateAssessmentScore(assessment.subject_id, 'end_of_term', 0, true)}
+                                                                    className="p-1 text-xs bg-slate-200 hover:bg-slate-300 rounded transition-colors"
+                                                                    title="Mark as absent"
+                                                                    type="button"
+                                                                >
+                                                                    AB
+                                                                </button>
+                                                            </>
+                                                        )}
+
+                                                        {assessment.end_of_term > 0 && !assessment.end_of_term_absent && (
+                                                            <div className="absolute top-3 left-3 w-2 h-2 bg-amber-500 rounded-full"></div>
+                                                        )}
+                                                    </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-semibold text-indigo-700">
+
+                                                {/* <td className="px-6 py-4 text-center font-semibold text-indigo-700">
                                                     {finalScore.toFixed(1)}
+                                                </td> */}
+                                                <td className="px-6 py-4 text-center font-semibold text-indigo-700">
+                                                    {assessment.end_of_term_absent ? (
+                                                        <span className="text-slate-400">AB</span>
+                                                    ) : (
+                                                        finalScore.toFixed(1)
+                                                    )}
                                                 </td>
+
                                                 <td className="px-6 py-4 text-center">
                                                     {hasAnyScore && (
                                                         <div className="flex justify-center gap-1">
