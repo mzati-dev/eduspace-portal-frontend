@@ -165,7 +165,9 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
                     }
 
                     // 👇 MODIFIED: Skip absent students
-                    if (!isAbsent && !isNaN(score) && score > 0) {
+                    // if (!isAbsent && !isNaN(score) && score > 0) {
+                    // Include zero scores in average calculations
+                    if (!isAbsent && !isNaN(score) && score >= 0) {
                         totalScore += score;
                         subjectCount++;
                     }
@@ -184,7 +186,11 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
             const getStudentSubjectsWithScores = (student: ClassResultStudent) => {
                 return student.subjects.filter(subject => {
                     // 👇 MODIFIED: Include subjects that have scores OR were absent
-                    const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
+                    // const hasScores = subject.qa1 > 0 || subject.qa2 > 0 || subject.endOfTerm > 0;
+                    // Include subjects with zero scores
+                    const hasScores = (subject.qa1 !== null && subject.qa1 >= 0) ||
+                        (subject.qa2 !== null && subject.qa2 >= 0) ||
+                        (subject.endOfTerm !== null && subject.endOfTerm >= 0);
                     const hasAbsent = subject.qa1_absent || subject.qa2_absent || subject.endOfTerm_absent;
                     return hasScores || hasAbsent;
                 });
@@ -231,7 +237,9 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
                     }
 
                     // 👇 MODIFIED: Only add if not absent and score > 0
-                    if (!isAbsent && !isNaN(score) && score > 0) {
+                    // if (!isAbsent && !isNaN(score) && score > 0) {
+                    // Include zero scores in total marks
+                    if (!isAbsent && !isNaN(score) && score >= 0) {
                         total += score;
                     }
                 });
@@ -404,7 +412,11 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
 
                         if (isAbsent) {
                             return 'AB';
-                        } else if (score > 0) {
+                            // } else if (score > 0) {
+                            //     const grade = calculateGrade(score, activeConfig?.pass_mark);
+                            //     return `${score} (${grade})`;
+                            // }
+                        } else if (score !== null && score >= 0) {  // 👈 FIXED: Include zero scores
                             const grade = calculateGrade(score, activeConfig?.pass_mark);
                             return `${score} (${grade})`;
                         }
