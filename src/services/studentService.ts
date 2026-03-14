@@ -465,6 +465,28 @@ export const deleteClass = async (id: string): Promise<void> => {
   }
 };
 
+export const addStudentsToClass = async (classId: string, studentIds: string[]) => {
+  const schoolId = getSchoolId();
+
+  if (!schoolId) {
+    throw new Error('School ID not found. Please log in again.');
+  }
+
+  const url = `${API_BASE_URL}/api/classes/add-students?schoolId=${schoolId}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ classId, studentIds }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Failed to add students to class');
+  }
+  return res.json();
+};
+
 export const fetchStudentsByClass = async (classId: string): Promise<any[]> => {
   try {
     const schoolId = getSchoolId();

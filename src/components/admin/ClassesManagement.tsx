@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Student } from '@/types/admin';
 import ClassForm from './forms/ClassForm';
+import AddExistingStudentsModal from './modals/AddExistingStudentsModal.tsx';
 
 interface ClassesManagementProps {
     classes: any[];
@@ -15,6 +16,7 @@ interface ClassesManagementProps {
     handleDeleteClass: (classId: string) => Promise<void>;
     handleDeleteStudent: (student: Student) => Promise<void>;
     showMessage: (msg: string, isError?: boolean) => void;
+    handleAddStudentsToClass: (classId: string, studentIds: string[]) => Promise<void>;
 }
 
 const generateAcademicYears = () => {
@@ -38,7 +40,10 @@ const ClassesManagement: React.FC<ClassesManagementProps> = ({
     handleCreateClass,
     handleDeleteClass,
     handleDeleteStudent,
+    handleAddStudentsToClass,
 }) => {
+    const [selectedClassForStudents, setSelectedClassForStudents] = useState<string | null>(null);
+    const [showAddStudentsModal, setShowAddStudentsModal] = useState(false);
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -72,7 +77,32 @@ const ClassesManagement: React.FC<ClassesManagementProps> = ({
                         </div>
 
                         <div className="border-t border-slate-200 pt-4">
-                            <h4 className="font-semibold text-slate-700 mb-3">Students in this class:</h4>
+                            {/* <h4 className="font-semibold text-slate-700 mb-3">Students in this class:</h4> */}
+
+                            <div className="flex justify-between items-center mb-3">
+                                <h4 className="font-semibold text-slate-700">Students in this class:</h4>
+                                {/* <button
+                                    onClick={() => {
+                                        setSelectedClassForStudents(cls.id);
+                                        setShowAddStudentsModal(true);
+                                    }}
+                                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium"
+                                >
+                                    Add Students
+                                </button> */}
+                                <button
+                                    onClick={() => {
+                                        setSelectedClassForStudents(cls.id);
+                                        setShowAddStudentsModal(true);
+                                    }}
+                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-colors"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add Existing Students
+                                </button>
+                            </div>
+
+
                             {students.filter(s => s.class?.id === cls.id).length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {students
@@ -124,6 +154,21 @@ const ClassesManagement: React.FC<ClassesManagementProps> = ({
                     setClassForm={setClassForm}
                     handleCreateClass={handleCreateClass}
                     generateAcademicYears={generateAcademicYears}
+                />
+            )}
+
+            {showAddStudentsModal && selectedClassForStudents && (
+                <AddExistingStudentsModal
+                    students={students}  // Pass ALL students
+                    onClose={() => {
+                        setSelectedClassForStudents(null);
+                        setShowAddStudentsModal(false);
+                    }}
+                    onAdd={async (studentIds) => {
+                        await handleAddStudentsToClass(selectedClassForStudents, studentIds);
+                        setSelectedClassForStudents(null);
+                        setShowAddStudentsModal(false);
+                    }}
                 />
             )}
         </div>

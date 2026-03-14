@@ -27,6 +27,15 @@ import {
 } from '@/services/teacherService';
 import CustomConfirmModal from '../common/CustomConfirmModal';
 import CustomAlertModal from '../common/CustomAlertModal';
+import TeacherSidebar from './sidebar/TeacherSidebar';
+import TeacherClasses from './sidebar/TeacherClasses';
+import TeacherAttendance from './sidebar/TeacherAttendance';
+import TeacherTimetable from './sidebar/TeacherTimetable';
+import MessagingCenter from './sidebar/MessagingCenter';
+import TeacherMessages from './sidebar/MessagingCenter';
+import TeacherReports from './sidebar/TeacherReports';
+import TeacherProfile from './sidebar/TeacherProfile';
+// import TeacherMessages from './sidebar/MessagingCenter';
 
 interface TeacherPanelProps {
     onBack: () => void;
@@ -75,6 +84,14 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
     const [activeAssessmentType, setActiveAssessmentType] = useState<'qa1' | 'qa2' | 'endOfTerm' | 'overall'>('overall');
     const [resultsLoading, setResultsLoading] = useState(false);
 
+    // Add these with your other state declarations
+    const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+    const [activeMainMenu, setActiveMainMenu] = useState<string>('dashboard');
+    const [teacherName, setTeacherName] = useState<string>('Teacher');
+    const [teacherInitial, setTeacherInitial] = useState<string>('T');
+    const [teacherId, setTeacherId] = useState<string>('');
+    const [teacherEmail, setTeacherEmail] = useState<string>('');
+
     // Load all teacher data when component mounts
     useEffect(() => {
         loadData();
@@ -93,8 +110,26 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
             const teacherUser = userStr ? JSON.parse(userStr) : null;
             const teacherId = teacherUser?.id;
 
+            // ADD THIS - Get teacher name for sidebar
+            if (teacherUser?.name) {
+                setTeacherName(teacherUser.name);
+                setTeacherInitial(teacherUser.name.charAt(0).toUpperCase());
+            }
+
             if (!teacherId) {
                 throw new Error('Teacher ID not found');
+            }
+
+            if (teacherUser?.id) {
+                setTeacherId(teacherUser.id);
+            }
+
+            if (teacherUser?.id) {
+                setTeacherId(teacherUser.id);
+            }
+
+            if (teacherUser?.email) {
+                setTeacherEmail(teacherUser.email);
             }
 
             // 1. Get teacher's assignments (which subjects they teach in which classes)
@@ -149,6 +184,16 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
             setSuccess(msg);
             setTimeout(() => setSuccess(''), 3000);
         }
+    };
+
+    // Add menu change handler - EXACT same as Admin
+    const handleMenuChange = (menu: string) => {
+        setActiveMainMenu(menu);
+    };
+
+    // Add sidebar toggle handler
+    const handleSidebarToggle = () => {
+        setSidebarCollapsed(!sidebarCollapsed);
     };
 
     /**
@@ -318,109 +363,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
         }));
     };
 
-    /**
-     * Save all results for the current student
-     * - Saves assessments for assigned subjects only
-     * - Saves report card only if teacher is class teacher
-     * - Triggers rank recalculation
-     */
-    // const saveAllResults = async () => {
-    //     if (!selectedStudent) return;
 
-    //     // Verify teacher has access to this student's class
-    //     const isAssignedToClass = assignments.some(a => a.classId === selectedStudent.class?.id);
-    //     if (!isAssignedToClass) {
-    //         showMessage('You are not assigned to this student\'s class', true);
-    //         return;
-    //     }
-
-    //     setSavingResults(true);
-    //     try {
-    //         const passMark = activeConfig?.pass_mark || 50;
-
-    //         // Save each assessment for subjects teacher is assigned to
-    //         for (const assessment of assessments) {
-    //             // Double-check teacher is assigned to this subject
-    //             const isAssignedSubject = assignments.some(a =>
-    //                 a.subjectId === assessment.subject_id &&
-    //                 a.classId === selectedStudent.class?.id
-    //             );
-
-    //             if (!isAssignedSubject) continue; // Skip if not assigned
-
-    //             console.log('3a. SENDING QA1 TO BACKEND:', {
-    //                 student_id: selectedStudent.id,
-    //                 subject_id: assessment.subject_id,
-    //                 assessment_type: 'qa1',
-    //                 score: assessment.qa1,
-    //                 is_absent: assessment.qa1_absent
-    //             });
-
-    //             // Save QA1
-    //             await upsertAssessment({
-    //                 student_id: selectedStudent.id,
-    //                 subject_id: assessment.subject_id,
-    //                 assessment_type: 'qa1',
-    //                 score: assessment.qa1,
-    //                 grade: assessment.qa1 !== null ? calculateGrade(assessment.qa1, passMark) : null,
-    //                 // absent: assessment.qa1_absent || false
-    //                 is_absent: assessment.qa1_absent || false
-    //             });
-
-    //             // Save QA2
-    //             await upsertAssessment({
-    //                 student_id: selectedStudent.id,
-    //                 subject_id: assessment.subject_id,
-    //                 assessment_type: 'qa2',
-    //                 score: assessment.qa2,
-    //                 grade: assessment.qa2 !== null ? calculateGrade(assessment.qa2, passMark) : null,
-    //                 // absent: assessment.qa2_absent || false
-    //                 is_absent: assessment.qa2_absent || false
-    //             });
-
-    //             // Save End of Term
-    //             await upsertAssessment({
-    //                 student_id: selectedStudent.id,
-    //                 subject_id: assessment.subject_id,
-    //                 assessment_type: 'end_of_term',
-    //                 score: assessment.end_of_term,
-    //                 grade: assessment.end_of_term !== null ? calculateGrade(assessment.end_of_term, passMark) : null,
-    //                 // absent: assessment.end_of_term_absent || false
-    //                 is_absent: assessment.end_of_term_absent || false
-    //             });
-    //         }
-
-    //         // Save report card ONLY if teacher is a class teacher
-    //         if (isUserClassTeacher) {
-    //             await upsertReportCard({
-    //                 student_id: selectedStudent.id,
-    //                 term: selectedStudent.term || 'Term 1, 2024/2025',
-    //                 days_present: reportCard.days_present,
-    //                 days_absent: reportCard.days_absent,
-    //                 days_late: reportCard.days_late,
-    //                 teacher_remarks: reportCard.teacher_remarks
-    //             });
-    //         }
-
-    //         // Trigger automatic rank recalculation for the class
-    //         if (selectedStudent.class?.id) {
-    //             await calculateAndUpdateRanks(
-    //                 selectedStudent.class.id,
-    //                 selectedStudent.term || 'Term 1, 2024/2025'
-    //             );
-    //         }
-
-    //         showMessage('Results saved and ranks auto-calculated!');
-
-    //         // Reload to show updated data
-    //         loadStudentResults(selectedStudent);
-    //     } catch (err: any) {
-    //         showMessage(err.message || 'Failed to save results', true);
-    //         console.error('Error saving results:', err);
-    //     } finally {
-    //         setSavingResults(false);
-    //     }
-    // };
 
     const saveAllResults = async () => {
         if (!selectedStudent) return;
@@ -551,34 +494,50 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
 
     return (
         <div className="min-h-screen bg-slate-100">
-            <TeacherHeader onBack={onBack} />
 
-            {/* Error message display */}
-            {error && (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-                        <AlertCircle className="w-5 h-5 text-red-500" />
-                        <p className="text-red-700">{error}</p>
+            {/* Sidebar */}
+            <TeacherSidebar
+                activeMainSection={activeMainMenu}
+                onSectionChange={handleMenuChange}
+                onBack={onBack}
+                isCollapsed={sidebarCollapsed}
+                onToggle={handleSidebarToggle}
+                teacherName={teacherName}
+                teacherInitial={teacherInitial}
+            />
+            <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'pl-20' : 'pl-64'}`}>
+                <TeacherHeader onBack={onBack} />
+
+                {/* Error message display */}
+                {error && (
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                            <AlertCircle className="w-5 h-5 text-red-500" />
+                            <p className="text-red-700">{error}</p>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Success message display */}
-            {success && (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3">
-                        <CheckCircle className="w-5 h-5 text-emerald-500" />
-                        <p className="text-emerald-700">{success}</p>
+                {/* Success message display */}
+                {success && (
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3">
+                            <CheckCircle className="w-5 h-5 text-emerald-500" />
+                            <p className="text-emerald-700">{success}</p>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Tab navigation */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-                <TeacherTabs activeTab={activeTab} onTabChange={handleTabChange} />
+                {/* CONDITIONAL CONTENT - EXACTLY LIKE ADMIN PANEL */}
+                {activeMainMenu === 'dashboard' ? (
+                    <>
 
-                {/* Calculate Ranks Button - Smaller and inline */}
-                {/* <div className="mt-2 flex justify-end">
+                        {/* Tab navigation */}
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+                            <TeacherTabs activeTab={activeTab} onTabChange={handleTabChange} />
+
+                            {/* Calculate Ranks Button - Smaller and inline */}
+                            {/* <div className="mt-2 flex justify-end">
                     <button
                         onClick={() => setShowConfirmModal(true)}
                         className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium text-sm rounded-lg shadow transition-colors duration-200 flex items-center gap-2"
@@ -591,123 +550,223 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                         )}
                     </button>
                 </div> */}
-            </div>
+                        </div>
 
-            {/* Custom Confirm Modal */}
-            <CustomConfirmModal
-                isOpen={showConfirmModal}
-                title="Calculate Final Ranks"
-                message="This will recalculate rankings for all your classes based on all entered scores. Are you sure you want to continue?"
-                onConfirm={async () => {
-                    setShowConfirmModal(false);
-                    setSavingResults(true);
-                    try {
-                        // Get the class info from localStorage (set by the button in ResultsManagement)
-                        const classData = JSON.parse(localStorage.getItem('selectedClassForRank') || '{}');
+                        {/* Custom Confirm Modal */}
+                        <CustomConfirmModal
+                            isOpen={showConfirmModal}
+                            title="Calculate Final Ranks"
+                            message="This will recalculate rankings for all your classes based on all entered scores. Are you sure you want to continue?"
+                            onConfirm={async () => {
+                                setShowConfirmModal(false);
+                                setSavingResults(true);
+                                try {
+                                    // Get the class info from localStorage (set by the button in ResultsManagement)
+                                    const classData = JSON.parse(localStorage.getItem('selectedClassForRank') || '{}');
 
-                        if (classData.id) {
-                            await calculateAndUpdateRanks(
-                                classData.id,
-                                classData.term || 'Term 1, 2024/2025'
-                            );
+                                    if (classData.id) {
+                                        await calculateAndUpdateRanks(
+                                            classData.id,
+                                            classData.term || 'Term 1, 2024/2025'
+                                        );
 
-                            setSuccessMessage(`Ranks calculated for ${classData.name} successfully!`);
-                            localStorage.removeItem('selectedClassForRank');
-                        } else {
-                            // Fallback to all classes if no specific class selected
-                            const uniqueClassIds = [...new Set(assignments.map(a => a.classId))];
-                            for (const classId of uniqueClassIds) {
-                                const classItem = teacherClasses.find(c => c.id === classId);
-                                if (classItem) {
-                                    await calculateAndUpdateRanks(
-                                        classId,
-                                        classItem.term || 'Term 1, 2024/2025'
-                                    );
+                                        setSuccessMessage(`Ranks calculated for ${classData.name} successfully!`);
+                                        localStorage.removeItem('selectedClassForRank');
+                                    } else {
+                                        // Fallback to all classes if no specific class selected
+                                        const uniqueClassIds = [...new Set(assignments.map(a => a.classId))];
+                                        for (const classId of uniqueClassIds) {
+                                            const classItem = teacherClasses.find(c => c.id === classId);
+                                            if (classItem) {
+                                                await calculateAndUpdateRanks(
+                                                    classId,
+                                                    classItem.term || 'Term 1, 2024/2025'
+                                                );
+                                            }
+                                        }
+                                        setSuccessMessage('All ranks calculated successfully!');
+                                    }
+
+                                    setShowSuccessModal(true);
+
+                                    if (activeTab === 'classResults' && selectedClassForResults) {
+                                        await loadClassResults(selectedClassForResults);
+                                    } else {
+                                        await loadData();
+                                    }
+
+                                } catch (error) {
+                                    setErrorMessage('Error calculating ranks');
+                                    setShowSuccessModal(true);
+                                } finally {
+                                    setSavingResults(false);
                                 }
-                            }
-                            setSuccessMessage('All ranks calculated successfully!');
-                        }
+                            }}
+                            onCancel={() => setShowConfirmModal(false)}
+                        />
 
-                        setShowSuccessModal(true);
+                        {/* Success/Error Modal - Add this after the confirm modal */}
+                        <CustomAlertModal
+                            isOpen={showSuccessModal}
+                            title={errorMessage ? 'Error' : 'Success'}
+                            message={errorMessage || successMessage}
+                            type={errorMessage ? 'error' : 'success'}
+                            onClose={() => {
+                                setShowSuccessModal(false);
+                                setErrorMessage('');
+                                setSuccessMessage('');
+                            }}
+                        />
 
-                        if (activeTab === 'classResults' && selectedClassForResults) {
-                            await loadClassResults(selectedClassForResults);
-                        } else {
-                            await loadData();
-                        }
+                        {/* Main content area */}
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                            {loading ? (
+                                <LoadingSpinner message="Loading teacher data..." />
+                            ) : activeTab === 'classResults' ? (
+                                /* Class-wide results view */
+                                <ClassResultsManagement
+                                    classes={teacherClasses}
+                                    subjects={teacherSubjects}
+                                    classResults={classResults}
+                                    students={students}
+                                    selectedClassForResults={selectedClassForResults}
+                                    activeAssessmentType={activeAssessmentType}
+                                    resultsLoading={resultsLoading}
+                                    activeConfig={activeConfig}
+                                    setSelectedClassForResults={setSelectedClassForResults}
+                                    setActiveAssessmentType={setActiveAssessmentType}
+                                    loadClassResults={loadClassResults}
+                                    calculateGrade={calculateGrade}
+                                    isTeacherView={true}
+                                />
+                            ) : (
+                                /* Individual student results view */
+                                <ResultsManagement
+                                    students={students}
+                                    classes={teacherClasses}
+                                    subjects={teacherSubjects}
+                                    selectedStudent={selectedStudent}
+                                    assessments={assessments}
+                                    reportCard={reportCard}
+                                    savingResults={savingResults}
+                                    activeConfig={activeConfig}
+                                    setSelectedStudent={setSelectedStudent}
+                                    setAssessments={setAssessments}
+                                    setReportCard={setReportCard}
+                                    loadStudentResults={loadStudentResults}
+                                    saveAllResults={saveAllResults}
+                                    updateAssessmentScore={updateAssessmentScore}
+                                    calculateGrade={calculateGrade}
+                                    calculateFinalScore={calculateFinalScore}
+                                    isTeacherView={true}
+                                    isClassTeacher={isUserClassTeacher}
+                                    // ADD THESE LINES
+                                    setShowConfirmModal={setShowConfirmModal}
+                                    setSuccessMessage={setSuccessMessage}
+                                    setShowSuccessModal={setShowSuccessModal}
+                                    setErrorMessage={setErrorMessage}
+                                />
 
-                    } catch (error) {
-                        setErrorMessage('Error calculating ranks');
-                        setShowSuccessModal(true);
-                    } finally {
-                        setSavingResults(false);
-                    }
-                }}
-                onCancel={() => setShowConfirmModal(false)}
-            />
+                            )}
+                        </div>
+                    </>
 
-            {/* Success/Error Modal - Add this after the confirm modal */}
-            <CustomAlertModal
-                isOpen={showSuccessModal}
-                title={errorMessage ? 'Error' : 'Success'}
-                message={errorMessage || successMessage}
-                type={errorMessage ? 'error' : 'success'}
-                onClose={() => {
-                    setShowSuccessModal(false);
-                    setErrorMessage('');
-                    setSuccessMessage('');
-                }}
-            />
-
-            {/* Main content area */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                {loading ? (
-                    <LoadingSpinner message="Loading teacher data..." />
-                ) : activeTab === 'classResults' ? (
-                    /* Class-wide results view */
-                    <ClassResultsManagement
-                        classes={teacherClasses}
-                        subjects={teacherSubjects}
-                        classResults={classResults}
-                        students={students}
-                        selectedClassForResults={selectedClassForResults}
-                        activeAssessmentType={activeAssessmentType}
-                        resultsLoading={resultsLoading}
-                        activeConfig={activeConfig}
-                        setSelectedClassForResults={setSelectedClassForResults}
-                        setActiveAssessmentType={setActiveAssessmentType}
-                        loadClassResults={loadClassResults}
-                        calculateGrade={calculateGrade}
-                        isTeacherView={true}
-                    />
-                ) : (
-                    /* Individual student results view */
-                    <ResultsManagement
-                        students={students}
-                        classes={teacherClasses}
-                        subjects={teacherSubjects}
-                        selectedStudent={selectedStudent}
-                        assessments={assessments}
-                        reportCard={reportCard}
-                        savingResults={savingResults}
-                        activeConfig={activeConfig}
-                        setSelectedStudent={setSelectedStudent}
-                        setAssessments={setAssessments}
-                        setReportCard={setReportCard}
-                        loadStudentResults={loadStudentResults}
-                        saveAllResults={saveAllResults}
-                        updateAssessmentScore={updateAssessmentScore}
-                        calculateGrade={calculateGrade}
-                        calculateFinalScore={calculateFinalScore}
-                        isTeacherView={true}
-                        isClassTeacher={isUserClassTeacher}
-                        // ADD THESE LINES
-                        setShowConfirmModal={setShowConfirmModal}
-                        setSuccessMessage={setSuccessMessage}
-                        setShowSuccessModal={setShowSuccessModal}
-                        setErrorMessage={setErrorMessage}
-                    />
-                )}
+                ) : activeMainMenu === 'my-classes' ? (  // ← ADD THIS
+                    <div className="px-4 sm:px-6 lg:px-8 py-6">
+                        {/* <div className="bg-white rounded-xl p-8 text-center">
+                            <h2 className="text-2xl font-bold text-slate-800">My Classes</h2>
+                            <p className="text-slate-500 mt-2">Coming soon...</p>
+                        </div> */}
+                        <TeacherClasses
+                            classes={teacherClasses}
+                            students={students}
+                            subjects={teacherSubjects}
+                            showMessage={showMessage}
+                        />
+                    </div>
+                ) : activeMainMenu === 'attendance' ? (
+                    <div className="px-4 sm:px-6 lg:px-8 py-6">
+                        {/* <div className="bg-white rounded-xl p-8 text-center">
+                            <h2 className="text-2xl font-bold text-slate-800">Attendance</h2>
+                            <p className="text-slate-500 mt-2">Coming soon...</p>
+                        </div> */}
+                        <TeacherAttendance
+                            classes={teacherClasses}
+                            students={students}
+                            teacherId={teacherId} // You'll need to make teacherId available
+                            showMessage={showMessage}
+                        />
+                    </div>
+                ) : activeMainMenu === 'timetable' ? (
+                    <div className="px-4 sm:px-6 lg:px-8 py-6">
+                        {/* <div className="bg-white rounded-xl p-8 text-center">
+                            <h2 className="text-2xl font-bold text-slate-800">Timetable</h2>
+                            <p className="text-slate-500 mt-2">Coming soon...</p>
+                        </div> */}
+                        <TeacherTimetable
+                            classes={teacherClasses}
+                            subjects={teacherSubjects}
+                            teacherId={teacherId}
+                            teacherName={teacherName}
+                            showMessage={showMessage}
+                        />
+                    </div>
+                ) : activeMainMenu === 'messages' ? (
+                    <div className="px-4 sm:px-6 lg:px-8 py-6">
+                        {/* <div className="bg-white rounded-xl p-8 text-center">
+                            <h2 className="text-2xl font-bold text-slate-800">Messages</h2>
+                            <p className="text-slate-500 mt-2">Coming soon...</p>
+                        </div> */}
+                        {/* <MessagingCenter
+                            userRole="teacher"
+                            userId={teacherId}
+                            userName={teacherName}
+                            classes={teacherClasses}
+                            students={students}
+                            // teachers={teachers}
+                            showMessage={showMessage}
+                        /> */}
+                        <TeacherMessages
+                            classes={teacherClasses}
+                            students={students}
+                            // teachers={teachers}
+                            teacherId={teacherId}
+                            teacherName={teacherName}
+                            showMessage={showMessage}
+                        />
+                    </div>
+                ) : activeMainMenu === 'reports' ? (
+                    <div className="px-4 sm:px-6 lg:px-8 py-6">
+                        {/* <div className="bg-white rounded-xl p-8 text-center">
+                            <h2 className="text-2xl font-bold text-slate-800">Reports</h2>
+                            <p className="text-slate-500 mt-2">Coming soon...</p>
+                        </div> */}
+                        <TeacherReports
+                            classes={teacherClasses}
+                            students={students}
+                            subjects={teacherSubjects}
+                            teacherId={teacherId}
+                            teacherName={teacherName}
+                            showMessage={showMessage}
+                        />
+                    </div>
+                ) : activeMainMenu === 'profile' ? (
+                    <div className="px-4 sm:px-6 lg:px-8 py-6">
+                        {/* <div className="bg-white rounded-xl p-8 text-center">
+                            <h2 className="text-2xl font-bold text-slate-800">Profile</h2>
+                            <p className="text-slate-500 mt-2">Coming soon...</p>
+                        </div> */}
+                        <TeacherProfile
+                            teacherId={teacherId}
+                            teacherName={teacherName}
+                            teacherEmail={teacherEmail}
+                            classes={teacherClasses}
+                            students={students}
+                            subjects={teacherSubjects}
+                            showMessage={showMessage}
+                        />
+                    </div>
+                ) : null}
             </div>
         </div>
     );
