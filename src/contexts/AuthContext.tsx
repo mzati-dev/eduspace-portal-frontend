@@ -17,6 +17,15 @@ interface User {
   schoolId?: string;
   schoolName?: string;
   created_at?: string; // ADD THIS for teachers
+  // ===== ADD THESE PARENT-SPECIFIC FIELDS =====
+  parentName?: string;
+  parentPhone?: string;
+  preferredContact?: string;
+  childId?: string;
+  childName?: string;
+  childExamNumber?: string;
+  childClass?: string;
+  // ===== END ADD =====
 }
 
 interface AuthContextType {
@@ -24,6 +33,9 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  // ===== ADD THIS =====
+  parentSignIn: (phone: string, password: string) => Promise<{ error: Error | null }>;
+  // ===== END ADD =====
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -73,6 +85,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     }
   };
+
+  // ===== ADD THIS PARENT SIGN IN FUNCTION =====
+  const parentSignIn = async (phone: string, password: string) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/parent-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password }),
+      });
+
+      const data = await response.json();
+      console.log('Parent login response:', data);
+
+      if (!response.ok) {
+        return {
+          error: {
+            message: data.message || 'Invalid phone number or password',
+          } as Error,
+        };
+      }
+
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('userRole', 'parent');
+      setToken(data.access_token);
+      setUser(data.user);
+
+      return { error: null };
+    } catch (error: any) {
+      return {
+        error: {
+          message: error.message || 'Login failed. Please try again.',
+        } as Error,
+      };
+    }
+  };
+  // ===== END ADD =====
 
   // const signIn = async (email: string, password: string) => {
   //   try {
@@ -203,6 +252,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user'); // ADD THIS LINE
+    localStorage.removeItem('userRole'); // ADD THIS LINE
     setToken(null);
     setUser(null);
   };
@@ -239,6 +290,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     token,
     loading,
     signIn,
+    // ===== ADD THIS =====
+    parentSignIn, // ADD THIS
+    // ===== END ADD =====
     signUp,
     signOut,
     resetPassword,

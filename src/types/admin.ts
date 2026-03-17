@@ -1,3 +1,4 @@
+//admin.ts
 export interface Student {
     id: string;
     examNumber: string;
@@ -11,6 +12,26 @@ export interface Student {
     };
     term?: string;
     photo_url?: string;
+    // ADD THESE 2 LINES:
+    emis_code?: string;
+    parent_id?: string;
+    // ADD THIS:
+    parent?: {
+        name?: string;
+        phone?: string;
+        email?: string;
+        national_id?: string;
+        relationship?: string;
+        alternate_phone?: string;
+        address?: string;
+        occupation?: string;
+        preferred_contact?: string;
+    };
+    emergency_contact?: {
+        name?: string;
+        phone?: string;
+        relationship?: string;
+    };
 }
 
 export interface Assessment {
@@ -57,6 +78,22 @@ export interface StudentFormData {
     name: string;
     class_id: string;
     photo_url: string;
+    // ADD ALL THESE LINES:
+    emis_code?: string;
+    parent_name?: string;
+    parent_phone?: string;
+    parent_email?: string;
+    parent_national_id?: string;
+    parent_relationship?: string;
+    parent_alternate_phone?: string;
+    parent_address?: string;
+    parent_occupation?: string;
+    preferred_contact?: 'sms' | 'whatsapp' | 'email' | 'call';
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    emergency_contact_relationship?: string;
+    parent_password?: string;
+    send_credentials?: boolean;
 }
 
 export interface ConfigFormData {

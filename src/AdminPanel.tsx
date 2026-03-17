@@ -45,13 +45,13 @@ import LockModal from './components/admin/modals/LockModal';
 import StudentReportArchiveModal from './components/admin/modals/StudentReportArchiveModal';
 // import ArchiveStudentReportsModal from './components/admin/modals/ArchiveStudentReportsModal';
 import PreviewModal from './components/admin/modals/PreviewModal';
-import AdminSidebar from './components/sidebar/AdminSidebar';
-import AttendanceManagement from './components/sidebar/AttendanceManagement';
-import AnalyticsManagement from './components/sidebar/AnalyticsManagement';
-import FeesManagement from './components/sidebar/FeesManagement';
-import MessagingManagement from './components/sidebar/MessagingManagement';
-import SettingsManagement from './components/sidebar/SettingsManagement';
-import TimetableManagement from './components/sidebar/TimetableManagement';
+import AdminSidebar from './components/admin/sidebar/AdminSidebar';
+import AttendanceManagement from './components/admin/sidebar/AttendanceManagement';
+import AnalyticsManagement from './components/admin/sidebar/AnalyticsManagement';
+import FeesManagement from './components/admin/sidebar/FeesManagement';
+import MessagingManagement from './components/admin/sidebar/MessagingManagement';
+import SettingsManagement from './components/admin/sidebar/SettingsManagement';
+import TimetableManagement from './components/admin/sidebar/TimetableManagement';
 
 interface AdminPanelProps {
     onBack: () => void;
@@ -328,11 +328,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     const handleCreateStudent = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await createStudent({
-                name: studentForm.name,
-                class_id: studentForm.class_id,
-                photo_url: studentForm.photo_url
-            });
+            // await createStudent({
+            //     name: studentForm.name,
+            //     class_id: studentForm.class_id,
+            //     photo_url: studentForm.photo_url
+            // });
+            await createStudent(studentForm);
             showMessage('Student created successfully!');
             setShowStudentForm(false);
             setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '' });
@@ -346,11 +347,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         e.preventDefault();
         if (!editingStudent) return;
         try {
-            await updateStudent(editingStudent.id, {
-                name: studentForm.name,
-                class_id: studentForm.class_id,
-                photo_url: studentForm.photo_url
-            });
+            // await updateStudent(editingStudent.id, {
+            //     name: studentForm.name,
+            //     class_id: studentForm.class_id,
+            //     photo_url: studentForm.photo_url
+            // });
+            await updateStudent(editingStudent.id, studentForm);
             showMessage('Student updated successfully!');
             setEditingStudent(null);
             setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '' });

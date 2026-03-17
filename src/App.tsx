@@ -15,6 +15,8 @@ import AdminPanel from "./AdminPanel";
 import SuperAdminPanel from "./components/super-admin/SuperAdminPanel";
 import TeacherPanel from "./components/teacher-panel/TeacherPanel";
 import UserAppLayout from "./components/app/dashboard/UserAppLayout";
+import ParentPanel from "./components/parent/ParentPanel";
+import ParentReportCards from "./components/parent/ParentReportCards";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,10 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPasswordPage />} /> {/* Add this line */}
               {/* User / Parent dashboard */}
               <Route path="/dashboard" element={<UserAppLayout />} />
+              {/* ===== ADD THIS PARENT ROUTE ===== */}
+              <Route path="/parent-dashboard" element={<ParentPanel onBack={() => window.history.back()} />} />
+              {/* ===== END ADD ===== */}
+
               <Route path="/admin" element={<AdminPanel onBack={() => window.history.back()} />} /> {/* ADD THIS LINE */}
               <Route path="/teacher" element={<TeacherPanel onBack={() => window.history.back()} />} />
               <Route path="/super-admin" element={<SuperAdminPanel onBack={() => window.history.back()} />} /> {/* ADD THIS LINE */}

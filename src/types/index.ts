@@ -1,3 +1,5 @@
+//index file
+
 // Or keep your local type but make it match exactly:
 export interface StudentData {
     name: string;
@@ -78,4 +80,27 @@ export interface GradeConfiguration {
     grade_ranges?: any[]; // Make optional
     is_active?: boolean; // Make optional
     created_at?: string; // Make optional
+}
+
+// ====================== ADD AT THE BOTTOM ======================
+
+export interface Parent {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+    national_id?: string;
+    alternate_phone?: string;
+    address?: string;
+    occupation?: string;
+    preferred_contact?: 'sms' | 'whatsapp' | 'email' | 'call';
+    created_at?: string;
+    school_id?: string;
+    is_active?: boolean;
+}
+
+export interface StudentParent {
+    student_id: string;
+    parent_id: string;
+    relationship: 'father' | 'mother' | 'guardian' | 'grandparent' | 'aunt' | 'uncle' | 'other';
 }

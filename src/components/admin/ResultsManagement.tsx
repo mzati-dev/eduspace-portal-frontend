@@ -71,6 +71,16 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
     });
     const [calculatingClass, setCalculatingClass] = useState<string | null>(null);
     const [showEmptyFieldsWarning, setShowEmptyFieldsWarning] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedClassFilter, setSelectedClassFilter] = useState<string>('');
+
+    const filteredStudents = students.filter(student => {
+        const matchesSearch = !searchTerm ||
+            student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            student.examNumber.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesClass = !selectedClassFilter || student.class?.id === selectedClassFilter;
+        return matchesSearch && matchesClass;
+    });
     // const predefinedRemarks = [
     //     "Outstanding performance. Excellent understanding of concepts.",
     //     "Very good performance. Consistent effort and strong results.",
@@ -206,10 +216,86 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                 <>
                     <h2 className="text-lg font-semibold text-slate-800">Select a Student to Enter Results</h2>
 
+                    {/* ADD THIS SEARCH AND FILTER SECTION */}
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Search by Name or Exam Number */}
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    Search Students
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        placeholder="Search by name or exam number..."
+                                        className="w-full px-4 py-2 pl-10 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                    <span className="absolute left-3 top-2.5 text-slate-400">🔍</span>
+                                    {searchTerm && (
+                                        <button
+                                            onClick={() => setSearchTerm('')}
+                                            className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Filter by Class */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    Filter by Class
+                                </label>
+                                <select
+                                    value={selectedClassFilter}
+                                    onChange={(e) => setSelectedClassFilter(e.target.value)}
+                                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                >
+                                    <option value="">All Classes</option>
+                                    {classes.map(cls => (
+                                        <option key={cls.id} value={cls.id}>
+                                            {cls.name} - {cls.term}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Search Results Summary */}
+                        {(searchTerm || selectedClassFilter) && (
+                            <div className="mt-3 flex items-center justify-between">
+                                <p className="text-sm text-slate-600">
+                                    Showing {students.filter(s => {
+                                        const matchesSearch = !searchTerm ||
+                                            s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                            s.examNumber.toLowerCase().includes(searchTerm.toLowerCase());
+                                        const matchesClass = !selectedClassFilter || s.class?.id === selectedClassFilter;
+                                        return matchesSearch && matchesClass;
+                                    }).length} of {students.length} students
+                                </p>
+                                <button
+                                    onClick={() => {
+                                        setSearchTerm('');
+                                        setSelectedClassFilter('');
+                                    }}
+                                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                                >
+                                    Clear Filters
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="space-y-8">
                         {classes.map(cls => {
-                            const classStudents = students.filter(s => s.class?.id === cls.id);
+                            // const classStudents = students.filter(s => s.class?.id === cls.id);
+                            // First filter all students
+
+
+                            const classStudents = filteredStudents.filter(s => s.class?.id === cls.id);
                             if (classStudents.length === 0) return null;
 
                             return (
