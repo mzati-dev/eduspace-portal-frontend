@@ -1,23 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
-
-// const API_URL = 'http://localhost:3000';
 const API_URL = 'https://eduspace-portal-backend.onrender.com';
-
 
 interface User {
   id: string;
   email: string;
   fullName: string;
-  name?: string; // ADD THIS for teachers
+  name?: string;
   isEmailVerified: boolean;
-  role: string; // Add this line
-  // ADD THESE TWO LINES:
+  role: string;
   schoolId?: string;
   schoolName?: string;
-  created_at?: string; // ADD THIS for teachers
-  // ===== ADD THESE PARENT-SPECIFIC FIELDS =====
+  created_at?: string;
+  // Parent-specific fields
   parentName?: string;
   parentPhone?: string;
   preferredContact?: string;
@@ -25,17 +20,15 @@ interface User {
   childName?: string;
   childExamNumber?: string;
   childClass?: string;
-  // ===== END ADD =====
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  // ===== ADD THIS =====
-  parentSignIn: (phone: string, password: string) => Promise<{ error: Error | null }>;
-  // ===== END ADD =====
+  // UPDATE THIS - single signIn that handles all login types
+  signIn: (identifier: string, password: string, loginType?: 'email' | 'phone') => Promise<{ error: Error | null }>;
+  // REMOVE parentSignIn - we don't need it anymore
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -86,34 +79,105 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // ===== ADD THIS PARENT SIGN IN FUNCTION =====
-  const parentSignIn = async (phone: string, password: string) => {
+  // UPDATED signIn function that handles all login types
+  const signIn = async (identifier: string, password: string, loginType?: 'email' | 'phone') => {
     try {
-      const response = await fetch(`${API_URL}/auth/parent-login`, {
+      let response;
+      let endpoint = '';
+      let body = {};
+
+      // If loginType is provided, use it directly
+      if (loginType === 'phone') {
+        // Phone login (parent)
+        endpoint = `${API_URL}/auth/parent-login`;
+        body = { phone: identifier, password };
+      } else if (loginType === 'email') {
+        // Email login - try regular first, then teacher
+        // We'll handle this in a separate flow
+        endpoint = `${API_URL}/auth/login`;
+        body = { email: identifier, password };
+      } else {
+        // No loginType provided - try to detect
+        const isEmailInput = identifier.includes('@') && identifier.includes('.');
+
+        if (isEmailInput) {
+          // It's an email - try regular login first
+          endpoint = `${API_URL}/auth/login`;
+          body = { email: identifier, password };
+        } else {
+          // It's a phone number - try parent login
+          endpoint = `${API_URL}/auth/parent-login`;
+          body = { phone: identifier, password };
+        }
+      }
+
+      // Make the first attempt
+      response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password }),
+        body: JSON.stringify(body),
       });
 
-      const data = await response.json();
-      console.log('Parent login response:', data);
+      // If successful, process the response
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Login response:', data);
 
-      if (!response.ok) {
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        // Set role in localStorage based on response
+        if (data.user?.role) {
+          localStorage.setItem('userRole', data.user.role);
+        }
+
+        setToken(data.access_token);
+        setUser(data.user);
+
+        return { error: null };
+      }
+
+      // If first attempt failed and it was email login, try teacher login
+      if (endpoint === `${API_URL}/auth/login`) {
+        console.log('Regular login failed, trying teacher login...');
+        const teacherResponse = await fetch(`${API_URL}/auth/teachers/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: identifier, password }),
+        });
+
+        if (teacherResponse.ok) {
+          const data = await teacherResponse.json();
+          console.log('Teacher login response:', data);
+
+          localStorage.setItem('token', data.access_token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.setItem('userRole', data.user?.role || 'teacher');
+          setToken(data.access_token);
+          setUser(data.user);
+
+          return { error: null };
+        }
+
+        // Both logins failed
+        const errorData = await teacherResponse.json();
         return {
           error: {
-            message: data.message || 'Invalid phone number or password',
+            message: errorData.message || 'Invalid credentials',
           } as Error,
         };
       }
 
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('userRole', 'parent');
-      setToken(data.access_token);
-      setUser(data.user);
+      // If it was phone login and it failed
+      const errorData = await response.json();
+      return {
+        error: {
+          message: errorData.message || 'Invalid phone number or password',
+        } as Error,
+      };
 
-      return { error: null };
     } catch (error: any) {
+      console.error('Login error:', error);
       return {
         error: {
           message: error.message || 'Login failed. Please try again.',
@@ -121,108 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
   };
-  // ===== END ADD =====
 
-  // const signIn = async (email: string, password: string) => {
-  //   try {
-  //     const response = await fetch(`${API_URL}/auth/login`, {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({ email, password }),
-  //     });
-
-  //     const data = await response.json();
-  //     console.log('Login response:', data); // Add this line
-
-  //     // if (!response.ok) {
-  //     //   const errorData = await response.json();
-
-  //     //   return {
-  //     //     error: {
-  //     //       message: errorData.message || 'Login failed. Please try again.',
-  //     //     } as Error,
-  //     //   };
-  //     // }
-  //     if (!response.ok) {
-  //       return {
-  //         error: {
-  //           message: data.message || 'Login failed. Please try again.',
-  //         } as Error,
-  //       };
-  //     }
-
-  //     // const data = await response.json();
-  //     localStorage.setItem('token', data.access_token);
-  //     localStorage.setItem('user', JSON.stringify(data.user)); // Add this line
-  //     setToken(data.access_token);
-  //     setUser(data.user);
-
-  //     return { error: null };
-  //   } catch (error: any) {
-  //     return {
-  //       error: {
-  //         message: 'Login failed. Please try again.',
-  //       } as Error,
-  //     };
-  //   }
-  // };
-  const signIn = async (email: string, password: string) => {
-    try {
-      // First try regular login (admin/school_admin)
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Regular login response:', data);
-
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setToken(data.access_token);
-        setUser(data.user);
-
-        return { error: null };
-      }
-
-      // If regular login fails, try teacher login
-      console.log('Regular login failed, trying teacher login...');
-      const teacherResponse = await fetch(`${API_URL}/auth/teachers/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (teacherResponse.ok) {
-        const data = await teacherResponse.json();
-        console.log('Teacher login response:', data);
-
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setToken(data.access_token);
-        setUser(data.user);
-
-        return { error: null };
-      }
-
-      // Both logins failed
-      const errorData = await teacherResponse.json();
-      return {
-        error: {
-          message: errorData.message || 'Invalid credentials',
-        } as Error,
-      };
-
-    } catch (error: any) {
-      return {
-        error: {
-          message: error.message || 'Login failed. Please try again.',
-        } as Error,
-      };
-    }
-  };
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
       const response = await fetch(`${API_URL}/auth/register`, {
@@ -252,8 +215,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user'); // ADD THIS LINE
-    localStorage.removeItem('userRole'); // ADD THIS LINE
+    localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
     setToken(null);
     setUser(null);
   };
@@ -289,10 +252,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     token,
     loading,
-    signIn,
-    // ===== ADD THIS =====
-    parentSignIn, // ADD THIS
-    // ===== END ADD =====
+    signIn,  // This now handles all login types
     signUp,
     signOut,
     resetPassword,
@@ -300,6 +260,309 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+// import React, { createContext, useContext, useEffect, useState } from 'react';
+
+// // const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+
+// // const API_URL = 'http://localhost:3000';
+// const API_URL = 'https://eduspace-portal-backend.onrender.com';
+
+
+// interface User {
+//   id: string;
+//   email: string;
+//   fullName: string;
+//   name?: string; // ADD THIS for teachers
+//   isEmailVerified: boolean;
+//   role: string; // Add this line
+//   // ADD THESE TWO LINES:
+//   schoolId?: string;
+//   schoolName?: string;
+//   created_at?: string; // ADD THIS for teachers
+//   // ===== ADD THESE PARENT-SPECIFIC FIELDS =====
+//   parentName?: string;
+//   parentPhone?: string;
+//   preferredContact?: string;
+//   childId?: string;
+//   childName?: string;
+//   childExamNumber?: string;
+//   childClass?: string;
+//   // ===== END ADD =====
+// }
+
+// interface AuthContextType {
+//   user: User | null;
+//   token: string | null;
+//   loading: boolean;
+//   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+//   // ===== ADD THIS =====
+//   parentSignIn: (phone: string, password: string) => Promise<{ error: Error | null }>;
+//   // ===== END ADD =====
+//   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+//   signOut: () => Promise<void>;
+//   resetPassword: (email: string) => Promise<{ error: Error | null }>;
+// }
+
+// const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// export const useAuth = () => {
+//   const context = useContext(AuthContext);
+//   if (context === undefined) {
+//     throw new Error('useAuth must be used within an AuthProvider');
+//   }
+//   return context;
+// };
+
+// export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+//   const [user, setUser] = useState<User | null>(null);
+//   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+//   const [loading, setLoading] = useState(true);
+
+//   useEffect(() => {
+//     if (token) {
+//       fetchUserProfile();
+//     } else {
+//       setLoading(false);
+//     }
+//   }, [token]);
+
+//   const fetchUserProfile = async () => {
+//     try {
+//       const response = await fetch(`${API_URL}/auth/profile`, {
+//         headers: { Authorization: `Bearer ${token}` }
+//       });
+
+//       if (response.ok) {
+//         const data = await response.json();
+//         setUser(data);
+//       } else {
+//         localStorage.removeItem('token');
+//         setToken(null);
+//       }
+//     } catch (error) {
+//       console.error('Failed to fetch user profile:', error);
+//       localStorage.removeItem('token');
+//       setToken(null);
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   // ===== ADD THIS PARENT SIGN IN FUNCTION =====
+//   const parentSignIn = async (phone: string, password: string) => {
+//     try {
+//       const response = await fetch(`${API_URL}/auth/parent-login`, {
+//         method: 'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify({ phone, password }),
+//       });
+
+//       const data = await response.json();
+//       console.log('Parent login response:', data);
+
+//       if (!response.ok) {
+//         return {
+//           error: {
+//             message: data.message || 'Invalid phone number or password',
+//           } as Error,
+//         };
+//       }
+
+//       localStorage.setItem('token', data.access_token);
+//       localStorage.setItem('user', JSON.stringify(data.user));
+//       localStorage.setItem('userRole', 'parent');
+//       setToken(data.access_token);
+//       setUser(data.user);
+
+//       return { error: null };
+//     } catch (error: any) {
+//       return {
+//         error: {
+//           message: error.message || 'Login failed. Please try again.',
+//         } as Error,
+//       };
+//     }
+//   };
+//   // ===== END ADD =====
+
+//   // const signIn = async (email: string, password: string) => {
+//   //   try {
+//   //     const response = await fetch(`${API_URL}/auth/login`, {
+//   //       method: 'POST',
+//   //       headers: { 'Content-Type': 'application/json' },
+//   //       body: JSON.stringify({ email, password }),
+//   //     });
+
+//   //     const data = await response.json();
+//   //     console.log('Login response:', data); // Add this line
+
+//   //     // if (!response.ok) {
+//   //     //   const errorData = await response.json();
+
+//   //     //   return {
+//   //     //     error: {
+//   //     //       message: errorData.message || 'Login failed. Please try again.',
+//   //     //     } as Error,
+//   //     //   };
+//   //     // }
+//   //     if (!response.ok) {
+//   //       return {
+//   //         error: {
+//   //           message: data.message || 'Login failed. Please try again.',
+//   //         } as Error,
+//   //       };
+//   //     }
+
+//   //     // const data = await response.json();
+//   //     localStorage.setItem('token', data.access_token);
+//   //     localStorage.setItem('user', JSON.stringify(data.user)); // Add this line
+//   //     setToken(data.access_token);
+//   //     setUser(data.user);
+
+//   //     return { error: null };
+//   //   } catch (error: any) {
+//   //     return {
+//   //       error: {
+//   //         message: 'Login failed. Please try again.',
+//   //       } as Error,
+//   //     };
+//   //   }
+//   // };
+//   const signIn = async (email: string, password: string) => {
+//     try {
+//       // First try regular login (admin/school_admin)
+//       const response = await fetch(`${API_URL}/auth/login`, {
+//         method: 'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify({ email, password }),
+//       });
+
+//       if (response.ok) {
+//         const data = await response.json();
+//         console.log('Regular login response:', data);
+
+//         localStorage.setItem('token', data.access_token);
+//         localStorage.setItem('user', JSON.stringify(data.user));
+//         setToken(data.access_token);
+//         setUser(data.user);
+
+//         return { error: null };
+//       }
+
+//       // If regular login fails, try teacher login
+//       console.log('Regular login failed, trying teacher login...');
+//       const teacherResponse = await fetch(`${API_URL}/auth/teachers/login`, {
+//         method: 'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify({ email, password }),
+//       });
+
+//       if (teacherResponse.ok) {
+//         const data = await teacherResponse.json();
+//         console.log('Teacher login response:', data);
+
+//         localStorage.setItem('token', data.access_token);
+//         localStorage.setItem('user', JSON.stringify(data.user));
+//         setToken(data.access_token);
+//         setUser(data.user);
+
+//         return { error: null };
+//       }
+
+//       // Both logins failed
+//       const errorData = await teacherResponse.json();
+//       return {
+//         error: {
+//           message: errorData.message || 'Invalid credentials',
+//         } as Error,
+//       };
+
+//     } catch (error: any) {
+//       return {
+//         error: {
+//           message: error.message || 'Login failed. Please try again.',
+//         } as Error,
+//       };
+//     }
+//   };
+//   const signUp = async (email: string, password: string, fullName: string) => {
+//     try {
+//       const response = await fetch(`${API_URL}/auth/register`, {
+//         method: 'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify({ email, password, fullName }),
+//       });
+
+//       if (!response.ok) {
+//         const errorData = await response.json();
+//         return {
+//           error: {
+//             message: errorData.message || 'Registration failed. Please try again.',
+//           } as Error,
+//         };
+//       }
+
+//       return { error: null };
+//     } catch (error: any) {
+//       return {
+//         error: {
+//           message: 'Registration failed. Please try again.',
+//         } as Error,
+//       };
+//     }
+//   };
+
+//   const signOut = async () => {
+//     localStorage.removeItem('token');
+//     localStorage.removeItem('user'); // ADD THIS LINE
+//     localStorage.removeItem('userRole'); // ADD THIS LINE
+//     setToken(null);
+//     setUser(null);
+//   };
+
+//   const resetPassword = async (email: string) => {
+//     try {
+//       const response = await fetch(`${API_URL}/auth/forgot-password`, {
+//         method: 'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify({ email }),
+//       });
+
+//       if (!response.ok) {
+//         const errorData = await response.json();
+//         return {
+//           error: {
+//             message: errorData.message || 'Failed to send reset email.',
+//           } as Error,
+//         };
+//       }
+
+//       return { error: null };
+//     } catch (error: any) {
+//       return {
+//         error: {
+//           message: 'Failed to send reset email.',
+//         } as Error,
+//       };
+//     }
+//   };
+
+//   const value = {
+//     user,
+//     token,
+//     loading,
+//     signIn,
+//     // ===== ADD THIS =====
+//     parentSignIn, // ADD THIS
+//     // ===== END ADD =====
+//     signUp,
+//     signOut,
+//     resetPassword,
+//   };
+
+//   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+// };
 
 // import React, { createContext, useContext, useEffect, useState } from 'react';
 // import { User, Session } from '@supabase/supabase-js';

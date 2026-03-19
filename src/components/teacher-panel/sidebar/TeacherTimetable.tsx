@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Calendar,
     Clock,
@@ -14,27 +14,21 @@ import {
     Coffee,
     Bell
 } from 'lucide-react';
-
-interface TimetableSlot {
-    id: string;
-    subject: string;
-    class: string;
-    time: string;
-    duration: string;
-    room: string;
-    teacher?: string;
-}
-
-interface DaySchedule {
-    day: string;
-    date: string;
-    slots: TimetableSlot[];
-}
+import {
+    fetchTeacherTimetable,
+    fetchTeacherDayTimetable,
+    fetchTimetableStats,
+    exportTimetable,
+    fetchUpcomingAlerts,
+    DaySchedule,
+    TimetableSlot,
+    TimetableStats
+} from '@/services/timetableService';
 
 interface Props {
     classes: any[];           // Classes teacher is assigned to
     subjects: any[];           // Subjects teacher teaches
-    teacherId?: string;
+    teacherId: string;
     teacherName?: string;
     showMessage: (msg: string, isError?: boolean) => void;
 }
@@ -49,66 +43,116 @@ const TeacherTimetable: React.FC<Props> = ({
     const [selectedWeek, setSelectedWeek] = useState<Date>(new Date());
     const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
     const [selectedDay, setSelectedDay] = useState<string>('Monday');
+    const [loading, setLoading] = useState(false);
+    const [exporting, setExporting] = useState(false);
 
-    // Mock timetable data - In production, fetch from API
-    const mockTimetable: DaySchedule[] = [
-        {
-            day: 'Monday',
-            date: '2024-03-18',
-            slots: [
-                { id: '1', subject: 'Mathematics', class: 'Grade 8A', time: '08:00 - 09:00', duration: '1 hr', room: 'Room 101' },
-                { id: '2', subject: 'Physics', class: 'Grade 8A', time: '09:15 - 10:15', duration: '1 hr', room: 'Lab 201' },
-                { id: '3', subject: 'Mathematics', class: 'Grade 8B', time: '10:30 - 11:30', duration: '1 hr', room: 'Room 102' },
-                { id: '4', subject: 'Break', class: '-', time: '11:30 - 12:30', duration: '1 hr', room: 'Staff Room' },
-                { id: '5', subject: 'Mathematics', class: 'Grade 8C', time: '12:30 - 13:30', duration: '1 hr', room: 'Room 103' },
-                { id: '6', subject: 'Physics', class: 'Grade 8B', time: '14:00 - 15:00', duration: '1 hr', room: 'Lab 201' },
-            ]
-        },
-        {
-            day: 'Tuesday',
-            date: '2024-03-19',
-            slots: [
-                { id: '7', subject: 'Mathematics', class: 'Grade 8B', time: '08:00 - 09:00', duration: '1 hr', room: 'Room 102' },
-                { id: '8', subject: 'Physics', class: 'Grade 8C', time: '09:15 - 10:15', duration: '1 hr', room: 'Lab 201' },
-                { id: '9', subject: 'Mathematics', class: 'Grade 8A', time: '10:30 - 11:30', duration: '1 hr', room: 'Room 101' },
-                { id: '10', subject: 'Break', class: '-', time: '11:30 - 12:30', duration: '1 hr', room: 'Staff Room' },
-                { id: '11', subject: 'Department Meeting', class: '-', time: '14:00 - 15:00', duration: '1 hr', room: 'Conference Room' },
-            ]
-        },
-        {
-            day: 'Wednesday',
-            date: '2024-03-20',
-            slots: [
-                { id: '12', subject: 'Mathematics', class: 'Grade 8C', time: '08:00 - 09:00', duration: '1 hr', room: 'Room 103' },
-                { id: '13', subject: 'Physics', class: 'Grade 8A', time: '09:15 - 10:15', duration: '1 hr', room: 'Lab 201' },
-                { id: '14', subject: 'Mathematics', class: 'Grade 8B', time: '10:30 - 11:30', duration: '1 hr', room: 'Room 102' },
-                { id: '15', subject: 'Break', class: '-', time: '11:30 - 12:30', duration: '1 hr', room: 'Staff Room' },
-                { id: '16', subject: 'Physics', class: 'Grade 8C', time: '14:00 - 15:00', duration: '1 hr', room: 'Lab 202' },
-            ]
-        },
-        {
-            day: 'Thursday',
-            date: '2024-03-21',
-            slots: [
-                { id: '17', subject: 'Mathematics', class: 'Grade 8A', time: '08:00 - 09:00', duration: '1 hr', room: 'Room 101' },
-                { id: '18', subject: 'Physics', class: 'Grade 8B', time: '09:15 - 10:15', duration: '1 hr', room: 'Lab 201' },
-                { id: '19', subject: 'Mathematics', class: 'Grade 8C', time: '10:30 - 11:30', duration: '1 hr', room: 'Room 103' },
-                { id: '20', subject: 'Break', class: '-', time: '11:30 - 12:30', duration: '1 hr', room: 'Staff Room' },
-                { id: '21', subject: 'Physics', class: 'Grade 8A', time: '14:00 - 15:00', duration: '1 hr', room: 'Lab 201' },
-            ]
-        },
-        {
-            day: 'Friday',
-            date: '2024-03-22',
-            slots: [
-                { id: '22', subject: 'Mathematics', class: 'Grade 8B', time: '08:00 - 09:00', duration: '1 hr', room: 'Room 102' },
-                { id: '23', subject: 'Physics', class: 'Grade 8C', time: '09:15 - 10:15', duration: '1 hr', room: 'Lab 202' },
-                { id: '24', subject: 'Mathematics', class: 'Grade 8A', time: '10:30 - 11:30', duration: '1 hr', room: 'Room 101' },
-                { id: '25', subject: 'Break', class: '-', time: '11:30 - 12:30', duration: '1 hr', room: 'Staff Room' },
-                { id: '26', subject: 'Staff Meeting', class: '-', time: '14:00 - 15:30', duration: '1.5 hrs', room: 'Staff Room' },
-            ]
+    // Real data states
+    const [timetable, setTimetable] = useState<DaySchedule[]>([]);
+    const [dayTimetable, setDayTimetable] = useState<DaySchedule | null>(null);
+    const [stats, setStats] = useState<TimetableStats>({
+        totalClasses: 0,
+        uniqueClasses: 0,
+        uniqueSubjects: 0,
+        breakCount: 0,
+        meetingCount: 0,
+        weeklyHours: 0
+    });
+    const [alerts, setAlerts] = useState<any[]>([]);
+    const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all');
+
+    // Load data on mount and when week changes
+    useEffect(() => {
+        loadTimetableData();
+        loadAlerts();
+    }, [teacherId, selectedWeek]);
+
+    // Load day view when selected day changes
+    useEffect(() => {
+        if (viewMode === 'day' && selectedDay) {
+            loadDayData();
         }
-    ];
+    }, [viewMode, selectedDay, teacherId]);
+
+    const getWeekStartDate = (date: Date): string => {
+        const start = new Date(date);
+        start.setDate(date.getDate() - date.getDay() + 1); // Monday
+        return start.toISOString().split('T')[0];
+    };
+
+    const getDateForDay = (dayName: string): string => {
+        const start = new Date(selectedWeek);
+        start.setDate(selectedWeek.getDate() - selectedWeek.getDay() + 1); // Monday
+
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const dayIndex = days.indexOf(dayName);
+
+        const targetDate = new Date(start);
+        targetDate.setDate(start.getDate() + dayIndex);
+
+        return targetDate.toISOString().split('T')[0];
+    };
+
+    const loadTimetableData = async () => {
+        setLoading(true);
+        try {
+            const weekStart = getWeekStartDate(selectedWeek);
+
+            const [timetableData, statsData] = await Promise.all([
+                fetchTeacherTimetable(teacherId, weekStart),
+                fetchTimetableStats(teacherId, weekStart)
+            ]);
+
+            setTimetable(timetableData);
+            setStats(statsData);
+        } catch (error) {
+            showMessage('Failed to load timetable', true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadDayData = async () => {
+        try {
+            const date = getDateForDay(selectedDay);
+            const data = await fetchTeacherDayTimetable(teacherId, date);
+            setDayTimetable(data);
+        } catch (error) {
+            showMessage('Failed to load day schedule', true);
+        }
+    };
+
+    const loadAlerts = async () => {
+        try {
+            const data = await fetchUpcomingAlerts(teacherId);
+            setAlerts(data);
+        } catch (error) {
+            console.error('Failed to load alerts:', error);
+        }
+    };
+
+    const handleExport = async (format: 'pdf' | 'excel') => {
+        setExporting(true);
+        try {
+            const weekStart = getWeekStartDate(selectedWeek);
+            const blob = await exportTimetable(teacherId, format, weekStart);
+
+            // Download the file
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `timetable-${weekStart}.${format}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            showMessage(`Timetable exported as ${format.toUpperCase()}`);
+        } catch (error: any) {
+            showMessage(error.message || 'Failed to export timetable', true);
+        } finally {
+            setExporting(false);
+        }
+    };
 
     // Calculate week range
     const getWeekRange = (date: Date) => {
@@ -163,24 +207,16 @@ const TeacherTimetable: React.FC<Props> = ({
     };
 
     const getSlotForDayAndTime = (day: string, time: string) => {
-        const dayData = mockTimetable.find(d => d.day === day);
+        const dayData = timetable.find(d => d.day === day);
         return dayData?.slots.find(s => s.time === time);
     };
 
-    const calculateStats = () => {
-        const allSlots = mockTimetable.flatMap(d => d.slots);
-        const teachingSlots = allSlots.filter(s => s.subject !== 'Break' && !s.subject.includes('Meeting'));
-
-        return {
-            totalClasses: teachingSlots.length,
-            uniqueClasses: new Set(teachingSlots.map(s => s.class)).size,
-            uniqueSubjects: new Set(teachingSlots.map(s => s.subject)).size,
-            breakCount: allSlots.filter(s => s.subject === 'Break').length,
-            meetingCount: allSlots.filter(s => s.subject.includes('Meeting')).length
-        };
-    };
-
-    const stats = calculateStats();
+    const filteredTimetable = selectedClassFilter === 'all'
+        ? timetable
+        : timetable.map(day => ({
+            ...day,
+            slots: day.slots.filter(slot => slot.classId === selectedClassFilter)
+        })).filter(day => day.slots.length > 0);
 
     return (
         <div className="space-y-6">
@@ -192,11 +228,20 @@ const TeacherTimetable: React.FC<Props> = ({
                 </div>
                 <div className="flex gap-2">
                     <button
-                        onClick={() => {/* Export functionality */ }}
-                        className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                        onClick={() => handleExport('pdf')}
+                        disabled={exporting || loading}
+                        className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 flex items-center gap-2 disabled:opacity-50"
                     >
                         <Download className="w-4 h-4" />
-                        Export
+                        {exporting ? 'Exporting...' : 'Export PDF'}
+                    </button>
+                    <button
+                        onClick={() => handleExport('excel')}
+                        disabled={exporting || loading}
+                        className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 flex items-center gap-2 disabled:opacity-50"
+                    >
+                        <Download className="w-4 h-4" />
+                        {exporting ? 'Exporting...' : 'Export Excel'}
                     </button>
                 </div>
             </div>
@@ -242,11 +287,11 @@ const TeacherTimetable: React.FC<Props> = ({
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-amber-100 rounded-lg">
-                            <Coffee className="w-5 h-5 text-amber-600" />
+                            <Clock className="w-5 h-5 text-amber-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-slate-500">Break/Meetings</p>
-                            <p className="text-xl font-bold text-amber-600">{stats.breakCount + stats.meetingCount}</p>
+                            <p className="text-sm text-slate-500">Weekly Hours</p>
+                            <p className="text-xl font-bold text-amber-600">{stats.weeklyHours}</p>
                         </div>
                     </div>
                 </div>
@@ -259,8 +304,8 @@ const TeacherTimetable: React.FC<Props> = ({
                         <button
                             onClick={() => setViewMode('week')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'week'
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
                         >
                             Week View
@@ -268,8 +313,8 @@ const TeacherTimetable: React.FC<Props> = ({
                         <button
                             onClick={() => setViewMode('day')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'day'
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
                         >
                             Day View
@@ -302,7 +347,11 @@ const TeacherTimetable: React.FC<Props> = ({
 
                     <div className="flex items-center gap-2">
                         <Filter className="w-4 h-4 text-slate-400" />
-                        <select className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        <select
+                            value={selectedClassFilter}
+                            onChange={(e) => setSelectedClassFilter(e.target.value)}
+                            className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        >
                             <option value="all">All Classes</option>
                             {classes.map(cls => (
                                 <option key={cls.id} value={cls.id}>{cls.name}</option>
@@ -312,70 +361,86 @@ const TeacherTimetable: React.FC<Props> = ({
                 </div>
             </div>
 
-            {/* Timetable Grid */}
-            {viewMode === 'week' ? (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[800px]">
-                            <thead>
-                                <tr className="bg-slate-50">
-                                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600 w-32">
-                                        Time
-                                    </th>
-                                    {mockTimetable.map(day => (
-                                        <th key={day.day} className="px-4 py-3 text-left text-sm font-semibold text-slate-600">
-                                            <div>{day.day}</div>
-                                            <div className="text-xs font-normal text-slate-400">{day.date}</div>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {getTimeSlots().map(timeSlot => (
-                                    <tr key={timeSlot} className="hover:bg-slate-50">
-                                        <td className="px-4 py-3 text-sm font-medium text-slate-700">
-                                            <div className="flex items-center gap-2">
-                                                <Clock className="w-4 h-4 text-slate-400" />
-                                                {timeSlot}
-                                            </div>
-                                        </td>
-                                        {mockTimetable.map(day => {
-                                            const slot = getSlotForDayAndTime(day.day, timeSlot);
-                                            return (
-                                                <td key={`${day.day}-${timeSlot}`} className="px-4 py-2">
-                                                    {slot ? (
-                                                        <div className={`p-2 rounded-lg border ${getSubjectColor(slot.subject)}`}>
-                                                            <div className="font-medium text-sm">{slot.subject}</div>
-                                                            <div className="flex items-center gap-1 text-xs mt-1">
-                                                                <Users className="w-3 h-3" />
-                                                                <span>{slot.class}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1 text-xs mt-1">
-                                                                <MapPin className="w-3 h-3" />
-                                                                <span>{slot.room}</span>
-                                                            </div>
-                                                            {slot.duration && (
-                                                                <div className="text-xs opacity-75 mt-1">
-                                                                    {slot.duration}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-center text-slate-300 text-sm py-4">
-                                                            —
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+            {/* Loading State */}
+            {loading && (
+                <div className="bg-white rounded-xl p-12 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                    <p className="text-slate-500 mt-2">Loading timetable...</p>
                 </div>
-            ) : (
-                /* Day View */
+            )}
+
+            {/* Timetable Grid */}
+            {!loading && viewMode === 'week' && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    {filteredTimetable.length === 0 ? (
+                        <div className="p-12 text-center text-slate-500">
+                            No classes scheduled for this week
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[800px]">
+                                <thead>
+                                    <tr className="bg-slate-50">
+                                        <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600 w-32">
+                                            Time
+                                        </th>
+                                        {filteredTimetable.map(day => (
+                                            <th key={day.day} className="px-4 py-3 text-left text-sm font-semibold text-slate-600">
+                                                <div>{day.day}</div>
+                                                <div className="text-xs font-normal text-slate-400">{day.date}</div>
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {getTimeSlots().map(timeSlot => (
+                                        <tr key={timeSlot} className="hover:bg-slate-50">
+                                            <td className="px-4 py-3 text-sm font-medium text-slate-700">
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="w-4 h-4 text-slate-400" />
+                                                    {timeSlot}
+                                                </div>
+                                            </td>
+                                            {filteredTimetable.map(day => {
+                                                const slot = getSlotForDayAndTime(day.day, timeSlot);
+                                                return (
+                                                    <td key={`${day.day}-${timeSlot}`} className="px-4 py-2">
+                                                        {slot ? (
+                                                            <div className={`p-2 rounded-lg border ${getSubjectColor(slot.subject)}`}>
+                                                                <div className="font-medium text-sm">{slot.subject}</div>
+                                                                <div className="flex items-center gap-1 text-xs mt-1">
+                                                                    <Users className="w-3 h-3" />
+                                                                    <span>{slot.class}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1 text-xs mt-1">
+                                                                    <MapPin className="w-3 h-3" />
+                                                                    <span>{slot.room}</span>
+                                                                </div>
+                                                                {slot.duration && (
+                                                                    <div className="text-xs opacity-75 mt-1">
+                                                                        {slot.duration}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-center text-slate-300 text-sm py-4">
+                                                                —
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Day View */}
+            {!loading && viewMode === 'day' && (
                 <div className="space-y-4">
                     {/* Day Selector */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -385,8 +450,8 @@ const TeacherTimetable: React.FC<Props> = ({
                                     key={day}
                                     onClick={() => setSelectedDay(day)}
                                     className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedDay === day
-                                            ? 'bg-indigo-600 text-white'
-                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                         }`}
                                 >
                                     {day}
@@ -401,10 +466,13 @@ const TeacherTimetable: React.FC<Props> = ({
                             <Sun className="w-5 h-5 text-amber-600" />
                             {selectedDay}'s Schedule
                         </h3>
-                        <div className="space-y-3">
-                            {mockTimetable
-                                .find(d => d.day === selectedDay)
-                                ?.slots.map(slot => (
+                        {!dayTimetable || dayTimetable.slots.length === 0 ? (
+                            <div className="text-center py-8 text-slate-500">
+                                No classes scheduled for {selectedDay}
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {dayTimetable.slots.map(slot => (
                                     <div
                                         key={slot.id}
                                         className={`flex items-start gap-4 p-4 rounded-lg border ${getSubjectColor(slot.subject)}`}
@@ -431,23 +499,40 @@ const TeacherTimetable: React.FC<Props> = ({
                                         </div>
                                     </div>
                                 ))}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
 
             {/* Legend */}
+            {/* Legend */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <h4 className="text-sm font-medium text-slate-700 mb-3">Legend</h4>
+                <h4 className="text-sm font-medium text-slate-700 mb-3">Subject Colors</h4>
                 <div className="flex flex-wrap gap-4">
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 bg-blue-100 border border-blue-200 rounded"></div>
-                        <span className="text-xs text-slate-600">Mathematics</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 bg-green-100 border border-green-200 rounded"></div>
-                        <span className="text-xs text-slate-600">Physics</span>
-                    </div>
+                    {/* Dynamic subjects from props */}
+                    {subjects.map(subject => {
+                        // Generate a consistent color based on subject name
+                        const colors = [
+                            'bg-blue-100 border-blue-200 text-blue-800',
+                            'bg-green-100 border-green-200 text-green-800',
+                            'bg-purple-100 border-purple-200 text-purple-800',
+                            'bg-amber-100 border-amber-200 text-amber-800',
+                            'bg-indigo-100 border-indigo-200 text-indigo-800',
+                            'bg-pink-100 border-pink-200 text-pink-800',
+                            'bg-teal-100 border-teal-200 text-teal-800',
+                            'bg-orange-100 border-orange-200 text-orange-800'
+                        ];
+                        const colorIndex = subject.name.length % colors.length;
+
+                        return (
+                            <div key={subject.id} className="flex items-center gap-2">
+                                <div className={`w-4 h-4 rounded ${colors[colorIndex].split(' ')[0]}`}></div>
+                                <span className="text-xs text-slate-600">{subject.name}</span>
+                            </div>
+                        );
+                    })}
+                    {/* Always include Break and Meetings */}
                     <div className="flex items-center gap-2">
                         <div className="w-4 h-4 bg-amber-100 border border-amber-200 rounded"></div>
                         <span className="text-xs text-slate-600">Break</span>
@@ -460,17 +545,19 @@ const TeacherTimetable: React.FC<Props> = ({
             </div>
 
             {/* Upcoming Alerts */}
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100">
-                <div className="flex items-start gap-3">
-                    <Bell className="w-5 h-5 text-indigo-600 mt-0.5" />
-                    <div>
-                        <h4 className="font-medium text-indigo-900">Upcoming Today</h4>
-                        <p className="text-sm text-indigo-700 mt-1">
-                            Your next class is Mathematics with Grade 8A at 10:30 AM in Room 101
-                        </p>
+            {alerts.length > 0 && (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100">
+                    <div className="flex items-start gap-3">
+                        <Bell className="w-5 h-5 text-indigo-600 mt-0.5" />
+                        <div>
+                            <h4 className="font-medium text-indigo-900">Upcoming Today</h4>
+                            <p className="text-sm text-indigo-700 mt-1">
+                                {alerts[0]?.message || 'Your next class is coming up soon'}
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

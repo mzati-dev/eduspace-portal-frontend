@@ -1092,9 +1092,9 @@ const ParentPanel: React.FC<ParentPanelProps> = ({ onBack }) => {
                                     <td className="px-4 py-2">{new Date(record.date).toLocaleDateString()}</td>
                                     <td className="px-4 py-2">
                                         <span className={`px-2 py-1 rounded-full text-xs ${record.status === 'present' ? 'bg-emerald-100 text-emerald-700' :
-                                                record.status === 'absent' ? 'bg-red-100 text-red-700' :
-                                                    record.status === 'late' ? 'bg-amber-100 text-amber-700' :
-                                                        'bg-purple-100 text-purple-700'
+                                            record.status === 'absent' ? 'bg-red-100 text-red-700' :
+                                                record.status === 'late' ? 'bg-amber-100 text-amber-700' :
+                                                    'bg-purple-100 text-purple-700'
                                             }`}>
                                             {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                                         </span>
@@ -1396,13 +1396,13 @@ const ParentPanel: React.FC<ParentPanelProps> = ({ onBack }) => {
                         </div>
                     </div>
                     <div className="space-y-4">
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                        {/* <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                             <MapPin className="w-5 h-5 text-slate-400" />
                             <div>
                                 <p className="text-sm text-slate-500">Address</p>
                                 <p className="font-medium text-slate-800">123 Main St, City</p>
                             </div>
-                        </div>
+                        </div> */}
                         <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                             <Users className="w-5 h-5 text-slate-400" />
                             <div>
@@ -1462,6 +1462,8 @@ const ParentPanel: React.FC<ParentPanelProps> = ({ onBack }) => {
                     onBack={onBack}
                     childName={selectedChild?.name}
                     notificationCount={unreadCount}
+                    parentName={parentName}        // ADD THIS
+                    parentInitial={parentInitial}  // ADD THIS
                 />
 
                 {error && (

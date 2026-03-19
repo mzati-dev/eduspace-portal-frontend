@@ -6,13 +6,17 @@ interface TeacherClassesProps {
     students?: any[]; // Optional: students data
     subjects?: any[]; // Optional: subjects data
     showMessage: (msg: string, isError?: boolean) => void;
+    onViewResults: (classId: string) => void;
+    onViewAttendance: (classId: string) => void;
 }
 
 const TeacherClasses: React.FC<TeacherClassesProps> = ({
     classes,
     students = [],
     subjects = [],
-    showMessage
+    showMessage,
+    onViewResults,        // ADD THIS
+    onViewAttendance      // ADD THIS
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClass, setSelectedClass] = useState<any | null>(null);
@@ -171,19 +175,27 @@ const TeacherClasses: React.FC<TeacherClassesProps> = ({
                             {/* Quick Actions */}
                             <div className="flex gap-2 pt-4 border-t border-slate-200">
                                 <button
+                                    // onClick={() => {
+                                    //     setSelectedClass(null);
+                                    //     // Navigate to results for this class
+                                    //     // This would need to be implemented
+                                    // }}
                                     onClick={() => {
+                                        onViewResults(selectedClass.id);  // Call the function passed from parent
                                         setSelectedClass(null);
-                                        // Navigate to results for this class
-                                        // This would need to be implemented
                                     }}
                                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm"
                                 >
                                     Enter Results
                                 </button>
                                 <button
+                                    // onClick={() => {
+                                    //     setSelectedClass(null);
+                                    //     // Navigate to attendance for this class
+                                    // }}
                                     onClick={() => {
+                                        onViewAttendance(selectedClass.id);  // Call the function passed from parent
                                         setSelectedClass(null);
-                                        // Navigate to attendance for this class
                                     }}
                                     className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 text-sm"
                                 >

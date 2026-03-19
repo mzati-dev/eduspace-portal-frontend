@@ -74,11 +74,11 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
-        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-        { id: 'fees', label: 'Fees', icon: Wallet },
-        { id: 'messages', label: 'Messages', icon: MessageSquare },
-        { id: 'timetable', label: 'Timetable', icon: Calendar },
-        { id: 'settings', label: 'Settings', icon: Settings },
+        // { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        // { id: 'fees', label: 'Fees', icon: Wallet },
+        // { id: 'messages', label: 'Messages', icon: MessageSquare },
+        // { id: 'timetable', label: 'Timetable', icon: Calendar },
+        // { id: 'settings', label: 'Settings', icon: Settings },
     ];
 
     // Get first letter of school name for the circle

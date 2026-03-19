@@ -815,7 +815,7 @@ const AttendanceManagement: React.FC<Props> = ({ classes, students, showMessage 
                     {selectedClass !== 'all' && (
                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-amber-700 text-sm">
                             <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                            <span>Don't forget to click <strong>Save Attendance</strong> after making changes! Unsaved changes will be lost.</span>
+                            <span>Don't forget to click <strong>Save Attendance</strong>! Unsaved attendance will be lost.</span>
                         </div>
                     )}
 

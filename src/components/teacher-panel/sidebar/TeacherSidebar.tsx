@@ -87,9 +87,9 @@ const TeacherSidebar: React.FC<TeacherSidebarProps> = ({
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'my-classes', label: 'My Classes', icon: Users },
         { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
-        { id: 'timetable', label: 'Timetable', icon: Clock },
-        { id: 'messages', label: 'Messages', icon: MessageSquare },
-        { id: 'reports', label: 'Reports', icon: FileText },
+        // { id: 'timetable', label: 'Timetable', icon: Clock },
+        // { id: 'messages', label: 'Messages', icon: MessageSquare },
+        // { id: 'reports', label: 'Reports', icon: FileText },
         { id: 'profile', label: 'Profile', icon: Settings },
     ];
 
@@ -147,7 +147,7 @@ const TeacherSidebar: React.FC<TeacherSidebarProps> = ({
             </div>
 
             {/* Teacher Info - Small section to show who's logged in */}
-            {!isCollapsed && (
+            {/* {!isCollapsed && (
                 <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
@@ -159,7 +159,7 @@ const TeacherSidebar: React.FC<TeacherSidebarProps> = ({
                         </div>
                     </div>
                 </div>
-            )}
+            )} */}
 
             {/* Navigation Menu */}
             <nav className="flex-1 overflow-y-auto p-4">

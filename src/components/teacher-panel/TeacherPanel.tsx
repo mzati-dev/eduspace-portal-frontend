@@ -31,7 +31,7 @@ import TeacherSidebar from './sidebar/TeacherSidebar';
 import TeacherClasses from './sidebar/TeacherClasses';
 import TeacherAttendance from './sidebar/TeacherAttendance';
 import TeacherTimetable from './sidebar/TeacherTimetable';
-import MessagingCenter from './sidebar/MessagingCenter';
+// import MessagingCenter from './sidebar/MessagingCenter';
 import TeacherMessages from './sidebar/MessagingCenter';
 import TeacherReports from './sidebar/TeacherReports';
 import TeacherProfile from './sidebar/TeacherProfile';
@@ -189,6 +189,18 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
     // Add menu change handler - EXACT same as Admin
     const handleMenuChange = (menu: string) => {
         setActiveMainMenu(menu);
+    };
+
+    // Add these navigation functions
+    const goToResults = (classId: string) => {
+        setActiveMainMenu('dashboard');  // Switch to dashboard
+        setActiveTab('results');          // Switch to results tab
+        showMessage('Ready to enter results');
+    };
+
+    const goToAttendance = (classId: string) => {
+        setActiveMainMenu('attendance');  // Switch to attendance page
+        showMessage('Viewing attendance');
     };
 
     // Add sidebar toggle handler
@@ -506,7 +518,11 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                 teacherInitial={teacherInitial}
             />
             <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'pl-20' : 'pl-64'}`}>
-                <TeacherHeader onBack={onBack} />
+                <TeacherHeader
+                    onBack={onBack}
+                    teacherName={teacherName}
+                    teacherInitial={teacherInitial}
+                />
 
                 {/* Error message display */}
                 {error && (
@@ -682,6 +698,8 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                             students={students}
                             subjects={teacherSubjects}
                             showMessage={showMessage}
+                            onViewResults={goToResults}        // ADD THIS
+                            onViewAttendance={goToAttendance}   // ADD THIS
                         />
                     </div>
                 ) : activeMainMenu === 'attendance' ? (
@@ -730,6 +748,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                             classes={teacherClasses}
                             students={students}
                             // teachers={teachers}
+                            subjects={teacherSubjects}
                             teacherId={teacherId}
                             teacherName={teacherName}
                             showMessage={showMessage}
@@ -746,6 +765,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                             students={students}
                             subjects={teacherSubjects}
                             teacherId={teacherId}
+
                             teacherName={teacherName}
                             showMessage={showMessage}
                         />
@@ -760,9 +780,9 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                             teacherId={teacherId}
                             teacherName={teacherName}
                             teacherEmail={teacherEmail}
-                            classes={teacherClasses}
-                            students={students}
-                            subjects={teacherSubjects}
+                            // classes={teacherClasses}
+                            // students={students}
+                            // subjects={teacherSubjects}
                             showMessage={showMessage}
                         />
                     </div>

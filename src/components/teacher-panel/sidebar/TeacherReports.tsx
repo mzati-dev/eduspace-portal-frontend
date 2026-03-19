@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     FileText,
     Download,
@@ -23,6 +23,7 @@ import {
     Target,
     XCircle
 } from 'lucide-react';
+import { downloadReport, generateReport, getAttendanceReport, getClassPerformance, getRecentReports, ReportFilters } from '@/services/reportService';
 
 interface Student {
     id: string;
@@ -84,87 +85,34 @@ const TeacherReports: React.FC<Props> = ({
     const [previewData, setPreviewData] = useState<any>(null);
     const [expandedSections, setExpandedSections] = useState<string[]>(['summary']);
 
-    // Mock data - In production, fetch from API
-    const mockReports: Report[] = [
-        {
-            id: '1',
-            title: 'Class Performance Summary - Grade 8A',
-            type: 'summary',
-            format: 'pdf',
-            generatedAt: '2024-03-15',
-            size: '2.4 MB',
-            class: 'Grade 8A',
-            term: 'Term 1'
-        },
-        {
-            id: '2',
-            title: 'Student Results - Grade 8A',
-            type: 'academic',
-            format: 'excel',
-            generatedAt: '2024-03-14',
-            size: '1.8 MB',
-            class: 'Grade 8A',
-            term: 'Term 1'
-        },
-        {
-            id: '3',
-            title: 'Attendance Report - March 2024',
-            type: 'attendance',
-            format: 'pdf',
-            generatedAt: '2024-03-13',
-            size: '1.2 MB',
-            class: 'Grade 8A',
-            term: 'Term 1'
-        },
-        {
-            id: '4',
-            title: 'Subject Performance Analysis - Mathematics',
-            type: 'academic',
-            format: 'pdf',
-            generatedAt: '2024-03-12',
-            size: '3.1 MB',
-            class: 'Grade 8A',
-            term: 'Term 1'
+    const [performanceData, setPerformanceData] = useState<any>(null);
+    const [attendanceData, setAttendanceData] = useState<any>(null);
+    const [recentReports, setRecentReports] = useState<any[]>([]);
+    const [loadingData, setLoadingData] = useState(false);
+
+    useEffect(() => {
+        if (selectedClass && selectedTerm) {
+            loadReportData();
         }
-    ];
+    }, [selectedClass, selectedTerm]);
 
-    const mockPerformanceData = {
-        classAverage: 74.5,
-        passRate: 82,
-        distinctionRate: 18,
-        totalStudents: students.length,
-        topPerformers: students.slice(0, 3).map(s => ({
-            name: s.name,
-            examNumber: s.examNumber,
-            average: Math.floor(Math.random() * 10 + 85)
-        })),
-        needsImprovement: students.slice(3, 6).map(s => ({
-            name: s.name,
-            examNumber: s.examNumber,
-            average: Math.floor(Math.random() * 15 + 50)
-        })),
-        subjectAverages: subjects.map(s => ({
-            subject: s.name,
-            average: Math.floor(Math.random() * 20 + 65),
-            passRate: Math.floor(Math.random() * 20 + 70)
-        }))
-    };
+    const loadReportData = async () => {
+        setLoadingData(true);
+        try {
+            const [performance, attendance, reports] = await Promise.all([
+                getClassPerformance(selectedClass, selectedTerm),
+                getAttendanceReport(selectedClass, selectedTerm),
+                getRecentReports()
+            ]);
 
-    const mockAttendanceData = {
-        overall: 92,
-        present: 245,
-        absent: 18,
-        late: 7,
-        excused: 5,
-        totalDays: 275,
-        monthlyTrend: [
-            { month: 'Jan', rate: 94 },
-            { month: 'Feb', rate: 91 },
-            { month: 'Mar', rate: 89 },
-            { month: 'Apr', rate: 93 },
-            { month: 'May', rate: 92 },
-            { month: 'Jun', rate: 90 }
-        ]
+            setPerformanceData(performance);
+            setAttendanceData(attendance);
+            setRecentReports(reports);
+        } catch (error) {
+            showMessage('Failed to load report data', true);
+        } finally {
+            setLoadingData(false);
+        }
     };
 
     const toggleSection = (section: string) => {
@@ -175,26 +123,40 @@ const TeacherReports: React.FC<Props> = ({
         );
     };
 
-    const handleGenerateReport = () => {
+    const handleGenerateReport = async () => {
         if (!selectedClass) {
             showMessage('Please select a class', true);
             return;
         }
 
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            const filters: ReportFilters = {
+                classId: selectedClass,
+                term: selectedTerm,
+                reportType: selectedReportType as any,
+                format: selectedFormat
+            };
+
+            await generateReport(filters);
             showMessage('Report generated successfully');
-            // Show preview or download
-        }, 2000);
+
+            const reports = await getRecentReports();
+            setRecentReports(reports);
+        } catch (error: any) {
+            showMessage(error.message || 'Failed to generate report', true);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleDownloadReport = (reportId: string) => {
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+    const handleDownloadReport = async (reportId: string, format: string) => {
+        try {
+            await downloadReport(reportId, format);
             showMessage('Report downloaded successfully');
-        }, 1500);
+        } catch (error: any) {
+            showMessage(error.message || 'Failed to download report', true);
+        }
     };
 
     const handlePreviewReport = (report: any) => {
@@ -219,7 +181,7 @@ const TeacherReports: React.FC<Props> = ({
         }, 1500);
     };
 
-    const filteredReports = mockReports.filter(report =>
+    const filteredReports = recentReports.filter(report =>
         report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         report.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
         report.class?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -339,88 +301,94 @@ const TeacherReports: React.FC<Props> = ({
 
                         {expandedSections.includes('summary') && (
                             <div className="p-6">
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                                    <div className="bg-indigo-50 rounded-lg p-4">
-                                        <p className="text-sm text-indigo-600">Class Average</p>
-                                        <p className="text-2xl font-bold text-indigo-800">{mockPerformanceData.classAverage}%</p>
-                                    </div>
-                                    <div className="bg-green-50 rounded-lg p-4">
-                                        <p className="text-sm text-green-600">Pass Rate</p>
-                                        <p className="text-2xl font-bold text-green-800">{mockPerformanceData.passRate}%</p>
-                                    </div>
-                                    <div className="bg-purple-50 rounded-lg p-4">
-                                        <p className="text-sm text-purple-600">Distinctions</p>
-                                        <p className="text-2xl font-bold text-purple-800">{mockPerformanceData.distinctionRate}%</p>
-                                    </div>
-                                    <div className="bg-amber-50 rounded-lg p-4">
-                                        <p className="text-sm text-amber-600">Total Students</p>
-                                        <p className="text-2xl font-bold text-amber-800">{mockPerformanceData.totalStudents}</p>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Top Performers */}
-                                    <div>
-                                        <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
-                                            <Award className="w-4 h-4 text-amber-600" />
-                                            Top Performers
-                                        </h4>
-                                        <div className="space-y-2">
-                                            {mockPerformanceData.topPerformers.map((student, index) => (
-                                                <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                                    <div>
-                                                        <p className="font-medium text-green-800">{student.name}</p>
-                                                        <p className="text-xs text-green-600">{student.examNumber}</p>
-                                                    </div>
-                                                    <span className="text-sm font-bold text-green-700">{student.average}%</span>
-                                                </div>
-                                            ))}
+                                {performanceData ? (
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                            <div className="bg-indigo-50 rounded-lg p-4">
+                                                <p className="text-sm text-indigo-600">Class Average</p>
+                                                <p className="text-2xl font-bold text-indigo-800">{performanceData.classAverage}%</p>
+                                            </div>
+                                            <div className="bg-green-50 rounded-lg p-4">
+                                                <p className="text-sm text-green-600">Pass Rate</p>
+                                                <p className="text-2xl font-bold text-green-800">{performanceData.passRate}%</p>
+                                            </div>
+                                            <div className="bg-purple-50 rounded-lg p-4">
+                                                <p className="text-sm text-purple-600">Distinctions</p>
+                                                <p className="text-2xl font-bold text-purple-800">{performanceData.distinctionRate}%</p>
+                                            </div>
+                                            <div className="bg-amber-50 rounded-lg p-4">
+                                                <p className="text-sm text-amber-600">Total Students</p>
+                                                <p className="text-2xl font-bold text-amber-800">{performanceData.totalStudents}</p>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    {/* Needs Improvement */}
-                                    <div>
-                                        <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
-                                            <Target className="w-4 h-4 text-red-600" />
-                                            Needs Improvement
-                                        </h4>
-                                        <div className="space-y-2">
-                                            {mockPerformanceData.needsImprovement.map((student, index) => (
-                                                <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                                                    <div>
-                                                        <p className="font-medium text-red-800">{student.name}</p>
-                                                        <p className="text-xs text-red-600">{student.examNumber}</p>
-                                                    </div>
-                                                    <span className="text-sm font-bold text-red-700">{student.average}%</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Subject Averages */}
-                                <div className="mt-6">
-                                    <h4 className="font-medium text-slate-700 mb-3">Subject Performance</h4>
-                                    <div className="space-y-3">
-                                        {mockPerformanceData.subjectAverages.map((subject, index) => (
-                                            <div key={index} className="flex items-center gap-4">
-                                                <span className="w-24 text-sm font-medium text-slate-600">{subject.subject}</span>
-                                                <div className="flex-1">
-                                                    <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-indigo-600 rounded-full"
-                                                            style={{ width: `${subject.average}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-4 text-sm">
-                                                    <span className="font-medium text-slate-800">{subject.average}%</span>
-                                                    <span className="text-green-600">{subject.passRate}% pass</span>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Top Performers */}
+                                            <div>
+                                                <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                                                    <Award className="w-4 h-4 text-amber-600" />
+                                                    Top Performers
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {performanceData.topPerformers?.map((student: any, index: number) => (
+                                                        <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                                            <div>
+                                                                <p className="font-medium text-green-800">{student.name}</p>
+                                                                <p className="text-xs text-green-600">{student.examNumber}</p>
+                                                            </div>
+                                                            <span className="text-sm font-bold text-green-700">{student.average}%</span>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
+
+                                            {/* Needs Improvement */}
+                                            <div>
+                                                <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                                                    <Target className="w-4 h-4 text-red-600" />
+                                                    Needs Improvement
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {performanceData.needsImprovement?.map((student: any, index: number) => (
+                                                        <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                                                            <div>
+                                                                <p className="font-medium text-red-800">{student.name}</p>
+                                                                <p className="text-xs text-red-600">{student.examNumber}</p>
+                                                            </div>
+                                                            <span className="text-sm font-bold text-red-700">{student.average}%</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Subject Averages */}
+                                        <div className="mt-6">
+                                            <h4 className="font-medium text-slate-700 mb-3">Subject Performance</h4>
+                                            <div className="space-y-3">
+                                                {performanceData.subjectAverages?.map((subject: any, index: number) => (
+                                                    <div key={index} className="flex items-center gap-4">
+                                                        <span className="w-24 text-sm font-medium text-slate-600">{subject.subject}</span>
+                                                        <div className="flex-1">
+                                                            <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-indigo-600 rounded-full"
+                                                                    style={{ width: `${subject.average}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-4 text-sm">
+                                                            <span className="font-medium text-slate-800">{subject.average}%</span>
+                                                            <span className="text-green-600">{subject.passRate}% pass</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="p-6 text-center text-slate-500">No performance data available</div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -444,47 +412,53 @@ const TeacherReports: React.FC<Props> = ({
 
                         {expandedSections.includes('attendance') && (
                             <div className="p-6">
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-green-600">{mockAttendanceData.present}</p>
-                                        <p className="text-xs text-slate-500">Present</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-red-600">{mockAttendanceData.absent}</p>
-                                        <p className="text-xs text-slate-500">Absent</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-yellow-600">{mockAttendanceData.late}</p>
-                                        <p className="text-xs text-slate-500">Late</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-blue-600">{mockAttendanceData.excused}</p>
-                                        <p className="text-xs text-slate-500">Excused</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-indigo-600">{mockAttendanceData.overall}%</p>
-                                        <p className="text-xs text-slate-500">Rate</p>
-                                    </div>
-                                </div>
-
-                                {/* Monthly Trend */}
-                                <div>
-                                    <h4 className="font-medium text-slate-700 mb-3">Monthly Attendance Trend</h4>
-                                    <div className="grid grid-cols-6 gap-2">
-                                        {mockAttendanceData.monthlyTrend.map((month, index) => (
-                                            <div key={index} className="text-center">
-                                                <div className="relative h-24 bg-slate-100 rounded-lg overflow-hidden">
-                                                    <div
-                                                        className="absolute bottom-0 w-full bg-green-600 transition-all"
-                                                        style={{ height: `${month.rate}%` }}
-                                                    />
-                                                </div>
-                                                <p className="text-xs mt-2 font-medium text-slate-600">{month.month}</p>
-                                                <p className="text-xs text-green-600">{month.rate}%</p>
+                                {attendanceData ? (
+                                    <>
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                                            <div className="text-center">
+                                                <p className="text-2xl font-bold text-green-600">{attendanceData.present}</p>
+                                                <p className="text-xs text-slate-500">Present</p>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                            <div className="text-center">
+                                                <p className="text-2xl font-bold text-red-600">{attendanceData.absent}</p>
+                                                <p className="text-xs text-slate-500">Absent</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-2xl font-bold text-yellow-600">{attendanceData.late}</p>
+                                                <p className="text-xs text-slate-500">Late</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-2xl font-bold text-blue-600">{attendanceData.excused}</p>
+                                                <p className="text-xs text-slate-500">Excused</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-2xl font-bold text-indigo-600">{attendanceData.overall}%</p>
+                                                <p className="text-xs text-slate-500">Rate</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Monthly Trend */}
+                                        <div>
+                                            <h4 className="font-medium text-slate-700 mb-3">Monthly Attendance Trend</h4>
+                                            <div className="grid grid-cols-6 gap-2">
+                                                {attendanceData.monthlyTrend?.map((month: any, index: number) => (
+                                                    <div key={index} className="text-center">
+                                                        <div className="relative h-24 bg-slate-100 rounded-lg overflow-hidden">
+                                                            <div
+                                                                className="absolute bottom-0 w-full bg-green-600 transition-all"
+                                                                style={{ height: `${month.rate}%` }}
+                                                            />
+                                                        </div>
+                                                        <p className="text-xs mt-2 font-medium text-slate-600">{month.month}</p>
+                                                        <p className="text-xs text-green-600">{month.rate}%</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="p-6 text-center text-slate-500">No attendance data available</div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -545,7 +519,7 @@ const TeacherReports: React.FC<Props> = ({
                                         <Eye className="w-4 h-4" />
                                     </button>
                                     <button
-                                        onClick={() => handleDownloadReport(report.id)}
+                                        onClick={() => handleDownloadReport(report.id, report.format)}
                                         className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
                                         title="Download"
                                     >
@@ -580,7 +554,6 @@ const TeacherReports: React.FC<Props> = ({
                         </div>
 
                         <div className="p-6">
-                            {/* Preview content - this would be dynamic based on report type */}
                             <div className="bg-slate-50 rounded-lg p-8 text-center">
                                 <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                                 <p className="text-slate-500">Preview for {previewData.title}</p>
@@ -597,7 +570,7 @@ const TeacherReports: React.FC<Props> = ({
                                     Close
                                 </button>
                                 <button
-                                    onClick={() => handleDownloadReport(previewData.id)}
+                                    onClick={() => handleDownloadReport(previewData.id, previewData.format)}
                                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2"
                                 >
                                     <Download className="w-4 h-4" />

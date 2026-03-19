@@ -1,17 +1,52 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Bell, ChevronDown, User, LogOut } from 'lucide-react';
 
 interface TeacherHeaderProps {
     onBack: () => void;
+    teacherName: string;
+    teacherInitial: string;
+    notificationCount?: number;
 }
 
-const TeacherHeader: React.FC<TeacherHeaderProps> = ({ onBack }) => {
+const TeacherHeader: React.FC<TeacherHeaderProps> = ({
+    onBack,
+    teacherName,
+    teacherInitial,
+    notificationCount = 0
+}) => {
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('userRole');
+        window.location.href = '/login';
+    };
+
+    const goToProfile = () => {
+        setIsDropdownOpen(false);
+        // You can add navigation to profile section here
+    };
+
     return (
         <header className="bg-white shadow">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-
-                {/* Use grid for perfect alignment */}
                 <div className="grid grid-cols-3 items-center">
-
                     {/* Left (empty for balance) */}
                     <div />
 
@@ -25,20 +60,62 @@ const TeacherHeader: React.FC<TeacherHeaderProps> = ({ onBack }) => {
                         </p>
                     </div>
 
-                    {/* Right-aligned logout */}
-                    <div className="flex justify-end">
-                        <button
-                            onClick={onBack}
-                            className="px-4 py-2 rounded-md border border-slate-300
-           text-slate-600 font-medium
-           hover:bg-slate-100 hover:text-slate-900
-           transition"
-
-                        >
-                            Logout
+                    {/* Right-aligned profile and logout */}
+                    <div className="flex justify-end items-center gap-4">
+                        {/* Notification Bell */}
+                        <button className="relative p-2 hover:bg-slate-100 rounded-lg">
+                            <Bell className="w-5 h-5 text-slate-600" />
+                            {notificationCount > 0 && (
+                                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                                    {notificationCount}
+                                </span>
+                            )}
                         </button>
-                    </div>
 
+                        {/* Teacher Profile with Dropdown */}
+                        <div className="relative" ref={dropdownRef}>
+                            <button
+                                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                className="flex items-center gap-2 border-l border-slate-200 pl-4 hover:opacity-80"
+                            >
+                                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                    <span className="text-indigo-700 font-semibold text-sm">
+                                        {teacherInitial}
+                                    </span>
+                                </div>
+                                <span className="text-sm font-medium text-slate-700 hidden sm:block">
+                                    {teacherName}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {isDropdownOpen && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
+                                    <div className="px-4 py-2 border-b border-slate-100">
+                                        {/* <p className="text-sm font-medium text-slate-800">{teacherName}</p> */}
+                                        <p className="text-xs text-slate-500">Teacher</p>
+                                    </div>
+
+                                    <button
+                                        onClick={goToProfile}
+                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                    >
+                                        <User className="w-4 h-4" />
+                                        Profile
+                                    </button>
+
+                                    <button
+                                        onClick={handleLogout}
+                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        Logout
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>
@@ -49,7 +126,6 @@ export default TeacherHeader;
 
 
 // import React from 'react';
-// import { ArrowLeft, User } from 'lucide-react';
 
 // interface TeacherHeaderProps {
 //     onBack: () => void;
@@ -59,27 +135,37 @@ export default TeacherHeader;
 //     return (
 //         <header className="bg-white shadow">
 //             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-//                 <div className="flex items-center justify-between">
-//                     <div className="flex items-center gap-4">
 
-//                         <div className="h-6 w-px bg-slate-300" />
-//                         <div className="flex items-center gap-3">
-//                             <div className="p-2 bg-indigo-100 rounded-lg">
-//                                 <User className="w-6 h-6 text-indigo-600" />
-//                             </div>
-//                             <div>
-//                                 <h1 className="text-xl font-semibold text-slate-900">Teacher Panel</h1>
-//                                 <p className="text-sm text-slate-500">Enter scores, view results, manage subjects</p>
-//                             </div>
-//                         </div>
+//                 {/* Use grid for perfect alignment */}
+//                 <div className="grid grid-cols-3 items-center">
+
+//                     {/* Left (empty for balance) */}
+//                     <div />
+
+//                     {/* Centered title */}
+//                     <div className="text-center">
+//                         <h1 className="text-xl font-semibold text-slate-900">
+//                             Teacher Panel
+//                         </h1>
+//                         <p className="text-sm text-slate-500">
+//                             Enter scores, view results
+//                         </p>
+//                     </div>
+
+//                     {/* Right-aligned logout */}
+//                     <div className="flex justify-end">
 //                         <button
 //                             onClick={onBack}
-//                             className="p-2 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2 text-slate-600 hover:text-slate-900"
+//                             className="px-4 py-2 rounded-md border border-slate-300
+//            text-slate-600 font-medium
+//            hover:bg-slate-100 hover:text-slate-900
+//            transition"
+
 //                         >
-//                             <ArrowLeft className="w-5 h-5" />
 //                             Logout
 //                         </button>
 //                     </div>
+
 //                 </div>
 //             </div>
 //         </header>

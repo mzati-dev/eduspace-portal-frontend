@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     User,
     Mail,
@@ -7,72 +7,53 @@ import {
     Calendar,
     BookOpen,
     Users,
-    Award,
     Edit2,
     Save,
     Camera,
-    Lock,
     Bell,
     Globe,
     Clock,
     CheckCircle,
-    XCircle,
     AlertCircle,
-    GraduationCap,
     Briefcase,
-    Heart,
-    FileText,
-    Plus,
-    Shield
+    Heart
 } from 'lucide-react';
+import {
+    // fetchTeacherProfile,
+    updateTeacherProfile,
+    uploadProfileImage,
+    changePassword,
+    fetchTeacherAssignments,
+    fetchTeacherClasses,
+    fetchTeacherSubjects
+} from '@/services/teacherService';
 
 interface TeacherProfileData {
     id: string;
     name: string;
     email: string;
-    phone: string;
-    address: string;
-    dateOfBirth: string;
-    gender: 'male' | 'female' | 'other';
-    nationality: string;
-    religion?: string;
-    maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
+    phone?: string;
+    address?: string;
+    dateOfBirth?: string;
+    gender?: 'male' | 'female' | 'other';
+    profileImage?: string;
 
-    // Professional Info
-    employeeId: string;
-    designation: string;
-    department: string;
-    dateJoined: string;
-    qualification: string;
-    specialization: string;
-    yearsOfExperience: number;
-    previousSchool?: string;
+    // Emergency Contact
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    emergencyContactRelation?: string;
 
-    // Contact Info
-    emergencyContactName: string;
-    emergencyContactPhone: string;
-    emergencyContactRelation: string;
-    alternateEmail?: string;
-
-    // Account Settings
-    username: string;
-    lastLogin: string;
-    twoFactorEnabled: boolean;
-
-    // Stats
-    totalClasses: number;
-    totalStudents: number;
-    totalSubjects: number;
-    attendanceRate: number;
+    // Derived stats
+    totalClasses?: number;
+    totalStudents?: number;
+    totalSubjects?: number;
+    attendanceRate?: number;
 }
 
 interface Props {
     teacherId: string;
     teacherName: string;
     teacherEmail?: string;
-    classes?: any[];
-    students?: any[];
-    subjects?: any[];
     showMessage: (msg: string, isError?: boolean) => void;
 }
 
@@ -80,93 +61,209 @@ const TeacherProfile: React.FC<Props> = ({
     teacherId,
     teacherName,
     teacherEmail,
-    classes = [],
-    students = [],
-    subjects = [],
     showMessage
 }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'account' | 'security'>('personal');
-    const [loading, setLoading] = useState(false);
-    const [profileImage, setProfileImage] = useState<string | null>(null);
 
-    // Mock data - In production, fetch from API
+    // ===== ADD THESE HELPER FUNCTIONS HERE =====
+    const API_BASE_URL = 'https://eduspace-portal-backend.onrender.com';
+
+    const getSchoolId = () => {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                return user.schoolId || null;
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    };
+
+    const getAuthToken = () => {
+        return localStorage.getItem('token');
+    };
+
+    const authHeaders = () => ({
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getAuthToken()}`
+    });
+    // ===== END ADDED FUNCTIONS =====
+    const [isEditing, setIsEditing] = useState(false);
+    const [activeTab, setActiveTab] = useState<'personal' | 'emergency' | 'account'>('personal');
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [profileImage, setProfileImage] = useState<string | null>(null);
     const [profile, setProfile] = useState<TeacherProfileData>({
         id: teacherId,
         name: teacherName,
-        email: teacherEmail || 'teacher@school.edu',
-        phone: '+123 456 7890',
-        address: '123 Education Street, Learning City, ED 12345',
-        dateOfBirth: '1985-06-15',
-        gender: 'female',
-        nationality: 'American',
-        religion: 'Not Specified',
-        maritalStatus: 'married',
-
-        // Professional Info
-        employeeId: 'TCH-2024-001',
-        designation: 'Senior Teacher',
-        department: 'Mathematics Department',
-        dateJoined: '2019-08-15',
-        qualification: 'M.Sc. in Mathematics, B.Ed',
-        specialization: 'Algebra & Calculus',
-        yearsOfExperience: 8,
-        previousSchool: 'City High School',
-
-        // Contact Info
-        emergencyContactName: 'John Smith',
-        emergencyContactPhone: '+123 456 7891',
-        emergencyContactRelation: 'Spouse',
-        alternateEmail: 'personal.email@example.com',
-
-        // Account Settings
-        username: 'teacher_jane',
-        lastLogin: '2024-03-18 08:30 AM',
-        twoFactorEnabled: false,
-
-        // Stats
-        totalClasses: classes.length,
-        totalStudents: students.length,
-        totalSubjects: subjects.length,
-        attendanceRate: 98
+        email: teacherEmail || '',
+        phone: '',
+        address: '',
+        dateOfBirth: '',
+        gender: 'other',
+        emergencyContactName: '',
+        emergencyContactPhone: '',
+        emergencyContactRelation: '',
+        totalClasses: 0,
+        totalStudents: 0,
+        totalSubjects: 0,
+        attendanceRate: 0
     });
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setProfileImage(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+    // Password change state
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [changingPassword, setChangingPassword] = useState(false);
+
+    // Load profile data and stats
+    useEffect(() => {
+        loadProfileData();
+        loadTeacherStats();
+    }, [teacherId]);
+
+    // const loadProfileData = async () => {
+    //     setLoading(true);
+    //     try {
+    //         const profileData = await fetchTeacherProfile(teacherId);
+    //         setProfile(prev => ({
+    //             ...prev,
+    //             ...profileData
+    //         }));
+    //     } catch (error) {
+    //         showMessage('Failed to load profile data', true);
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
+
+    const loadProfileData = async () => {
+        setLoading(true);
+        try {
+            const schoolId = getSchoolId();
+            const url = `${API_BASE_URL}/teachers?schoolId=${schoolId}&teacherId=${teacherId}`;
+
+            const res = await fetch(url, {
+                headers: authHeaders()
+            });
+
+            const response = await res.json();
+
+            // ADD THIS CONSOLE LOG
+            console.log('Backend response:', response);
+
+            if (response.success && response.data) {
+
+                // ADD THIS CONSOLE LOG
+                console.log('Profile data from backend:', response.data);
+                setProfile(prev => ({
+                    ...prev,
+                    ...response.data
+                }));
+            }
+        } catch (error) {
+            showMessage('Failed to load profile data', true);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleSave = () => {
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+    const loadTeacherStats = async () => {
+        try {
+            const [classes, subjects, assignments] = await Promise.all([
+                fetchTeacherClasses(teacherId),
+                fetchTeacherSubjects(teacherId),
+                fetchTeacherAssignments(teacherId)
+            ]);
+
+            // Calculate unique students count from classes
+            // This is simplified - you might need a separate API for actual student count
+            // const totalStudents = classes.reduce((sum: number, cls: any) =>
+            //     sum + (cls.studentCount || 0), 0);
+
+            setProfile(prev => ({
+                ...prev,
+                totalClasses: classes.length,
+                totalSubjects: subjects.length,
+                // totalStudents: totalStudents
+                // attendanceRate would come from another API
+            }));
+        } catch (error) {
+            console.error('Failed to load teacher stats:', error);
+        }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setProfileImage(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+
+        // Upload to server
+        try {
+            const imageUrl = await uploadProfileImage(teacherId, file);
+            setProfile(prev => ({ ...prev, profileImage: imageUrl }));
+            showMessage('Profile image updated successfully');
+        } catch (error) {
+            showMessage('Failed to upload profile image', true);
+        }
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            await updateTeacherProfile(teacherId, profile);
             setIsEditing(false);
             showMessage('Profile updated successfully');
-        }, 1500);
+        } catch (error) {
+            showMessage('Failed to update profile', true);
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const handleChangePassword = () => {
-        showMessage('Password change functionality coming soon');
+    const handleChangePassword = async () => {
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            showMessage('Passwords do not match', true);
+            return;
+        }
+
+        if (passwordData.newPassword.length < 6) {
+            showMessage('Password must be at least 6 characters', true);
+            return;
+        }
+
+        setChangingPassword(true);
+        try {
+            await changePassword(teacherId, passwordData.currentPassword, passwordData.newPassword);
+            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            showMessage('Password changed successfully');
+        } catch (error: any) {
+            showMessage(error.message || 'Failed to change password', true);
+        } finally {
+            setChangingPassword(false);
+        }
     };
 
-    const handleEnable2FA = () => {
-        setProfile({ ...profile, twoFactorEnabled: !profile.twoFactorEnabled });
-        showMessage(`2FA ${!profile.twoFactorEnabled ? 'enabled' : 'disabled'}`);
+    const handleInputChange = (field: keyof TeacherProfileData, value: any) => {
+        setProfile({ ...profile, [field]: value });
     };
 
-    const handleExportData = () => {
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            showMessage('Profile data exported successfully');
-        }, 1500);
-    };
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -174,7 +271,7 @@ const TeacherProfile: React.FC<Props> = ({
             <div className="flex justify-between items-center">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-800">My Profile</h2>
-                    <p className="text-slate-500">Manage your personal information and settings</p>
+                    <p className="text-slate-500">Manage your personal information</p>
                 </div>
                 <div className="flex gap-2">
                     {!isEditing ? (
@@ -188,27 +285,24 @@ const TeacherProfile: React.FC<Props> = ({
                     ) : (
                         <>
                             <button
-                                onClick={() => setIsEditing(false)}
+                                onClick={() => {
+                                    setIsEditing(false);
+                                    loadProfileData(); // Reset changes
+                                }}
                                 className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSave}
-                                disabled={loading}
+                                disabled={saving}
                                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2"
                             >
                                 <Save className="w-4 h-4" />
-                                {loading ? 'Saving...' : 'Save Changes'}
+                                {saving ? 'Saving...' : 'Save Changes'}
                             </button>
                         </>
                     )}
-                    <button
-                        onClick={handleExportData}
-                        className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
-                    >
-                        Export Data
-                    </button>
                 </div>
             </div>
 
@@ -218,8 +312,8 @@ const TeacherProfile: React.FC<Props> = ({
                     {/* Profile Image */}
                     <div className="relative">
                         <div className="w-24 h-24 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-3xl overflow-hidden">
-                            {profileImage ? (
-                                <img src={profileImage} alt={profile.name} className="w-full h-full object-cover" />
+                            {profileImage || profile.profileImage ? (
+                                <img src={profileImage || profile.profileImage} alt={profile.name} className="w-full h-full object-cover" />
                             ) : (
                                 profile.name.charAt(0).toUpperCase()
                             )}
@@ -235,20 +329,18 @@ const TeacherProfile: React.FC<Props> = ({
                     {/* Basic Info */}
                     <div className="flex-1">
                         <h3 className="text-2xl font-bold text-slate-800">{profile.name}</h3>
-                        <p className="text-indigo-600">{profile.designation} • {profile.department}</p>
+                        <p className="text-indigo-600">Teacher</p>
                         <div className="flex flex-wrap gap-4 mt-2">
                             <span className="flex items-center gap-1 text-sm text-slate-500">
                                 <Mail className="w-4 h-4" />
                                 {profile.email}
                             </span>
-                            <span className="flex items-center gap-1 text-sm text-slate-500">
-                                <Phone className="w-4 h-4" />
-                                {profile.phone}
-                            </span>
-                            <span className="flex items-center gap-1 text-sm text-slate-500">
-                                <Briefcase className="w-4 h-4" />
-                                Employee ID: {profile.employeeId}
-                            </span>
+                            {profile.phone && (
+                                <span className="flex items-center gap-1 text-sm text-slate-500">
+                                    <Phone className="w-4 h-4" />
+                                    {profile.phone}
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -259,16 +351,12 @@ const TeacherProfile: React.FC<Props> = ({
                             <p className="text-xs text-slate-500">Classes</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-2xl font-bold text-green-600">{profile.totalStudents}</p>
-                            <p className="text-xs text-slate-500">Students</p>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-2xl font-bold text-purple-600">{profile.totalSubjects}</p>
+                            <p className="text-2xl font-bold text-green-600">{profile.totalSubjects}</p>
                             <p className="text-xs text-slate-500">Subjects</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-2xl font-bold text-amber-600">{profile.attendanceRate}%</p>
-                            <p className="text-xs text-slate-500">Attendance</p>
+                            <p className="text-2xl font-bold text-purple-600">{profile.totalStudents}</p>
+                            <p className="text-xs text-slate-500">Students</p>
                         </div>
                     </div>
                 </div>
@@ -280,42 +368,31 @@ const TeacherProfile: React.FC<Props> = ({
                     <button
                         onClick={() => setActiveTab('personal')}
                         className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'personal'
-                                ? 'border-indigo-600 text-indigo-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         <User className="w-4 h-4 inline mr-2" />
                         Personal Info
                     </button>
                     <button
-                        onClick={() => setActiveTab('professional')}
-                        className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'professional'
-                                ? 'border-indigo-600 text-indigo-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                        onClick={() => setActiveTab('emergency')}
+                        className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'emergency'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700'
                             }`}
                     >
-                        <Briefcase className="w-4 h-4 inline mr-2" />
-                        Professional
+                        <Heart className="w-4 h-4 inline mr-2" />
+                        Emergency Contact
                     </button>
                     <button
                         onClick={() => setActiveTab('account')}
                         className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'account'
-                                ? 'border-indigo-600 text-indigo-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700'
                             }`}
                     >
-                        <Lock className="w-4 h-4 inline mr-2" />
                         Account
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('security')}
-                        className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'security'
-                                ? 'border-indigo-600 text-indigo-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700'
-                            }`}
-                    >
-                        <Shield className="w-4 h-4 inline mr-2" />
-                        Security
                     </button>
                 </div>
             </div>
@@ -330,6 +407,7 @@ const TeacherProfile: React.FC<Props> = ({
                                 <input
                                     type="text"
                                     value={profile.name}
+                                    onChange={(e) => handleInputChange('name', e.target.value)}
                                     disabled={!isEditing}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
                                 />
@@ -339,16 +417,18 @@ const TeacherProfile: React.FC<Props> = ({
                                 <input
                                     type="email"
                                     value={profile.email}
-                                    disabled={!isEditing}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
+                                    disabled
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-500"
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
                                 <input
                                     type="tel"
-                                    value={profile.phone}
+                                    value={profile.phone || ''}
+                                    onChange={(e) => handleInputChange('phone', e.target.value)}
                                     disabled={!isEditing}
+                                    placeholder="Enter your phone number"
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
                                 />
                             </div>
@@ -356,7 +436,8 @@ const TeacherProfile: React.FC<Props> = ({
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
                                 <input
                                     type="date"
-                                    value={profile.dateOfBirth}
+                                    value={profile.dateOfBirth || ''}
+                                    onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
                                     disabled={!isEditing}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
                                 />
@@ -364,226 +445,117 @@ const TeacherProfile: React.FC<Props> = ({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
                                 <select
-                                    value={profile.gender}
+                                    value={profile.gender || 'other'}
+                                    onChange={(e) => handleInputChange('gender', e.target.value)}
                                     disabled={!isEditing}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
                                 >
                                     <option value="male">Male</option>
                                     <option value="female">Female</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Nationality</label>
-                                <input
-                                    type="text"
-                                    value={profile.nationality}
-                                    disabled={!isEditing}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Religion (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={profile.religion}
-                                    disabled={!isEditing}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Marital Status</label>
-                                <select
-                                    value={profile.maritalStatus}
-                                    disabled={!isEditing}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                >
-                                    <option value="single">Single</option>
-                                    <option value="married">Married</option>
-                                    <option value="divorced">Divorced</option>
-                                    <option value="widowed">Widowed</option>
+                                    <option value="other">Prefer not to say</option>
                                 </select>
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
                                 <textarea
-                                    value={profile.address}
+                                    value={profile.address || ''}
+                                    onChange={(e) => handleInputChange('address', e.target.value)}
                                     disabled={!isEditing}
                                     rows={3}
+                                    placeholder="Enter your address"
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
                                 />
-                            </div>
-                        </div>
-
-                        {/* Emergency Contact */}
-                        <div className="pt-6 border-t border-slate-200">
-                            <h4 className="font-semibold text-slate-800 mb-4">Emergency Contact</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Contact Name</label>
-                                    <input
-                                        type="text"
-                                        value={profile.emergencyContactName}
-                                        disabled={!isEditing}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Contact Phone</label>
-                                    <input
-                                        type="tel"
-                                        value={profile.emergencyContactPhone}
-                                        disabled={!isEditing}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Relationship</label>
-                                    <input
-                                        type="text"
-                                        value={profile.emergencyContactRelation}
-                                        disabled={!isEditing}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                    />
-                                </div>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {activeTab === 'professional' && (
+                {activeTab === 'emergency' && (
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Employee ID</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Emergency Contact Name</label>
                                 <input
                                     type="text"
-                                    value={profile.employeeId}
-                                    disabled
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Designation</label>
-                                <input
-                                    type="text"
-                                    value={profile.designation}
+                                    value={profile.emergencyContactName || ''}
+                                    onChange={(e) => handleInputChange('emergencyContactName', e.target.value)}
                                     disabled={!isEditing}
+                                    placeholder="Full name"
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Emergency Contact Phone</label>
                                 <input
-                                    type="text"
-                                    value={profile.department}
+                                    type="tel"
+                                    value={profile.emergencyContactPhone || ''}
+                                    onChange={(e) => handleInputChange('emergencyContactPhone', e.target.value)}
                                     disabled={!isEditing}
+                                    placeholder="Phone number"
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Date Joined</label>
-                                <input
-                                    type="date"
-                                    value={profile.dateJoined}
-                                    disabled
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Qualification</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Relationship</label>
                                 <input
                                     type="text"
-                                    value={profile.qualification}
+                                    value={profile.emergencyContactRelation || ''}
+                                    onChange={(e) => handleInputChange('emergencyContactRelation', e.target.value)}
                                     disabled={!isEditing}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Specialization</label>
-                                <input
-                                    type="text"
-                                    value={profile.specialization}
-                                    disabled={!isEditing}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Years of Experience</label>
-                                <input
-                                    type="number"
-                                    value={profile.yearsOfExperience}
-                                    disabled={!isEditing}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Previous School</label>
-                                <input
-                                    type="text"
-                                    value={profile.previousSchool}
-                                    disabled={!isEditing}
+                                    placeholder="e.g., Spouse, Parent, Sibling"
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
                                 />
                             </div>
                         </div>
-
-                        {/* Certifications & Achievements */}
-                        <div className="pt-6 border-t border-slate-200">
-                            <h4 className="font-semibold text-slate-800 mb-4">Certifications & Achievements</h4>
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2 p-3 bg-indigo-50 rounded-lg">
-                                    <Award className="w-4 h-4 text-indigo-600" />
-                                    <span className="text-sm text-slate-700">Certified Mathematics Teacher - National Board</span>
-                                </div>
-                                <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
-                                    <Award className="w-4 h-4 text-green-600" />
-                                    <span className="text-sm text-slate-700">Excellence in Teaching Award 2023</span>
-                                </div>
-                                <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
-                                    <Award className="w-4 h-4 text-purple-600" />
-                                    <span className="text-sm text-slate-700">Completed Advanced Pedagogy Training</span>
-                                </div>
-                                {isEditing && (
-                                    <button className="mt-2 text-indigo-600 hover:text-indigo-700 text-sm flex items-center gap-1">
-                                        <Plus className="w-4 h-4" />
-                                        Add Achievement
-                                    </button>
-                                )}
-                            </div>
-                        </div>
+                        <p className="text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
+                            <AlertCircle className="w-4 h-4 inline mr-1" />
+                            This information will only be used in case of emergency.
+                        </p>
                     </div>
                 )}
 
                 {activeTab === 'account' && (
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
-                                <input
-                                    type="text"
-                                    value={profile.username}
-                                    disabled
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Last Login</label>
-                                <input
-                                    type="text"
-                                    value={profile.lastLogin}
-                                    disabled
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Email</label>
-                                <input
-                                    type="email"
-                                    value={profile.alternateEmail}
-                                    disabled={!isEditing}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-                                />
+                    <div className="space-y-6 max-w-md">
+                        <div>
+                            <h4 className="font-semibold text-slate-800 mb-4">Change Password</h4>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label>
+                                    <input
+                                        type="password"
+                                        value={passwordData.currentPassword}
+                                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                                        placeholder="Enter current password"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                                    <input
+                                        type="password"
+                                        value={passwordData.newPassword}
+                                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                        placeholder="Enter new password (min. 6 characters)"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                                    <input
+                                        type="password"
+                                        value={passwordData.confirmPassword}
+                                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                                        placeholder="Confirm new password"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleChangePassword}
+                                    disabled={changingPassword}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50"
+                                >
+                                    {changingPassword ? 'Updating...' : 'Update Password'}
+                                </button>
                             </div>
                         </div>
 
@@ -603,156 +575,9 @@ const TeacherProfile: React.FC<Props> = ({
                                         type="checkbox"
                                         checked={true}
                                         disabled={!isEditing}
-                                        className="toggle-checkbox"
+                                        className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
                                     />
                                 </label>
-                                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <Bell className="w-5 h-5 text-green-600" />
-                                        <div>
-                                            <p className="font-medium text-slate-800">SMS Notifications</p>
-                                            <p className="text-xs text-slate-500">Receive updates via SMS</p>
-                                        </div>
-                                    </div>
-                                    <input
-                                        type="checkbox"
-                                        checked={false}
-                                        disabled={!isEditing}
-                                        className="toggle-checkbox"
-                                    />
-                                </label>
-                                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <Bell className="w-5 h-5 text-purple-600" />
-                                        <div>
-                                            <p className="font-medium text-slate-800">Push Notifications</p>
-                                            <p className="text-xs text-slate-500">Receive updates in browser</p>
-                                        </div>
-                                    </div>
-                                    <input
-                                        type="checkbox"
-                                        checked={true}
-                                        disabled={!isEditing}
-                                        className="toggle-checkbox"
-                                    />
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'security' && (
-                    <div className="space-y-6">
-                        {/* Change Password */}
-                        <div>
-                            <h4 className="font-semibold text-slate-800 mb-4">Change Password</h4>
-                            <div className="space-y-4 max-w-md">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label>
-                                    <input
-                                        type="password"
-                                        placeholder="Enter current password"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
-                                    <input
-                                        type="password"
-                                        placeholder="Enter new password"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
-                                    <input
-                                        type="password"
-                                        placeholder="Confirm new password"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <button
-                                    onClick={handleChangePassword}
-                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
-                                >
-                                    Update Password
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Two-Factor Authentication */}
-                        <div className="pt-6 border-t border-slate-200">
-                            <h4 className="font-semibold text-slate-800 mb-4">Two-Factor Authentication</h4>
-                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg max-w-md">
-                                <div className="flex items-center gap-3">
-                                    <Shield className="w-5 h-5 text-indigo-600" />
-                                    <div>
-                                        <p className="font-medium text-slate-800">2FA Status</p>
-                                        <p className="text-xs text-slate-500">
-                                            {profile.twoFactorEnabled ? 'Enabled' : 'Disabled'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleEnable2FA}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium ${profile.twoFactorEnabled
-                                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                            : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                        }`}
-                                >
-                                    {profile.twoFactorEnabled ? 'Disable' : 'Enable'}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Active Sessions */}
-                        <div className="pt-6 border-t border-slate-200">
-                            <h4 className="font-semibold text-slate-800 mb-4">Active Sessions</h4>
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <Globe className="w-5 h-5 text-green-600" />
-                                        <div>
-                                            <p className="font-medium text-slate-800">Current Session</p>
-                                            <p className="text-xs text-slate-500">Chrome on Windows • IP: 192.168.1.1</p>
-                                        </div>
-                                    </div>
-                                    <span className="text-xs text-green-600">Active Now</span>
-                                </div>
-                                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <Globe className="w-5 h-5 text-slate-400" />
-                                        <div>
-                                            <p className="font-medium text-slate-800">Mobile App</p>
-                                            <p className="text-xs text-slate-500">iPhone • Last active 2 hours ago</p>
-                                        </div>
-                                    </div>
-                                    <button className="text-xs text-red-600 hover:text-red-700">
-                                        Revoke
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Login History */}
-                        <div className="pt-6 border-t border-slate-200">
-                            <h4 className="font-semibold text-slate-800 mb-4">Recent Login History</h4>
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600">Today, 08:30 AM</span>
-                                    <span className="text-slate-800">Chrome • Windows</span>
-                                    <span className="text-green-600">Success</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600">Yesterday, 03:15 PM</span>
-                                    <span className="text-slate-800">Safari • iPhone</span>
-                                    <span className="text-green-600">Success</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600">Mar 15, 2024, 09:45 AM</span>
-                                    <span className="text-slate-800">Edge • Windows</span>
-                                    <span className="text-green-600">Success</span>
-                                </div>
                             </div>
                         </div>
                     </div>
