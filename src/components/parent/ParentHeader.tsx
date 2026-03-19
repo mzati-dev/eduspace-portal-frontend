@@ -1,6 +1,7 @@
 // components/ParentHeader.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, ChevronDown, User, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface ParentHeaderProps {
     onBack: () => void;
@@ -19,6 +20,7 @@ const ParentHeader: React.FC<ParentHeaderProps> = ({
 }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+        const navigate = useNavigate();
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -34,14 +36,23 @@ const ParentHeader: React.FC<ParentHeaderProps> = ({
         };
     }, []);
 
-    const handleLogout = () => {
-        // Clear localStorage
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('userRole');
+    // const handleLogout = () => {
+    //     // Clear localStorage
+    //     localStorage.removeItem('token');
+    //     localStorage.removeItem('user');
+    //     localStorage.removeItem('userRole');
         
-        // Redirect to login
-        window.location.href = '/login';
+    //     // Redirect to login
+    //     window.location.href = '/login';
+    // };
+
+        const handleLogout = () => {
+        // Clear any authentication tokens/data
+        localStorage.clear(); // or localStorage.removeItem('token')
+        sessionStorage.clear();
+
+        // Redirect to login page
+        navigate('/login');
     };
 
     const goToProfile = () => {

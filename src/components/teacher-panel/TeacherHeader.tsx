@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, ChevronDown, User, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface TeacherHeaderProps {
     onBack: () => void;
@@ -16,6 +17,7 @@ const TeacherHeader: React.FC<TeacherHeaderProps> = ({
 }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const navigate = useNavigate();
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -31,12 +33,21 @@ const TeacherHeader: React.FC<TeacherHeaderProps> = ({
         };
     }, []);
 
+    // const handleLogout = () => {
+    //     localStorage.removeItem('token');
+    //     localStorage.removeItem('user');
+    //     localStorage.removeItem('userRole');
+    //     window.location.href = '/login';
+    // };
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('userRole');
-        window.location.href = '/login';
+        // Clear any authentication tokens/data
+        localStorage.clear(); // or localStorage.removeItem('token')
+        sessionStorage.clear();
+
+        // Redirect to login page
+        navigate('/login');
     };
+
 
     const goToProfile = () => {
         setIsDropdownOpen(false);
@@ -123,53 +134,3 @@ const TeacherHeader: React.FC<TeacherHeaderProps> = ({
 };
 
 export default TeacherHeader;
-
-
-// import React from 'react';
-
-// interface TeacherHeaderProps {
-//     onBack: () => void;
-// }
-
-// const TeacherHeader: React.FC<TeacherHeaderProps> = ({ onBack }) => {
-//     return (
-//         <header className="bg-white shadow">
-//             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-
-//                 {/* Use grid for perfect alignment */}
-//                 <div className="grid grid-cols-3 items-center">
-
-//                     {/* Left (empty for balance) */}
-//                     <div />
-
-//                     {/* Centered title */}
-//                     <div className="text-center">
-//                         <h1 className="text-xl font-semibold text-slate-900">
-//                             Teacher Panel
-//                         </h1>
-//                         <p className="text-sm text-slate-500">
-//                             Enter scores, view results
-//                         </p>
-//                     </div>
-
-//                     {/* Right-aligned logout */}
-//                     <div className="flex justify-end">
-//                         <button
-//                             onClick={onBack}
-//                             className="px-4 py-2 rounded-md border border-slate-300
-//            text-slate-600 font-medium
-//            hover:bg-slate-100 hover:text-slate-900
-//            transition"
-
-//                         >
-//                             Logout
-//                         </button>
-//                     </div>
-
-//                 </div>
-//             </div>
-//         </header>
-//     );
-// };
-
-// export default TeacherHeader;
