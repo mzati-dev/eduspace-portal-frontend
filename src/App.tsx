@@ -17,6 +17,7 @@ import TeacherPanel from "./components/teacher-panel/TeacherPanel";
 import UserAppLayout from "./components/app/dashboard/UserAppLayout";
 import ParentPanel from "./components/parent/ParentPanel";
 import ParentReportCards from "./components/parent/ParentReportCards";
+// import ResourcesPage from "./components/resource-library/ResourcesPage";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,9 @@ const App = () => (
               <Route path="/login" element={<LoginPage />} /> {/* Add this route */}
               <Route path="/signup" element={<SignupPage />} /> {/* Add this route */}
               <Route path="/forgot-password" element={<ForgotPasswordPage />} /> {/* Add this line */}
+
+              {/* Add this line for Resources Page */}
+              {/* <Route path="/resources" element={<ResourcesPage />} /> */}
               {/* User / Parent dashboard */}
               <Route path="/dashboard" element={<UserAppLayout />} />
               {/* ===== ADD THIS PARENT ROUTE ===== */}

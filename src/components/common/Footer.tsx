@@ -59,11 +59,11 @@ const Footer: React.FC = () => {
                         <div className="flex items-center gap-3 mb-4">
                             <div>
                                 <h4 className="text-lg font-bold text-white">Eduspace Portal</h4>
-                                <p className="text-xs text-slate-400">A window to your child's academic success</p>
+                                <p className="text-xs text-slate-400">A window to a child's academic success</p>
                             </div>
                         </div>
                         <p className="text-slate-400 text-sm max-w-md leading-relaxed">
-                            Providing parents with easy access to their children's academic progress and results.
+                            Providing easy access to every child's academic progress and results.
                         </p>
                     </div>
 
