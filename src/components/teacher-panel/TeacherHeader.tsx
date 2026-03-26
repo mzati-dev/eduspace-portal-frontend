@@ -7,6 +7,7 @@ interface TeacherHeaderProps {
     teacherName: string;
     teacherInitial: string;
     notificationCount?: number;
+    onProfileClick?: () => void;
 
     // NEW (mobile): hamburger controls the sidebar drawer
     onMobileMenuClick?: () => void;
@@ -25,7 +26,8 @@ const TeacherHeader: React.FC<TeacherHeaderProps> = ({
     onMobileMenuClick,
     isMobileMenuOpen = false,
     schoolName = 'School',
-    schoolInitial = 'S'
+    schoolInitial = 'S',
+    onProfileClick
 }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -53,6 +55,9 @@ const TeacherHeader: React.FC<TeacherHeaderProps> = ({
 
     const goToProfile = () => {
         setIsDropdownOpen(false);
+        if (onProfileClick) {
+            onProfileClick();
+        }
     };
 
     return (

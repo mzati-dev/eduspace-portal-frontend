@@ -522,6 +522,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                     schoolInitial={schoolInitial}
                     onMobileMenuClick={handleMobileSidebarToggle}
                     isMobileMenuOpen={sidebarMobileOpen}
+                    onProfileClick={() => handleMenuChange('profile')}
                 />
 
                 {error && (

@@ -18,6 +18,13 @@ export interface FeeStructure {
     sports: number;
     library: number;
     transport: number;
+    meal: number;           // ← ADD
+    exam: number;           // ← ADD
+    customFees?: {          // ← ADD
+        id: string;
+        name: string;
+        amount: number;
+    }[];
     total: number;
     dueDate: string;
     classId?: string;
@@ -282,4 +289,59 @@ export const exportFeesReport = async (
     }
 
     return await res.blob();
+};
+
+// Add these to your feesService.ts file
+
+// Create fee structure
+export const createFeeStructure = async (data: Partial<FeeStructure>): Promise<FeeStructure> => {
+    const url = `${API_BASE_URL}/fees/structures`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(data)
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to create fee structure');
+    }
+
+    const response = await res.json();
+    return response.data;
+};
+
+// Update fee structure
+export const updateFeeStructure = async (id: string, data: Partial<FeeStructure>): Promise<FeeStructure> => {
+    const url = `${API_BASE_URL}/fees/structures/${id}`;
+
+    const res = await fetch(url, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify(data)
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to update fee structure');
+    }
+
+    const response = await res.json();
+    return response.data;
+};
+
+// Delete fee structure
+export const deleteFeeStructure = async (id: string): Promise<void> => {
+    const url = `${API_BASE_URL}/fees/structures/${id}`;
+
+    const res = await fetch(url, {
+        method: 'DELETE',
+        headers: authHeaders()
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to delete fee structure');
+    }
 };

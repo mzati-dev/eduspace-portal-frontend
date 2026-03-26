@@ -1441,7 +1441,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                             <p className="text-slate-500 mt-2">Coming soon...</p>
                         </div> */}
                         <SettingsManagement
-                            showMessage={showMessage}
+                            classes={classes} showMessage={showMessage}
                         />
                     </div>
                 ) : activeMainMenu === 'timetable' ? (

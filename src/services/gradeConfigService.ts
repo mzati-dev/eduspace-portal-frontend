@@ -164,3 +164,21 @@ export const defaultConfig: GradeConfiguration = {
     is_active: true,
     created_at: new Date().toISOString(),
 };
+
+// Add this function to your gradeConfigService.ts
+
+export async function fetchGradeConfigurations(): Promise<GradeConfiguration[]> {
+    try {
+        const schoolId = getSchoolId();
+        const url = schoolId ? `${API_BASE_URL}/api/grade-configs?schoolId=${schoolId}` : `${API_BASE_URL}/api/grade-configs`;
+
+        const response = await fetch(url, {
+            headers: authHeaders()
+        });
+        if (!response.ok) return [];
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to fetch grade configurations:', error);
+        return [];
+    }
+}

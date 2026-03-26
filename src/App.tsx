@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -17,9 +17,23 @@ import TeacherPanel from "./components/teacher-panel/TeacherPanel";
 import UserAppLayout from "./components/app/dashboard/UserAppLayout";
 import ParentPanel from "./components/parent/ParentPanel";
 import ParentReportCards from "./components/parent/ParentReportCards";
-// import ResourcesPage from "./components/resource-library/ResourcesPage";
+import ResourcesPage from "./components/resource-library/ResourcesPage";
+import FindTutorPage from "./components/find-tutor/FindTutorPage";
+import AboutUsPage from "./components/about/AboutUsPage";
+import FaqPage from "./components/faq/FaqPage";
+import { useEffect } from "react";
+
 
 const queryClient = new QueryClient();
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+};
 
 const App = () => (
   <ThemeProvider defaultTheme="light">
@@ -29,6 +43,7 @@ const App = () => (
         <Sonner />
         <AuthProvider>
           <BrowserRouter>
+            <ScrollToTop />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<LoginPage />} /> {/* Add this route */}
@@ -36,7 +51,8 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPasswordPage />} /> {/* Add this line */}
 
               {/* Add this line for Resources Page */}
-              {/* <Route path="/resources" element={<ResourcesPage />} /> */}
+              <Route path="/resources" element={<ResourcesPage />} />
+              <Route path="/find-tutor" element={<FindTutorPage />} />
               {/* User / Parent dashboard */}
               <Route path="/dashboard" element={<UserAppLayout />} />
               {/* ===== ADD THIS PARENT ROUTE ===== */}
@@ -46,6 +62,8 @@ const App = () => (
               <Route path="/admin" element={<AdminPanel onBack={() => window.history.back()} />} /> {/* ADD THIS LINE */}
               <Route path="/teacher" element={<TeacherPanel onBack={() => window.history.back()} />} />
               <Route path="/super-admin" element={<SuperAdminPanel onBack={() => window.history.back()} />} /> {/* ADD THIS LINE */}
+              <Route path="/about" element={<AboutUsPage />} />
+              <Route path="/faq" element={<FaqPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

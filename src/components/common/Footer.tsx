@@ -1,5 +1,6 @@
 import React from 'react';
 import { MapPin, Phone, Mail, ArrowUp, MessageCircle, Building } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Footer: React.FC = () => {
 
@@ -71,9 +72,9 @@ const Footer: React.FC = () => {
                     <div>
                         <h5 className="font-semibold mb-4 text-indigo-400">Quick Links</h5>
                         <ul className="space-y-2 text-slate-400 text-sm">
-                            <li><button onClick={scrollToTop} className="hover:text-white transition-colors text-left">Home</button></li>
-                            <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-                            <li><a href="#" className="hover:text-white transition-colors">FAQ</a></li>
+                            <li><button onClick={scrollToTop} className="hover:text-white transition-colors text-left">Search</button></li>
+                            <li><Link to="/about" className="hover:text-white transition-colors">About Us</Link></li>
+                            <li><Link to="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
                         </ul>
                     </div>
 

@@ -51,9 +51,9 @@ const TeacherSidebar: React.FC<TeacherSidebarProps> = ({
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'my-classes', label: 'My Classes', icon: Users },
         { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
-        // { id: 'timetable', label: 'Timetable', icon: Clock },
-        // { id: 'messages', label: 'Messages', icon: MessageSquare },
-        // { id: 'reports', label: 'Reports', icon: FileText },
+        { id: 'timetable', label: 'Timetable', icon: Clock },
+        { id: 'messages', label: 'Messages', icon: MessageSquare },
+        { id: 'reports', label: 'Reports', icon: FileText },
         { id: 'profile', label: 'Profile', icon: Settings },
     ];
 

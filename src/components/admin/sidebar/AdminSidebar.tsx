@@ -36,11 +36,11 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
-        // { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-        // { id: 'fees', label: 'Fees', icon: Wallet },
-        // { id: 'messages', label: 'Messages', icon: MessageSquare },
-        // { id: 'timetable', label: 'Timetable', icon: Calendar },
-        // { id: 'settings', label: 'Settings', icon: Settings },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'fees', label: 'Fees', icon: Wallet },
+        { id: 'messages', label: 'Messages', icon: MessageSquare },
+        { id: 'timetable', label: 'Timetable', icon: Calendar },
+        { id: 'settings', label: 'Settings', icon: Settings },
     ];
 
     // NEW (responsive): shared sidebar content renderer for both desktop and mobile variants

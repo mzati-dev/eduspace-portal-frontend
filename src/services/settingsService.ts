@@ -14,6 +14,7 @@ export interface SchoolProfile {
     motto: string;
     address: string;
     phone: string;
+    alternativePhones?: string[];
     email: string;
     website: string;
     logo?: string;
@@ -85,7 +86,7 @@ export interface AcademicSettings {
         points?: number;
     }[];
     subjects: string[];
-    assessmentTypes: ('qa1' | 'qa2' | 'endOfTerm')[];
+    assessmentTypes: string[];  // Allow any custom assessment names
     passMark: number;
     rankCalculation: 'average' | 'weighted' | 'cumulative';
     allowRetakes: boolean;
@@ -433,5 +434,87 @@ export const restoreSettingsToDefault = async (section: string): Promise<void> =
     if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || 'Failed to restore settings');
+    }
+};
+// Add to settingsService.ts
+export const fetchSubjectMaxMarks = async (classId?: string): Promise<{ subjectId: string; subjectName: string; maxMarks: number }[]> => {
+    let url = `${API_BASE_URL}/settings/subject-max-marks`;
+    if (classId) {
+        url += `?classId=${classId}`;
+    }
+
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch subject max marks');
+    const response = await res.json();
+    return response.data;
+};
+
+export const updateSubjectMaxMarks = async (classId: string, data: any[]): Promise<void> => {
+    const url = `${API_BASE_URL}/settings/subject-max-marks`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ classId, data })
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to update subject max marks');
+    }
+};
+
+// Add to settingsService.ts
+export const fetchAssessmentNames = async (): Promise<{ firstAssessment: string; secondAssessment: string; finalAssessment: string }> => {
+    const url = `${API_BASE_URL}/settings/assessment-names`;
+
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch assessment names');
+    const response = await res.json();
+    return response.data;
+};
+
+export const updateAssessmentNames = async (data: { firstAssessment: string; secondAssessment: string; finalAssessment: string }): Promise<void> => {
+    const url = `${API_BASE_URL}/settings/assessment-names`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(data)
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to update assessment names');
+    }
+};
+
+export const updateAssessmentTypes = async (assessmentTypes: string[]): Promise<void> => {
+    const url = `${API_BASE_URL}/settings/assessment-types`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ assessmentTypes })
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to update assessment types');
+    }
+};
+
+export const changeSchoolAdminPassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+    const url = `${API_BASE_URL}/settings/change-password`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ currentPassword, newPassword })
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to change password');
     }
 };

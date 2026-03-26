@@ -386,3 +386,23 @@ export const deleteTimetableTemplate = async (templateId: string): Promise<void>
         throw new Error(error.message || 'Failed to delete template');
     }
 };
+export const updateTimeSlot = async (
+    id: string,
+    data: { startTime: string; endTime: string; break: boolean }
+): Promise<TimeSlot> => {
+    const url = `${API_BASE_URL}/timetable/admin/time-slots/${id}`;
+
+    const res = await fetch(url, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify(data)
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to update time slot');
+    }
+
+    const response = await res.json();
+    return response.data;
+};
