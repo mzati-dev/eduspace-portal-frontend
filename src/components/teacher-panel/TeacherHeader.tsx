@@ -132,7 +132,10 @@ const TeacherHeader: React.FC<TeacherHeaderProps> = ({
                                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
                                     <div className="px-4 py-2 border-b border-slate-100">
                                         <p className="text-xs text-slate-500">Teacher</p>
+                                        <p className="text-sm font-semibold text-slate-800 sm:hidden">{teacherName}</p>
+
                                     </div>
+
 
                                     <button
                                         onClick={goToProfile}
