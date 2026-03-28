@@ -164,9 +164,12 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
 
     const validateReportCard = (): boolean => {
         const errors = {
-            days_present: reportCard.days_present === undefined || reportCard.days_present === null,
-            days_absent: reportCard.days_absent === undefined || reportCard.days_absent === null,
-            days_late: reportCard.days_late === undefined || reportCard.days_late === null,
+            // days_present: reportCard.days_present === undefined || reportCard.days_present === null,
+            // days_absent: reportCard.days_absent === undefined || reportCard.days_absent === null,
+            // days_late: reportCard.days_late === undefined || reportCard.days_late === null,
+            days_present: false, // Not required anymore
+            days_absent: false,  // Not required anymore
+            days_late: false,    // Not required anymore
             // teacher_remarks: !reportCard.teacher_remarks.trim()
         };
 
@@ -912,10 +915,14 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
                                 <div className="flex justify-between items-center">
                                     <div>
-                                        <h3 className="font-semibold text-slate-800">Report Card Details</h3>
-                                        <p className="text-sm text-slate-500 mt-1">
-                                            {isClassTeacher
+                                        <h3 className="font-semibold text-slate-800">Report Card Attendnace Details</h3>
+                                        <p className={`text-sm mt-1 ${isClassTeacher ? 'text-amber-600 font-bold' : 'text-slate-500'}`}>
+                                            {/* {isClassTeacher
                                                 ? 'Report card details are REQUIRED when entering End of Term scores.'
+                                                : 'Only class teacher can edit attendance and remarks.'
+                                            } */}
+                                            {isClassTeacher
+                                                ? 'Leave them blank for now!.'
                                                 : 'Only class teacher can edit attendance and remarks.'
                                             }
                                         </p>
@@ -928,14 +935,16 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                                 </div>
                             </div>
                             <div className="p-6 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <div>
+                                <div className="relative">
+                                    {isClassTeacher && <div className="absolute inset-0 z-10" />}
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Days Present <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="number"
                                         min="0"
-                                        required
+                                        // required
+                                        readOnly={isClassTeacher}
                                         value={reportCard.days_present === undefined || reportCard.days_present === null ? '' : reportCard.days_present}
                                         onChange={(e) => {
                                             if (!isClassTeacher) return;
@@ -960,14 +969,16 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                                     )}
                                 </div>
 
-                                <div>
+                                <div className="relative">
+                                    {isClassTeacher && <div className="absolute inset-0 z-10" />}
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Days Absent <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="number"
                                         min="0"
-                                        required
+                                        // required
+                                        readOnly={isClassTeacher}
                                         value={reportCard.days_absent === undefined || reportCard.days_absent === null ? '' : reportCard.days_absent}
                                         onChange={(e) => {
                                             if (!isClassTeacher) return;
@@ -992,14 +1003,16 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                                     )}
                                 </div>
 
-                                <div>
+                                <div className="relative">
+                                    {isClassTeacher && <div className="absolute inset-0 z-10" />}
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Days Late <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="number"
                                         min="0"
-                                        required
+                                        // required
+                                        readOnly={isClassTeacher}
                                         value={reportCard.days_late === undefined || reportCard.days_late === null ? '' : reportCard.days_late}
                                         onChange={(e) => {
                                             if (!isClassTeacher) return;
