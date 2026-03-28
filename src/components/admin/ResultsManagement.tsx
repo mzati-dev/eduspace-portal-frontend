@@ -922,7 +922,7 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                                                 : 'Only class teacher can edit attendance and remarks.'
                                             } */}
                                             {isClassTeacher
-                                                ? 'Leave them blank for now!.'
+                                                ? 'Leave them blank for now!'
                                                 : 'Only class teacher can edit attendance and remarks.'
                                             }
                                         </p>
