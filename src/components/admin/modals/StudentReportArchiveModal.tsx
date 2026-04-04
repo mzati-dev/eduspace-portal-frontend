@@ -92,11 +92,38 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
         }
     };
 
-    const getGrade = (score: number): string => {
+    // const getGrade = (score: number): string => {
+    //     if (score >= 80) return 'A';
+    //     if (score >= 70) return 'B';
+    //     if (score >= 60) return 'C';
+    //     if (score >= 50) return 'D';
+    //     return 'F';
+    // };
+
+    const getGrade = (score: number, passMark: number = 50, className?: string): string => {
+        const isForm3Or4 = className && (
+            className.includes('Form 3') ||
+            className.includes('Form 4') ||
+            className.includes('Form3') ||
+            className.includes('Form4')
+        );
+
+        if (isForm3Or4) {
+            if (score >= 80) return '1';
+            if (score >= 75) return '2';
+            if (score >= 70) return '3';
+            if (score >= 65) return '4';
+            if (score >= 60) return '5';
+            if (score >= 55) return '6';
+            if (score >= 51) return '7';
+            if (score >= passMark) return '8';
+            return '9';
+        }
+
         if (score >= 80) return 'A';
         if (score >= 70) return 'B';
         if (score >= 60) return 'C';
-        if (score >= 50) return 'D';
+        if (score >= passMark) return 'D';
         return 'F';
     };
 
@@ -274,7 +301,9 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                     const avg = sub.finalScore ||
                         ((sub.qa1 || 0) + (sub.qa2 || 0) + (sub.endOfTerm || 0)) / 3;
                     const avgDisplay = avg.toFixed(1);
-                    const grade = avg >= 80 ? 'A' : avg >= 70 ? 'B' : avg >= 60 ? 'C' : avg >= 50 ? 'D' : 'F';
+                    // const grade = avg >= 80 ? 'A' : avg >= 70 ? 'B' : avg >= 60 ? 'C' : avg >= 50 ? 'D' : 'F';
+                    const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+                    const grade = getGrade(avg, passMark, studentData?.class);
                     const remark = grade === 'F' ? 'Failed' : 'Passed';
                     return [sub.name, '100', avgDisplay, grade, remark];
                 } else {
@@ -283,7 +312,9 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                         type === 'qa2' ? sub.qa2_absent :
                             sub.endOfTerm_absent;
                     if (isAbsent) return [sub.name, '100', 'AB', 'AB', 'Absent'];
-                    const grade = score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : score >= 50 ? 'D' : 'F';
+                    // const grade = score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : score >= 50 ? 'D' : 'F';
+                    const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+                    const grade = getGrade(score, passMark, studentData?.class);
                     const remark = grade === 'F' ? 'Failed' : 'Passed';
                     return [sub.name, '100', score.toFixed(1), grade, remark];
                 }
@@ -311,7 +342,9 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
         if (type === 'overall') {
             if (studentData?.assessmentStats?.overall?.termAverage) {
                 const avg = studentData.assessmentStats.overall.termAverage;
-                overallGrade = avg >= 80 ? 'A' : avg >= 70 ? 'B' : avg >= 60 ? 'C' : avg >= 50 ? 'D' : 'F';
+                // overallGrade = avg >= 80 ? 'A' : avg >= 70 ? 'B' : avg >= 60 ? 'C' : avg >= 50 ? 'D' : 'F';
+                const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+                overallGrade = getGrade(avg, passMark, studentData?.class);
             }
         } else {
             const scores = studentData?.subjects
@@ -430,7 +463,9 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                     (s.finalScore || ((s.qa1 || 0) + (s.qa2 || 0) + (s.endOfTerm || 0)) / 3) :
                     s[type];
                 if (typeof score !== 'number') return false;
-                const grade = getGrade(score);
+                // const grade = getGrade(score, studentData?.class);
+                const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+                const grade = getGrade(score, passMark, studentData?.class);
                 return ['D', 'F'].includes(grade);
             }) || [];
 
@@ -439,7 +474,9 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                 const score = type === 'overall' ?
                     (s.finalScore || ((s.qa1 || 0) + (s.qa2 || 0) + (s.endOfTerm || 0)) / 3) :
                     s[type];
-                const grade = getGrade(score);
+                // const grade = getGrade(score, studentData?.class);
+                const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+                const grade = getGrade(score, passMark, studentData?.class);
                 return `${s.name} (${grade})`;
             }).join(', ')
             : 'None';
@@ -473,7 +510,9 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                     s[type];
                 if (typeof score !== 'number') return false;
 
-                const grade = getGrade(score);
+                // const grade = getGrade(score, studentData?.class);
+                const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+                const grade = getGrade(score, passMark, studentData?.class);
                 return grade !== 'F';
             }).length || 0;
 
@@ -491,7 +530,9 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                     s[type];
                 if (typeof score !== 'number') return false;
 
-                const grade = getGrade(score);
+                // const grade = getGrade(score, studentData?.class);
+                const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+                const grade = getGrade(score, passMark, studentData?.class);
                 return grade === 'A' || grade === 'B';
             }).length || 0;
 
@@ -509,7 +550,9 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                     s[type];
                 if (typeof score !== 'number') return false;
 
-                const grade = getGrade(score);
+                // const grade = getGrade(score, studentData?.class);
+                const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+                const grade = getGrade(score, passMark, studentData?.class);
                 return grade === 'C' || grade === 'D';
             }).length || 0;
 

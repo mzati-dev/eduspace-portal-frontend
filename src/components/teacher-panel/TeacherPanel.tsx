@@ -417,7 +417,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                     subject_id: assessment.subject_id,
                     assessment_type: 'qa1',
                     score: assessment.qa1_absent ? 0 : assessment.qa1,
-                    grade: assessment.qa1 !== null ? calculateGrade(assessment.qa1, passMark) : null,
+                    grade: assessment.qa1 !== null ? calculateGrade(assessment.qa1, passMark, false, selectedStudent.class?.name) : null,
                     is_absent: assessment.qa1_absent || false
                 });
 
@@ -426,7 +426,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                     subject_id: assessment.subject_id,
                     assessment_type: 'qa2',
                     score: assessment.qa2_absent ? 0 : assessment.qa2,
-                    grade: assessment.qa2 !== null ? calculateGrade(assessment.qa2, passMark) : null,
+                    grade: assessment.qa2 !== null ? calculateGrade(assessment.qa2, passMark, false, selectedStudent.class?.name) : null,
                     is_absent: assessment.qa2_absent || false
                 });
 
@@ -435,7 +435,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                     subject_id: assessment.subject_id,
                     assessment_type: 'end_of_term',
                     score: assessment.end_of_term_absent ? 0 : assessment.end_of_term,
-                    grade: assessment.end_of_term !== null ? calculateGrade(assessment.end_of_term, passMark) : null,
+                    grade: assessment.end_of_term !== null ? calculateGrade(assessment.end_of_term, passMark, false, selectedStudent.class?.name) : null,
                     is_absent: assessment.end_of_term_absent || false
                 });
             }

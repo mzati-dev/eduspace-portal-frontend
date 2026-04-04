@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { StudentData } from '@/types';
 import { TabType } from '@/types/app';
-import { FileText, Download, Loader2, Target, Users, Award } from 'lucide-react';
+import { FileText, Download, Loader2, Target, Users, Award, UserCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import StudentAcademicInfo from './StudentAcademicInfo';
 
 interface QAAssessmentProps {
     studentData: StudentData;
@@ -21,6 +22,19 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
     const [isDownloading, setIsDownloading] = useState(false);
     const [schoolName, setSchoolName] = useState<string>('Loading School...');
     const assessmentType = activeTab as 'qa1' | 'qa2' | 'endOfTerm';
+    const [showInfo, setShowInfo] = useState(false);
+
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 768) {
+                setShowInfo(true);
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Fetch school name (same as ReportCard)
     useEffect(() => {
@@ -80,19 +94,281 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
 
     const getGradeColor = (grade: string) => {
         if (grade === 'N/A') return 'text-slate-600 bg-slate-100';
+
+        // Handle points (1-9) for Form 3/4
+        if (grade >= '1' && grade <= '9') {
+            if (grade === '1' || grade === '2') return 'text-emerald-600 bg-emerald-50';
+            if (grade === '3' || grade === '4') return 'text-blue-600 bg-blue-50';
+            if (grade === '5' || grade === '6') return 'text-amber-600 bg-amber-50';
+            if (grade === '7' || grade === '8') return 'text-orange-600 bg-orange-50';
+            return 'text-red-600 bg-red-50'; // Grade 9
+        }
+
         if (grade.includes('A')) return 'text-emerald-600 bg-emerald-50';
         if (grade === 'B') return 'text-blue-600 bg-blue-50';
         if (grade === 'C') return 'text-amber-600 bg-amber-50';
         return 'text-red-600 bg-red-50';
     };
 
-    const calculateGrade = (score: number, passMark?: number): string => {
+    const calculateGrade = (score: number, passMark?: number, className?: string): string => {
         const effectivePassMark = passMark || 50;
+
+        const isForm3Or4 = className && (
+            className.includes('Form 3') ||
+            className.includes('Form 4') ||
+            className.includes('Form3') ||
+            className.includes('Form4')
+        );
+        if (isForm3Or4) {
+            if (score >= 80) return '1';
+            if (score >= 75) return '2';
+            if (score >= 70) return '3';
+            if (score >= 65) return '4';
+            if (score >= 60) return '5';
+            if (score >= 55) return '6';
+            if (score >= 51) return '7';
+            if (score >= effectivePassMark) return '8';
+            return '9';
+        }
         if (score >= 80) return 'A';
         if (score >= 70) return 'B';
         if (score >= 60) return 'C';
         if (score >= effectivePassMark) return 'D';
         return 'F';
+    };
+
+    const getGradeRemark = (grade: string): string => {
+        // For points system (Form 3/4)
+        if (grade >= '1' && grade <= '9') {
+            if (grade === '1' || grade === '2') return 'Distinction';
+            if (grade === '3' || grade === '4' || grade === '5' || grade === '6') return 'Credit';
+            if (grade === '7' || grade === '8') return 'Pass';
+            return 'Fail';
+        }
+
+        // For letter grades (Primary & Form 1/2)
+        switch (grade) {
+            case 'A': return 'Excellent';
+            case 'B': return 'Very Good';
+            case 'C': return 'Good';
+            case 'D': return 'Satisfactory';
+            case 'F': return 'Fail';
+            default: return 'N/A';
+        }
+    };
+
+    // Calculate total points for best 6 subjects - English always included
+    // const calculateBestSixPoints = (): number => {
+    //     // Get all subjects with valid points (1-9), ignore AB
+    //     const allSubjects = studentData.subjects.filter(subject => {
+    //         const grade = getSubjectGradeForAssessment(subject);
+    //         return grade !== 'AB' && grade >= '1' && grade <= '9';
+    //     });
+
+    //     if (allSubjects.length === 0) return 0;
+
+    //     // Find English subject
+    //     let englishPoints = null;
+    //     const otherPoints = [];
+
+    //     for (const subject of allSubjects) {
+    //         const points = parseInt(getSubjectGradeForAssessment(subject), 10);
+    //         if (subject.name.toLowerCase() === 'english' || subject.name.toLowerCase() === 'eng') {
+    //             englishPoints = points;
+    //         } else {
+    //             otherPoints.push(points);
+    //         }
+    //     }
+
+    //     // If no English found, just take best 6 from all subjects
+    //     if (englishPoints === null) {
+    //         const allPoints = allSubjects.map(s => parseInt(getSubjectGradeForAssessment(s), 10));
+    //         allPoints.sort((a, b) => a - b);
+    //         const bestSix = allPoints.slice(0, 6);
+    //         return bestSix.reduce((sum, p) => sum + p, 0);
+    //     }
+
+    //     // Sort other subjects points ascending
+    //     otherPoints.sort((a, b) => a - b);
+
+    //     // Take best 5 from other subjects
+    //     const bestFive = otherPoints.slice(0, 5);
+
+    //     // Return English + best 5 others
+    //     return englishPoints + bestFive.reduce((sum, p) => sum + p, 0);
+    // };
+
+    // Calculate total points for best 6 subjects - English always included
+    // Calculate total points for best 6 subjects - English always included
+    const calculateBestSixPoints = (): number => {
+        // Get all subjects with valid points (1-9) AND have valid numeric scores (not null)
+        const allSubjects = studentData.subjects.filter(subject => {
+            const score = subject[assessmentType];
+            const isAbsent = assessmentType === 'qa1' ? subject.qa1_absent :
+                assessmentType === 'qa2' ? subject.qa2_absent :
+                    subject.endOfTerm_absent;
+
+            // Must have a valid numeric score AND not absent AND grade must be points
+            if (isAbsent) return false;
+            if (score === null || score === undefined) return false;
+            if (typeof score !== 'number') return false;
+
+            const grade = getSubjectGradeForAssessment(subject);
+            return grade !== 'AB' && grade >= '1' && grade <= '9';
+        });
+
+        if (allSubjects.length === 0) return 0;
+
+        // Find English subject
+        let englishPoints = null;
+        const otherPoints = [];
+
+        for (const subject of allSubjects) {
+            const points = parseInt(getSubjectGradeForAssessment(subject), 10);
+            if (subject.name.toLowerCase() === 'english' || subject.name.toLowerCase() === 'eng') {
+                englishPoints = points;
+            } else {
+                otherPoints.push(points);
+            }
+        }
+
+        // If no English found, just take best 6 from all subjects (or all if less than 6)
+        if (englishPoints === null) {
+            const allPoints = allSubjects.map(s => parseInt(getSubjectGradeForAssessment(s), 10));
+            allPoints.sort((a, b) => a - b);
+            const bestSubjects = allPoints.slice(0, Math.min(allPoints.length, 6));
+            return bestSubjects.reduce((sum, p) => sum + p, 0);
+        }
+
+        // Sort other points ascending (lower is better: 1 is best, 9 is worst)
+        otherPoints.sort((a, b) => a - b);
+
+        // If total subjects (including English) is 6 or less, take ALL other subjects
+        const totalSubjectsCount = 1 + otherPoints.length;
+
+        if (totalSubjectsCount <= 6) {
+            // Take all other subjects (no selection needed)
+            const total = englishPoints + otherPoints.reduce((sum, p) => sum + p, 0);
+            return total;
+        } else {
+            // Take best 5 from other subjects (lowest points)
+            const bestFive = otherPoints.slice(0, 5);
+            const total = englishPoints + bestFive.reduce((sum, p) => sum + p, 0);
+            return total;
+        }
+    };
+
+
+    // Calculate average score based on best 5 subjects + English
+    // const calculateBestSixAverage = (): string => {
+    //     // Get all subjects with valid numeric scores (not AB, not null)
+    //     const subjectsWithScores = studentData.subjects.filter(subject => {
+    //         const score = subject[assessmentType];
+    //         const isAbsent = assessmentType === 'qa1' ? subject.qa1_absent :
+    //             assessmentType === 'qa2' ? subject.qa2_absent :
+    //                 subject.endOfTerm_absent;
+    //         return !isAbsent && score !== null && score !== undefined && typeof score === 'number';
+    //     });
+
+    //     if (subjectsWithScores.length === 0) return 'N/A';
+
+    //     // Find English subject
+    //     let englishScore = null;
+    //     const otherScores = [];
+
+    //     for (const subject of subjectsWithScores) {
+    //         const score = subject[assessmentType] as number;
+    //         if (subject.name.toLowerCase() === 'english' || subject.name.toLowerCase() === 'eng') {
+    //             englishScore = score;
+    //         } else {
+    //             otherScores.push(score);
+    //         }
+    //     }
+
+    //     // If no English found, return average of all subjects
+    //     if (englishScore === null) {
+    //         const total = subjectsWithScores.reduce((sum, s) => sum + (s[assessmentType] as number), 0);
+    //         return (total / subjectsWithScores.length).toFixed(1);
+    //     }
+
+    //     // Sort other scores descending (highest first)
+    //     otherScores.sort((a, b) => b - a);
+
+    //     // Take best 5 from other subjects
+    //     const bestFive = otherScores.slice(0, 5);
+
+    //     // Calculate total: English + best 5 others
+    //     const total = englishScore + bestFive.reduce((sum, s) => sum + s, 0);
+    //     const count = 1 + bestFive.length;
+
+    //     return (total / count).toFixed(1);
+    // };
+
+
+    // Calculate average score based on best 5 subjects + English (or all if <=6 subjects)
+    const calculateBestSixAverage = (): string => {
+        // Get all subjects with valid numeric scores (not AB, not null)
+        const subjectsWithScores = studentData.subjects.filter(subject => {
+            const score = subject[assessmentType];
+            const isAbsent = assessmentType === 'qa1' ? subject.qa1_absent :
+                assessmentType === 'qa2' ? subject.qa2_absent :
+                    subject.endOfTerm_absent;
+            return !isAbsent && score !== null && score !== undefined && typeof score === 'number';
+        });
+
+        if (subjectsWithScores.length === 0) return 'N/A';
+
+        // Find English subject
+        let englishScore = null;
+        const otherScores = [];
+
+        for (const subject of subjectsWithScores) {
+            const score = subject[assessmentType] as number;
+            if (subject.name.toLowerCase() === 'english' || subject.name.toLowerCase() === 'eng') {
+                englishScore = score;
+            } else {
+                otherScores.push(score);
+            }
+        }
+
+        // If no English found, return average of all subjects
+        if (englishScore === null) {
+            const total = subjectsWithScores.reduce((sum, s) => sum + (s[assessmentType] as number), 0);
+            return (total / subjectsWithScores.length).toFixed(1);
+        }
+
+        // Sort other scores descending (highest first)
+        otherScores.sort((a, b) => b - a);
+
+        // If total subjects (including English) is 6 or less, take ALL other subjects
+        const totalSubjectsCount = 1 + otherScores.length;
+        let bestOthers;
+
+        if (totalSubjectsCount <= 6) {
+            // Take all other subjects
+            bestOthers = otherScores;
+        } else {
+            // Take best 5 from other subjects
+            bestOthers = otherScores.slice(0, 5);
+        }
+
+        // Calculate total: English + best others
+        const total = englishScore + bestOthers.reduce((sum, s) => sum + s, 0);
+        const count = 1 + bestOthers.length;
+
+        return (total / count).toFixed(1);
+    };
+
+    // Helper to get subject grade for assessment
+    const getSubjectGradeForAssessment = (subject: any): string => {
+        const score = subject[assessmentType];
+        const isAbsent = assessmentType === 'qa1' ? subject.qa1_absent :
+            assessmentType === 'qa2' ? subject.qa2_absent :
+                subject.endOfTerm_absent;
+
+        if (isAbsent) return 'AB';
+        if (score === null || score === undefined) return 'N/A';
+        return calculateGrade(score, studentData.gradeConfiguration?.pass_mark || 50, studentData.class);
     };
 
     const calculateAverage = (
@@ -240,8 +516,14 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
 
             doc.setFont('helvetica', 'normal');
 
+            // Check if using points system (Form 3/4) and add Total Points
+            const firstSubject = studentData.subjects[0];
+            const isPointsSystem = firstSubject && getSubjectGradeForAssessment(firstSubject) >= '1' && getSubjectGradeForAssessment(firstSubject) <= '9';
+
+
             // 1. Data Calculations
-            const avgScore = calculateAssessmentAverage();
+            // const avgScore = calculateAssessmentAverage();
+            const avgScore = isPointsSystem ? calculateBestSixAverage() : calculateAssessmentAverage();
             const numericAvg = avgScore === 'N/A' ? null : parseFloat(avgScore);
             // const subjectsWithScores = studentData.subjects.filter(s => hasValidScore(s[assessmentType]));
             const subjectsWithScores = studentData.subjects.filter(s => hasValidScore(s, assessmentType))
@@ -251,8 +533,30 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
             const displayRank = studentData.assessmentStats?.[assessmentType]?.classRank || 'N/A';
 
             // Determine Status and Grade
-            const assessmentStatus = numericAvg !== null ? (numericAvg >= passMark ? 'PASSED' : 'FAILED') : 'N/A';
-            const assessmentGrade = numericAvg !== null ? calculateGrade(numericAvg, passMark) : 'N/A';
+            // const assessmentStatus = numericAvg !== null ? (numericAvg >= passMark ? 'PASSED' : 'FAILED') : 'N/A';
+            // For points system, check if English grade is 9 (Fail)
+            let assessmentStatus = 'N/A';
+            if (numericAvg !== null) {
+                if (isPointsSystem) {
+                    // Find English subject grade
+                    const englishSubject = studentData.subjects.find(s =>
+                        s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+                    );
+                    if (englishSubject) {
+                        const englishGrade = getSubjectGradeForAssessment(englishSubject);
+                        if (englishGrade === '9') {
+                            assessmentStatus = 'FAILED';
+                        } else {
+                            assessmentStatus = numericAvg >= passMark ? 'PASSED' : 'FAILED';
+                        }
+                    } else {
+                        assessmentStatus = numericAvg >= passMark ? 'PASSED' : 'FAILED';
+                    }
+                } else {
+                    assessmentStatus = numericAvg >= passMark ? 'PASSED' : 'FAILED';
+                }
+            }
+            const assessmentGrade = numericAvg !== null ? calculateGrade(numericAvg, passMark, studentData.class) : 'N/A';
             const avgText = numericAvg !== null ? `${avgScore}%` : 'N/A';
 
             // 2. Row 1: Assessment Type & Subjects Count
@@ -266,11 +570,38 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
             y += 7;
 
             // 4. Row 3: Overall Grade & Overall Status
-            doc.text(`Overall Grade: ${assessmentGrade}`, 14, y);
+            // doc.text(`Overall Grade: ${assessmentGrade}`, 14, y);
+            // doc.text(`Overall Status: ${assessmentStatus}`, 120, y);
+
+            // y += 7;
+
+
+            // if (isPointsSystem) {
+            //     const totalPoints = calculateBestSixPoints();
+            //     doc.text(`Total Points (Best 6): ${totalPoints}`, 14, y);
+            //     doc.text(`Remark: ${getGradeRemark(assessmentGrade)}`, 120, y);
+            //     y += 7;
+            // }
+
+            // 4. Row 3: This handles Grade/Points and Status on the SAME line
+            if (isPointsSystem) {
+                const totalPoints = calculateBestSixPoints();
+                doc.text(`Total Points (Best 6): ${totalPoints}`, 14, y);
+            } else {
+                doc.text(`Overall Grade: ${assessmentGrade}`, 14, y);
+            }
+
+            // Position Status on the right side of the SAME row
             doc.text(`Overall Status: ${assessmentStatus}`, 120, y);
 
-            // Final spacing before Results table
+            // Only increment Y ONCE after both pieces of info are placed
             y += 10;
+
+            // Final spacing before Results table
+            y += 3;
+
+            // Final spacing before Results table
+            // y += 10;
             // ===== RESULTS TABLE =====
             doc.setFont('helvetica', 'bold');
             doc.text('RESULTS', 14, y);
@@ -310,41 +641,77 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
 
                     // Otherwise must be numeric
                     const numericScore = score as number;
-                    const grade = calculateGrade(numericScore, passMark);
-                    const remark = grade === 'F' ? 'Failed' : 'Passed';
+                    const grade = calculateGrade(numericScore, passMark, studentData.class);
+                    const remark = getGradeRemark(grade);
+                    const status = (grade === 'F' || grade === '9') ? 'Failed' : 'Passed';
 
                     return [
                         subject.name,
                         '100',
                         numericScore.toFixed(1),
                         grade,
-                        remark
+                        remark,
+                        status
                     ];
                 });
 
                 // CORRECTED: Add GRAND TOTAL row (Same as ReportCard)
-                const totalScored = calculateTotalScored();
-                const totalSubjects = subjectsWithValidScores.length;
-                const averageScore = parseFloat(avgScore);
-                const overallGrade = calculateGrade(averageScore, passMark);
-                const overallRemark = overallGrade === 'F' ? 'Failed' : 'Passed';
+                // const totalScored = calculateTotalScored();
+                // const totalSubjects = subjectsWithValidScores.length;
+                // const averageScore = parseFloat(avgScore);
+                // const overallGrade = calculateGrade(averageScore, passMark, studentData.class);
+                // const overallRemark = getGradeRemark(overallGrade);
+                // const overallStatus = (overallGrade === 'F' || overallGrade === '9') ? 'Failed' : 'Passed';
 
-                tableBody.push([
-                    'GRAND TOTAL',
-                    String(totalSubjects * 100), // Total possible marks
-                    // totalScored, // Total scored marks
-                    String(totalScored), // Total scored marks
-                    overallGrade,
-                    overallRemark
-                ]);
+                // tableBody.push([
+                //     'GRAND TOTAL',
+                //     String(totalSubjects * 100), // Total possible marks
+                //     // totalScored, // Total scored marks
+                //     String(totalScored), // Total scored marks
+                //     overallGrade,
+                //     overallRemark,
+                //     overallStatus
+                // ]);
+
+                // Add GRAND TOTAL row ONLY for letter grades (NOT for points system)
+                if (!isPointsSystem) {
+                    const totalScored = calculateTotalScored();
+                    const totalSubjects = subjectsWithValidScores.length;
+                    const averageScore = parseFloat(avgScore);
+                    const overallGrade = calculateGrade(averageScore, passMark, studentData.class);
+                    const overallRemark = getGradeRemark(overallGrade);
+                    const overallStatus = (overallGrade === 'F' || overallGrade === '9') ? 'Failed' : 'Passed';
+
+                    tableBody.push([
+                        'GRAND TOTAL',
+                        String(totalSubjects * 100),
+                        String(totalScored),
+                        overallGrade,
+                        overallRemark,
+                        overallStatus
+                    ]);
+                }
+
+                // autoTable(doc, {
+                //     startY: y,
+                //     head: [['Subject', 'Total Marks', 'Marks Scored', 'Grade', 'Remark', 'Status']],
+                //     body: tableBody,
+                //     theme: 'striped',
+                //     didParseCell: (data) => {
+                //         if (data.row.index === tableBody.length - 1) {
+                //             data.cell.styles.fontStyle = 'bold';
+                //         }
+                //     },
+                // });
 
                 autoTable(doc, {
                     startY: y,
-                    head: [['Subject', 'Total Marks', 'Marks Scored', 'Grade', 'Remark']],
+                    head: [['Subject', 'Total Marks', 'Marks Scored', 'Grade', 'Remark', 'Status']],
                     body: tableBody,
                     theme: 'striped',
                     didParseCell: (data) => {
-                        if (data.row.index === tableBody.length - 1) {
+                        // Only make the last row bold if it's the GRAND TOTAL row AND we're NOT in points system
+                        if (!isPointsSystem && data.row.index === tableBody.length - 1) {
                             data.cell.styles.fontStyle = 'bold';
                         }
                     },
@@ -370,14 +737,25 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                 const strongestNames = strongestSubjects.map(s => s.name).join(', ');
 
                 // 2. Find ALL subjects with D or F grades
+                // const needsImprovement = subjectsWithValidScores.filter(s => {
+                //     const grade = calculateGrade(s[assessmentType], passMark, studentData.class);
+                //     return ['D', 'F'].includes(grade);
+                // });
+
+                // 2. Find ALL subjects that need improvement (D, F for letters; 7,8,9 for points)
                 const needsImprovement = subjectsWithValidScores.filter(s => {
-                    const grade = calculateGrade(s[assessmentType], passMark);
+                    const grade = calculateGrade(s[assessmentType], passMark, studentData.class);
+                    // For points system: 7,8,9 are weak (Pass and Fail)
+                    if (grade >= '1' && grade <= '9') {
+                        return grade === '7' || grade === '8' || grade === '9';
+                    }
+                    // For letter grades: D and F
                     return ['D', 'F'].includes(grade);
                 });
 
                 // Create a string like "Maths (D), Science (F)"
                 const improvementNames = needsImprovement.length > 0
-                    ? needsImprovement.map(s => `${s.name} (${calculateGrade(s[assessmentType], passMark)})`).join(', ')
+                    ? needsImprovement.map(s => `${s.name} (${calculateGrade(s[assessmentType], passMark, studentData.class)})`).join(', ')
                     : 'None';
 
                 // --- Render Best Subjects (Left) ---
@@ -404,43 +782,140 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                 y += Math.max(strongLines.length * 5 + 10, improvementLines.length * 5 + 10);
 
                 // --- Performance Stats ---
+                // const stats = subjectsWithValidScores.map(s => ({
+                //     score: s[assessmentType],
+                //     grade: calculateGrade(s[assessmentType], passMark, studentData.class)
+                // }));
+
+
+
+                //     const subjectsPassed = stats.filter(s => s.grade !== 'F').length;
+                //     const abGrades = stats.filter(s => ['A', 'B'].includes(s.grade)).length;
+                //     const cdGrades = stats.filter(s => ['C', 'D'].includes(s.grade)).length;
+                //     const belowPass = stats.filter(s => s.score < passMark).length;
+
+                //     doc.text(`Subjects Passed: ${subjectsPassed}/${subjectsWithValidScores.length}`, 14, y);
+                //     doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);
+                //     doc.text(`C & D Grades: ${cdGrades}`, 14, y + 12);
+                //     doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 18);
+
+                //     y += 28;
+                // }
+
+                // --- Performance Stats ---
                 const stats = subjectsWithValidScores.map(s => ({
                     score: s[assessmentType],
-                    grade: calculateGrade(s[assessmentType], passMark)
+                    grade: calculateGrade(s[assessmentType], passMark, studentData.class)
                 }));
 
-                const subjectsPassed = stats.filter(s => s.grade !== 'F').length;
-                const abGrades = stats.filter(s => ['A', 'B'].includes(s.grade)).length;
-                const cdGrades = stats.filter(s => ['C', 'D'].includes(s.grade)).length;
+                const subjectsPassed = stats.filter(s => s.grade !== 'F' && s.grade !== '9').length;
                 const belowPass = stats.filter(s => s.score < passMark).length;
 
                 doc.text(`Subjects Passed: ${subjectsPassed}/${subjectsWithValidScores.length}`, 14, y);
-                doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);
-                doc.text(`C & D Grades: ${cdGrades}`, 14, y + 12);
-                doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 18);
+                y += 6;
 
-                y += 28;
+                // Dynamically show grade ranges based on whether using points or letters
+                const sampleGrade = stats[0]?.grade || '';
+                const isPointsSystem = sampleGrade >= '1' && sampleGrade <= '9';
+
+                if (isPointsSystem) {
+                    const distinctionCount = stats.filter(s => s.grade === '1' || s.grade === '2').length;
+                    const creditCount = stats.filter(s => ['3', '4', '5', '6'].includes(s.grade)).length;
+                    const passCount = stats.filter(s => s.grade === '7' || s.grade === '8').length;
+                    const failCount = stats.filter(s => s.grade === '9').length;
+
+                    doc.text(`Distinction: ${distinctionCount}`, 14, y);
+                    doc.text(`Credit: ${creditCount}`, 14, y + 6);
+                    doc.text(`Pass: ${passCount}`, 14, y + 12);
+                    doc.text(`Fail: ${failCount}`, 14, y + 18);
+                    doc.text(`Subjects Below Pass Mark: ${belowPass}`, 14, y + 24);
+                    y += 30;
+                } else {
+                    const aCount = stats.filter(s => s.grade === 'A').length;
+                    const bCount = stats.filter(s => s.grade === 'B').length;
+                    const cCount = stats.filter(s => s.grade === 'C').length;
+                    const dCount = stats.filter(s => s.grade === 'D').length;
+                    const fCount = stats.filter(s => s.grade === 'F').length;
+
+                    doc.text(`A Grades (Excellent): ${aCount}`, 14, y);
+                    doc.text(`B Grades (Very Good): ${bCount}`, 14, y + 6);
+                    doc.text(`C Grades (Good): ${cCount}`, 14, y + 12);
+                    doc.text(`D Grades (Satisfactory): ${dCount}`, 14, y + 18);
+                    doc.text(`F Grades (Fail): ${fCount}`, 14, y + 24);
+                    doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 30);
+                    y += 36;
+                }
             }
-
             // ===== TEACHER REMARK =====
             doc.setFont('helvetica', 'bold');
             doc.text("TEACHER'S REMARK", 14, y);
             y += 4;
             doc.setFont('helvetica', 'normal');
 
+            // let teacherRemark = '';
+            // if (avgScore === 'N/A') {
+            //     teacherRemark = 'No assessment scores available for evaluation.';
+            // } else {
+            //     const numericAvg = parseFloat(avgScore);
+            //     if (numericAvg >= 80) {
+            //         teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
+            //     } else if (numericAvg >= 70) {
+            //         teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
+            //     } else if (numericAvg >= passMark) {
+            //         teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+            //     } else {
+            //         teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+            //     }
+            // }
+
             let teacherRemark = '';
             if (avgScore === 'N/A') {
                 teacherRemark = 'No assessment scores available for evaluation.';
             } else {
-                const numericAvg = parseFloat(avgScore);
-                if (numericAvg >= 80) {
-                    teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
-                } else if (numericAvg >= 70) {
-                    teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
-                } else if (numericAvg >= passMark) {
-                    teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+                // For points system, check if English grade is 9 (Fail)
+                if (isPointsSystem) {
+                    const englishSubject = studentData.subjects.find(s =>
+                        s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+                    );
+                    if (englishSubject) {
+                        const englishGrade = getSubjectGradeForAssessment(englishSubject);
+                        if (englishGrade === '9') {
+                            teacherRemark = 'Failed due to English grade 9. Please retake English examination.';
+                        } else {
+                            const numericAvg = parseFloat(avgScore);
+                            if (numericAvg >= 80) {
+                                teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
+                            } else if (numericAvg >= 70) {
+                                teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
+                            } else if (numericAvg >= passMark) {
+                                teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+                            } else {
+                                teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+                            }
+                        }
+                    } else {
+                        const numericAvg = parseFloat(avgScore);
+                        if (numericAvg >= 80) {
+                            teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
+                        } else if (numericAvg >= 70) {
+                            teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
+                        } else if (numericAvg >= passMark) {
+                            teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+                        } else {
+                            teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+                        }
+                    }
                 } else {
-                    teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+                    const numericAvg = parseFloat(avgScore);
+                    if (numericAvg >= 80) {
+                        teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
+                    } else if (numericAvg >= 70) {
+                        teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
+                    } else if (numericAvg >= passMark) {
+                        teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+                    } else {
+                        teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+                    }
                 }
             }
 
@@ -520,28 +995,58 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
 
     const renderPDFContent = () => {
         const assessmentType = activeTab as 'qa1' | 'qa2' | 'endOfTerm';
-        const avgScore = calculateAssessmentAverage();
+
+        // Check if using points system
+        const firstSubject = studentData.subjects[0];
+        const sampleGrade = firstSubject ? getSubjectGradeForAssessment(firstSubject) : '';
+        const isPointsSystem = sampleGrade >= '1' && sampleGrade <= '9';
+
+        // Calculate average based on points system
+        const avgScore = isPointsSystem ? calculateBestSixAverage() : calculateAssessmentAverage();
         const numericAvg = avgScore === 'N/A' ? null : parseFloat(avgScore);
         const subjectsWithScores = studentData.subjects.filter(s => hasValidScore(s, assessmentType));
         const passMark = studentData.gradeConfiguration?.pass_mark || 50;
         const displayRank = studentData.assessmentStats?.[assessmentType]?.classRank || 'N/A';
-        const assessmentStatus = numericAvg !== null ? (numericAvg >= passMark ? 'PASSED' : 'FAILED') : 'N/A';
-        const assessmentGrade = numericAvg !== null ? calculateGrade(numericAvg, passMark) : 'N/A';
+        // const assessmentStatus = numericAvg !== null ? (numericAvg >= passMark ? 'PASSED' : 'FAILED') : 'N/A';
+
+        // For points system, check if English grade is 9 (Fail)
+        let assessmentStatus = 'N/A';
+        if (numericAvg !== null) {
+            if (isPointsSystem) {
+                // Find English subject grade
+                const englishSubject = studentData.subjects.find(s =>
+                    s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+                );
+                if (englishSubject) {
+                    const englishGrade = getSubjectGradeForAssessment(englishSubject);
+                    if (englishGrade === '9') {
+                        assessmentStatus = 'FAILED';
+                    } else {
+                        assessmentStatus = numericAvg >= passMark ? 'PASSED' : 'FAILED';
+                    }
+                } else {
+                    assessmentStatus = numericAvg >= passMark ? 'PASSED' : 'FAILED';
+                }
+            } else {
+                assessmentStatus = numericAvg >= passMark ? 'PASSED' : 'FAILED';
+            }
+        }
+        const assessmentGrade = numericAvg !== null ? calculateGrade(numericAvg, passMark, studentData.class) : 'N/A';
         const totalScored = calculateTotalScored();
 
         // Calculate performance stats
         const subjectsPassed = subjectsWithScores.filter(s => {
-            const grade = calculateGrade(s[assessmentType], passMark);
+            const grade = calculateGrade(s[assessmentType], passMark, studentData.class);
             return grade !== 'F';
         }).length;
 
         const abGrades = subjectsWithScores.filter(s => {
-            const grade = calculateGrade(s[assessmentType], passMark);
+            const grade = calculateGrade(s[assessmentType], passMark, studentData.class);
             return ['A', 'B'].includes(grade);
         }).length;
 
         const cdGrades = subjectsWithScores.filter(s => {
-            const grade = calculateGrade(s[assessmentType], passMark);
+            const grade = calculateGrade(s[assessmentType], passMark, studentData.class);
             return ['C', 'D'].includes(grade);
         }).length;
 
@@ -557,32 +1062,104 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
         const strongestNames = strongestSubjects.map(s => s.name).join(', ');
 
         // Get needs improvement subjects
+        // const needsImprovement = subjectsWithScores.filter(s => {
+        //     const grade = calculateGrade(s[assessmentType], passMark, studentData.class);
+        //     return ['D', 'F'].includes(grade);
+        // });
+
+        // Get needs improvement subjects
         const needsImprovement = subjectsWithScores.filter(s => {
-            const grade = calculateGrade(s[assessmentType], passMark);
+            const grade = calculateGrade(s[assessmentType], passMark, studentData.class);
+            // For points system: 7,8,9 are weak (Pass and Fail)
+            if (grade >= '1' && grade <= '9') {
+                return grade === '7' || grade === '8' || grade === '9';
+            }
+            // For letter grades: D and F
             return ['D', 'F'].includes(grade);
         });
         const improvementNames = needsImprovement.length > 0
-            ? needsImprovement.map(s => `${s.name} (${calculateGrade(s[assessmentType], passMark)})`).join(', ')
+            ? needsImprovement.map(s => `${s.name} (${calculateGrade(s[assessmentType], passMark, studentData.class)})`).join(', ')
             : 'None';
+
+        // Teacher remark - EXACT same as PDF
+        // let teacherRemark = '';
+        // if (avgScore === 'N/A') {
+        //     teacherRemark = 'No assessment scores available for evaluation.';
+        // } else {
+        //     if (numericAvg >= 80) {
+        //         teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
+        //     } else if (numericAvg >= 70) {
+        //         teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
+        //     } else if (numericAvg >= passMark) {
+        //         teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+        //     } else {
+        //         teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+        //     }
+        // }
 
         // Teacher remark - EXACT same as PDF
         let teacherRemark = '';
         if (avgScore === 'N/A') {
             teacherRemark = 'No assessment scores available for evaluation.';
         } else {
-            if (numericAvg >= 80) {
-                teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
-            } else if (numericAvg >= 70) {
-                teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
-            } else if (numericAvg >= passMark) {
-                teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+            // For points system, check if English grade is 9 (Fail)
+            if (isPointsSystem) {
+                const englishSubject = studentData.subjects.find(s =>
+                    s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+                );
+                if (englishSubject) {
+                    const englishGrade = getSubjectGradeForAssessment(englishSubject);
+                    if (englishGrade === '9') {
+                        teacherRemark = 'Failed due to English grade 9. Please retake English examination.';
+                    } else {
+                        if (numericAvg >= 80) {
+                            teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
+                        } else if (numericAvg >= 70) {
+                            teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
+                        } else if (numericAvg >= passMark) {
+                            teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+                        } else {
+                            teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+                        }
+                    }
+                } else {
+                    if (numericAvg >= 80) {
+                        teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
+                    } else if (numericAvg >= 70) {
+                        teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
+                    } else if (numericAvg >= passMark) {
+                        teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+                    } else {
+                        teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+                    }
+                }
             } else {
-                teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+                if (numericAvg >= 80) {
+                    teacherRemark = 'Outstanding performance! Excellent understanding of concepts.';
+                } else if (numericAvg >= 70) {
+                    teacherRemark = 'Good performance. Shows strong understanding with room for growth.';
+                } else if (numericAvg >= passMark) {
+                    teacherRemark = 'Satisfactory performance. Focus on improving in weaker areas.';
+                } else {
+                    teacherRemark = 'Additional effort required. Please seek help and dedicate more time to studies.';
+                }
             }
         }
 
         // Function to get grade color
         const getGradeBadgeColor = (grade: string) => {
+
+            if (grade >= '1' && grade <= '9') {
+                if (grade === '1') return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                if (grade === '2') return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                if (grade === '3') return 'bg-blue-100 text-blue-800 border-blue-300';
+                if (grade === '4') return 'bg-blue-100 text-blue-800 border-blue-300';
+                if (grade === '5') return 'bg-amber-100 text-amber-800 border-amber-300';
+                if (grade === '6') return 'bg-amber-100 text-amber-800 border-amber-300';
+                if (grade === '7') return 'bg-orange-100 text-orange-800 border-orange-300';
+                if (grade === '8') return 'bg-orange-100 text-orange-800 border-orange-300';
+                return 'bg-red-100 text-red-800 border-red-300'; // Grade 9
+            }
             switch (grade) {
                 case 'A': return 'bg-emerald-100 text-emerald-800 border-emerald-300';
                 case 'B': return 'bg-blue-100 text-blue-800 border-blue-300';
@@ -623,6 +1200,7 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                 </div>
 
                 {/* ASSESSMENT SUMMARY - with colored grid */}
+                {/* ASSESSMENT SUMMARY - with colored grid */}
                 <div className="mt-6 bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg border-l-4 border-purple-500 shadow-sm">
                     <p className="font-bold text-lg text-purple-800 mb-3 flex items-center">
                         <span className="w-1 h-6 bg-purple-600 rounded-full mr-2"></span>
@@ -633,18 +1211,29 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                         <div className="bg-white p-2 rounded shadow-sm"><span className="font-medium text-purple-700">Subjects Assessed:</span> {subjectsWithScores.length}/{studentData.subjects.length}</div>
                         <div className="bg-white p-2 rounded shadow-sm"><span className="font-medium text-purple-700">Average Score:</span> {avgScore}%</div>
                         <div className="bg-white p-2 rounded shadow-sm"><span className="font-medium text-purple-700">Class Position:</span> {displayRank}</div>
-                        <div className="bg-white p-2 rounded shadow-sm"><span className="font-medium text-purple-700">Overall Grade:</span>
-                            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${getGradeBadgeColor(assessmentGrade)}`}>
-                                {assessmentGrade}
-                            </span>
-                        </div>
+
+                        {isPointsSystem && (
+                            <div className="bg-white p-2 rounded shadow-sm">
+                                <span className="font-medium text-purple-700">Total Points (Best 6):</span>
+                                <span className="ml-2 font-bold text-purple-800">{calculateBestSixPoints()}</span>
+                            </div>
+                        )}
+
                         <div className="bg-white p-2 rounded shadow-sm">
                             <span className="font-medium text-purple-700">Overall Status:</span>
-                            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${assessmentStatus === 'PASSED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                }`}>
+                            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${assessmentStatus === 'PASSED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                 {assessmentStatus}
                             </span>
                         </div>
+
+                        {!isPointsSystem && (
+                            <div className="bg-white p-2 rounded shadow-sm">
+                                <span className="font-medium text-purple-700">Overall Grade:</span>
+                                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${getGradeBadgeColor(assessmentGrade)}`}>
+                                    {assessmentGrade}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -663,6 +1252,7 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                                     <th className="px-4 py-3 text-center">Marks Scored</th>
                                     <th className="px-4 py-3 text-center">Grade</th>
                                     <th className="px-4 py-3 text-center">Remark</th>
+                                    <th className="px-4 py-3 text-center">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-emerald-200">
@@ -671,8 +1261,9 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                                     const isAbsent = assessmentType === 'qa1' ? subject.qa1_absent :
                                         assessmentType === 'qa2' ? subject.qa2_absent :
                                             subject.endOfTerm_absent;
-                                    const grade = calculateGrade(score, passMark);
-                                    const remark = grade === 'F' ? 'Failed' : 'Passed';
+                                    const grade = calculateGrade(score, passMark, studentData.class);
+                                    const remark = getGradeRemark(grade);
+                                    const status = (grade === 'F' || grade === '9') ? 'Failed' : 'Passed';
 
                                     return (
                                         <tr key={idx} className="hover:bg-emerald-50/50 transition-colors">
@@ -688,6 +1279,11 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                                                 <span className={`px-2 py-1 rounded-full text-xs font-bold ${remark === 'Passed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                                     }`}>
                                                     {remark}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2 text-center">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${status === 'Failed' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                                    {status}
                                                 </span>
                                             </td>
                                         </tr>
@@ -799,49 +1395,154 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
     return (
         <div className="space-y-6">
             {/* Download Button Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h3 className="text-xl font-bold text-slate-800">
-                        {getAssessmentTitle(assessmentType)} Results
-                    </h3>
-                    <div className="flex items-center gap-4 mt-1">
-                        {/* <p className="text-slate-500">
-                            Average Score: <span className="font-semibold text-indigo-600">
-                                {avgScore === 'N/A' ? 'No tests' : `${avgScore}%`}
-                            </span>
-                        </p> */}
-                        {/* <span className="text-slate-400">•</span> */}
-                        <Target className="w-4 h-4 text-slate-400 mx-2" />
-                        <p className="text-slate-500">
-                            Total Marks Scored: <span className="font-semibold text-emerald-600">
+            {/* Download Button Header - Mobile Responsive */}
+            <div className="mb-4">
+                <h3 className="text-sm sm:text-xl font-bold text-slate-800 mb-2">
+                    {getAssessmentTitle(assessmentType)} Results
+                </h3>
+
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                        <Target className="w-3 h-3 text-slate-400" />
+                        <p className="text-xs sm:text-sm text-slate-500">
+                            Total Marks: <span className="font-semibold text-emerald-600">
                                 {totalScored}/{subjectsWithScores.length * 100}
                             </span>
                         </p>
-
-
                     </div>
-                </div>
 
+                    <button
+                        onClick={handleDownloadAssessmentPDF}
+                        disabled={isDownloading}
+                        className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium flex items-center gap-1 text-xs text-white transition-colors ${isDownloading
+                            ? 'bg-indigo-400 cursor-wait'
+                            : 'bg-indigo-600 hover:bg-indigo-700'
+                            }`}
+                    >
+                        {isDownloading ? (
+                            <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Wait</span>
+                            </>
+                        ) : (
+                            <>
+                                <Download className="w-3 h-3" />
+                                <span>Download</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            <div className="md:hidden mb-4">
                 <button
-                    onClick={handleDownloadAssessmentPDF}
-                    disabled={isDownloading}
-                    className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 text-white transition-colors ${isDownloading
-                        ? 'bg-indigo-400 cursor-wait'
-                        : 'bg-indigo-600 hover:bg-indigo-700'
-                        }`}
+                    onClick={() => setShowInfo(!showInfo)}
+                    className="w-full flex items-center justify-between bg-indigo-50 px-4 py-3 rounded-lg border border-indigo-200"
                 >
-                    {isDownloading ? (
-                        <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Generating PDF...</span>
-                        </>
-                    ) : (
-                        <>
-                            <Download className="w-4 h-4" />
-                            <span>Download PDF</span>
-                        </>
-                    )}
+                    <div className="flex items-center gap-2">
+                        <UserCircle className="w-5 h-5 text-indigo-600" />
+                        <span className="font-medium text-indigo-800">{studentData.name}</span>
+                    </div>
+                    {showInfo ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                 </button>
+            </div>
+
+            {/* ADD STUDENT & ACADEMIC INFORMATION HERE */}
+            {/* <StudentAcademicInfo studentData={studentData} schoolName={schoolName} /> */}
+
+            {(showInfo || window.innerWidth >= 768) && (
+                <StudentAcademicInfo studentData={studentData} schoolName={schoolName} />
+            )}
+
+            {/* SUMMARY BOXES */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-6">
+                {(() => {
+                    const firstSubject = studentData.subjects[0];
+                    const isPointsSystem = firstSubject && getSubjectGradeForAssessment(firstSubject) >= '1' && getSubjectGradeForAssessment(firstSubject) <= '9';
+
+                    // Get the assessment status and grade
+                    const numericAvg = parseFloat(calculateAssessmentAverage());
+                    const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+                    let assessmentStatus = 'N/A';
+                    if (!isNaN(numericAvg)) {
+                        if (isPointsSystem) {
+                            const englishSubject = studentData.subjects.find(s =>
+                                s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+                            );
+                            if (englishSubject) {
+                                const englishGrade = getSubjectGradeForAssessment(englishSubject);
+                                if (englishGrade === '9') {
+                                    assessmentStatus = 'FAILED';
+                                } else {
+                                    assessmentStatus = numericAvg >= passMark ? 'PASSED' : 'FAILED';
+                                }
+                            } else {
+                                assessmentStatus = numericAvg >= passMark ? 'PASSED' : 'FAILED';
+                            }
+                        } else {
+                            assessmentStatus = numericAvg >= passMark ? 'PASSED' : 'FAILED';
+                        }
+                    }
+
+                    const assessmentGrade = !isNaN(numericAvg) ? calculateGrade(numericAvg, passMark, studentData.class) : 'N/A';
+
+                    if (isPointsSystem) {
+                        // POINTS SYSTEM: Class Position, Overall Status, Final Average, Total Points
+                        return (
+                            <>
+                                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-emerald-100">Class Position</p>
+                                    <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
+                                </div>
+                                <div className={`${assessmentStatus === 'FAILED' ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-green-500 to-green-600'} rounded-xl p-2 sm:p-4 text-white`}>
+                                    <p className="text-[10px] sm:text-sm text-white/90">Overall Status</p>
+                                    <p className="text-base sm:text-3xl font-bold">{assessmentStatus}</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-indigo-100">Final Average</p>
+                                    <p className="text-base sm:text-3xl font-bold">{calculateBestSixAverage()}%</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-amber-100">Total Points</p>
+                                    <p className="text-base sm:text-3xl font-bold">{calculateBestSixPoints()}</p>
+                                </div>
+                            </>
+                        );
+                    } else {
+                        // LETTER GRADES: Final Average, Class Position, Overall Status, Overall Grade
+                        return (
+                            <>
+                                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-indigo-100">Final Average</p>
+                                    <p className="text-base sm:text-3xl font-bold">{calculateAssessmentAverage()}%</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-emerald-100">Class Position</p>
+                                    <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
+                                </div>
+                                <div className={`${assessmentStatus === 'FAILED' ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-green-500 to-green-600'} rounded-xl p-2 sm:p-4 text-white`}>
+                                    <p className="text-[10px] sm:text-sm text-white/90">Overall Status</p>
+                                    <p className="text-base sm:text-3xl font-bold">{assessmentStatus}</p>
+                                </div>
+                                <div className={`${assessmentGrade === 'F' ? 'bg-gradient-to-br from-red-500 to-red-600' :
+                                    assessmentGrade === 'A' || assessmentGrade === 'B' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
+                                        assessmentGrade === 'C' || assessmentGrade === 'D' ? 'bg-gradient-to-br from-amber-500 to-amber-600' :
+                                            'bg-gradient-to-br from-red-500 to-red-600'
+                                    } rounded-xl p-2 sm:p-4 text-white`}>
+                                    <p className="text-[10px] sm:text-sm text-white/90">Overall Grade</p>
+                                    <p className="text-base sm:text-3xl font-bold">{assessmentGrade}</p>
+                                    <p className="text-[8px] sm:text-xs opacity-90 mt-0.5 sm:mt-1">
+                                        {assessmentGrade === 'AB' ? 'Absent' :
+                                            assessmentGrade === 'A' ? 'Excellent' :
+                                                assessmentGrade === 'B' ? 'Good' :
+                                                    assessmentGrade === 'C' ? 'Satisfactory' :
+                                                        assessmentGrade === 'D' ? 'Passing' : 'Needs Improvement'}
+                                    </p>
+                                </div>
+                            </>
+                        );
+                    }
+                })()}
             </div>
 
             {/* Existing assessment results display */}
@@ -857,15 +1558,22 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                     // const hasScore = hasValidScore(score, isAbsent);
                     const hasScore = hasValidScore(subject, assessmentType);
 
+                    // const gradeForThisTab = (() => {
+                    //     if (isAbsent) return 'AB';
+                    //     if (!hasScore) return 'N/A';
+                    //     if (score >= 80) return 'A';
+                    //     if (score >= 70) return 'B';
+                    //     if (score >= 60) return 'C';
+                    //     if (score >= passMark) return 'D';
+                    //     return 'F';
+                    // })();
+
                     const gradeForThisTab = (() => {
                         if (isAbsent) return 'AB';
                         if (!hasScore) return 'N/A';
-                        if (score >= 80) return 'A';
-                        if (score >= 70) return 'B';
-                        if (score >= 60) return 'C';
-                        if (score >= passMark) return 'D';
-                        return 'F';
+                        return calculateGrade(score, passMark, studentData.class);
                     })();
+                    const isFailed = gradeForThisTab === 'F' || gradeForThisTab === '9';
 
                     return (
                         <div key={index} className="bg-white rounded-xl p-4 border border-slate-200 hover:border-indigo-200 transition-colors">
@@ -932,8 +1640,24 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                             "{(() => {
                                 const avg = parseFloat(calculateAssessmentAverage());
                                 const pass = studentData.gradeConfiguration?.pass_mark || 50;
+                                const firstSubject = studentData.subjects[0];
+                                const isPointsSystem = firstSubject && getSubjectGradeForAssessment(firstSubject) >= '1' && getSubjectGradeForAssessment(firstSubject) <= '9';
 
                                 if (isNaN(avg)) return 'No assessment scores available for evaluation.';
+
+                                // For points system, check if English grade is 9 (Fail)
+                                if (isPointsSystem) {
+                                    const englishSubject = studentData.subjects.find(s =>
+                                        s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+                                    );
+                                    if (englishSubject) {
+                                        const englishGrade = getSubjectGradeForAssessment(englishSubject);
+                                        if (englishGrade === '9') {
+                                            return 'Failed due to English grade 9. Please retake English examination.';
+                                        }
+                                    }
+                                }
+
                                 if (avg >= 80) return 'Outstanding performance! Excellent understanding of concepts.';
                                 if (avg >= 70) return 'Good performance. Shows strong understanding with room for growth.';
                                 if (avg >= pass) return 'Satisfactory performance. Focus on improving in weaker areas.';
@@ -941,9 +1665,6 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                             })()}"
                         </p>
                     </div>
-
-                    {/* Quick Stats Row under the remark */}
-
                 </div>
             )}
         </div>

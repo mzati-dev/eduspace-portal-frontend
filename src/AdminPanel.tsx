@@ -644,7 +644,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     assessment_type: 'qa1',
                     score: assessment.qa1,
                     is_absent: assessment.qa1_absent || false,
-                    grade: calculateGrade(assessment.qa1, passMark, assessment.qa1_absent)
+                    grade: calculateGrade(assessment.qa1, passMark, assessment.qa1_absent, selectedStudent.class?.name)
                 });
 
                 await upsertAssessment({
@@ -653,7 +653,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     assessment_type: 'qa2',
                     score: assessment.qa2,
                     is_absent: assessment.qa2_absent || false,  // 👈 ADD THIS
-                    grade: calculateGrade(assessment.qa2, passMark, assessment.qa2_absent)
+                    grade: calculateGrade(assessment.qa2, passMark, assessment.qa2_absent, selectedStudent.class?.name)
                 });
 
                 await upsertAssessment({
@@ -662,7 +662,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     assessment_type: 'end_of_term',
                     score: assessment.end_of_term,
                     is_absent: assessment.end_of_term_absent || false,  // 👈 ADD THIS
-                    grade: calculateGrade(assessment.end_of_term, passMark, assessment.end_of_term_absent)
+                    grade: calculateGrade(assessment.end_of_term, passMark, assessment.end_of_term_absent, selectedStudent.class?.name)
                 });
             }
 
@@ -1339,7 +1339,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                             onSendWhatsApp={handleSendReportWhatsApp}
                         />
 
-                        <LockModal
+                        {/* <LockModal
                             isOpen={showLockModal}
                             onClose={() => setShowLockModal(false)}
                             onLock={async (assessmentType, lock, lockReason, studentIds) => {
@@ -1367,6 +1367,56 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                             classId={selectedClassForResults}
                             className={classes.find(c => c.id === selectedClassForResults)?.name} // 👈 Add this
                             // Filter students to only those in the selected class
+                            students={students.filter(s => s.class?.id === selectedClassForResults)}
+                        /> */}
+
+                        <LockModal
+                            isOpen={showLockModal}
+                            onClose={() => setShowLockModal(false)}
+                            onLock={async (assessmentType, lock, lockReason, studentIds) => {
+                                const selectedClass = classes.find(c => c.id === selectedClassForResults);
+
+                                if (assessmentType === 'all') {
+                                    // Lock all three assessment types for the selected class
+                                    for (const type of ['qa1', 'qa2', 'endOfTerm'] as const) {
+                                        await lockResults(
+                                            selectedClassForResults,
+                                            selectedClass?.term || '',
+                                            type,
+                                            lock,
+                                            lockReason,
+                                            studentIds
+                                        );
+                                    }
+                                    showMessage(`Successfully ${lock ? 'locked' : 'unlocked'} ALL assessments for ${selectedClass?.name}`);
+                                    if (selectedClassForResults) {
+                                        loadClassResults(selectedClassForResults);
+                                    }
+                                } else {
+                                    // Single assessment type
+                                    if (selectedClass) {
+                                        try {
+                                            await lockResults(
+                                                selectedClassForResults,
+                                                selectedClass.term,
+                                                assessmentType,
+                                                lock,
+                                                lockReason,
+                                                studentIds
+                                            );
+                                            showMessage(`Results ${lock ? 'locked' : 'unlocked'} successfully!`);
+                                            if (selectedClassForResults) {
+                                                loadClassResults(selectedClassForResults);
+                                            }
+                                        } catch (error: any) {
+                                            showMessage(error.message || 'Failed to lock/unlock results', true);
+                                        }
+                                    }
+                                }
+                            }}
+                            term={classes.find(c => c.id === selectedClassForResults)?.term}
+                            classId={selectedClassForResults}
+                            className={classes.find(c => c.id === selectedClassForResults)?.name}
                             students={students.filter(s => s.class?.id === selectedClassForResults)}
                         />
                         <PreviewModal

@@ -10,11 +10,12 @@ interface Student {
 interface LockModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onLock: (assessmentType: 'qa1' | 'qa2' | 'endOfTerm', lock: boolean, lockReason: 'fee' | 'teacher', studentIds?: string[]) => Promise<void>;
+    onLock: (assessmentType: 'qa1' | 'qa2' | 'endOfTerm' | 'all', lock: boolean, lockReason: 'fee' | 'teacher', studentIds?: string[]) => Promise<void>;
     className?: string;
     term?: string;
     classId?: string;
     students?: Student[];
+    allClasses?: boolean; // New prop for locking across all classes
 }
 
 const LockModal: React.FC<LockModalProps> = ({
@@ -24,9 +25,10 @@ const LockModal: React.FC<LockModalProps> = ({
     className,
     term,
     classId,
-    students: propStudents = []
+    students: propStudents = [],
+    allClasses = false
 }) => {
-    const [selectedType, setSelectedType] = useState<'qa1' | 'qa2' | 'endOfTerm'>('qa1');
+    const [selectedType, setSelectedType] = useState<'qa1' | 'qa2' | 'endOfTerm' | 'all'>('qa1');
     const [lockAction, setLockAction] = useState<'lock' | 'unlock'>('lock');
     const [lockReason, setLockReason] = useState<'fee' | 'teacher'>('fee');
     const [loading, setLoading] = useState(false);
@@ -36,22 +38,18 @@ const LockModal: React.FC<LockModalProps> = ({
     const [students, setStudents] = useState<Student[]>([]);
     const [fetching, setFetching] = useState(false);
 
-    // Use useEffect to update students when propStudents changes or classId changes
     useEffect(() => {
-        if (classId) {
+        if (classId && !allClasses) {
             if (propStudents.length > 0) {
-                // If students are provided as props, use them
                 setStudents(propStudents);
             } else {
-                // Otherwise fetch students for this class
                 fetchStudents();
             }
         }
-    }, [classId, propStudents]);
+    }, [classId, propStudents, allClasses]);
 
     const fetchStudents = async () => {
         if (!classId) return;
-
         setFetching(true);
         try {
             const response = await fetch(`/api/classes/${classId}/students`);
@@ -64,7 +62,6 @@ const LockModal: React.FC<LockModalProps> = ({
         }
     };
 
-    // Reset selected students when class changes
     useEffect(() => {
         setSelectedStudents([]);
         setSearchTerm('');
@@ -98,7 +95,15 @@ const LockModal: React.FC<LockModalProps> = ({
         setLoading(true);
         try {
             const studentIds = lockScope === 'all' ? [] : selectedStudents;
-            await onLock(selectedType, lockAction === 'lock', lockReason, studentIds);
+
+            if (selectedType === 'all') {
+                // Lock all three assessment types
+                await onLock('qa1', lockAction === 'lock', lockReason, studentIds);
+                await onLock('qa2', lockAction === 'lock', lockReason, studentIds);
+                await onLock('endOfTerm', lockAction === 'lock', lockReason, studentIds);
+            } else {
+                await onLock(selectedType, lockAction === 'lock', lockReason, studentIds);
+            }
             onClose();
         } catch (error) {
             console.error('Error locking:', error);
@@ -109,8 +114,7 @@ const LockModal: React.FC<LockModalProps> = ({
 
     if (!isOpen) return null;
 
-    // Show class info and validate class selection
-    if (!classId) {
+    if (!classId && !allClasses) {
         return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
@@ -140,8 +144,7 @@ const LockModal: React.FC<LockModalProps> = ({
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-100px)]">
-                    {/* Class and Term Info */}
-                    {(term || className) && (
+                    {(term || className) && !allClasses && (
                         <div className="bg-blue-50 p-3 rounded-lg space-y-1">
                             {className && (
                                 <p className="text-sm text-blue-700">
@@ -159,6 +162,13 @@ const LockModal: React.FC<LockModalProps> = ({
                         </div>
                     )}
 
+                    {allClasses && (
+                        <div className="bg-purple-50 p-3 rounded-lg">
+                            <p className="text-sm text-purple-700 font-semibold">⚠️ Apply to ALL Classes</p>
+                            <p className="text-xs text-purple-600 mt-1">This will lock/unlock results across all classes in this school</p>
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
                             Assessment Type
@@ -171,6 +181,7 @@ const LockModal: React.FC<LockModalProps> = ({
                             <option value="qa1">Quarterly Assessment 1 (QA1)</option>
                             <option value="qa2">Quarterly Assessment 2 (QA2)</option>
                             <option value="endOfTerm">End of Term</option>
+                            <option value="all">🔒 ALL Assessments (QA1 + QA2 + End of Term)</option>
                         </select>
                     </div>
 
@@ -230,106 +241,108 @@ const LockModal: React.FC<LockModalProps> = ({
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Lock Scope
-                        </label>
-                        <div className="flex gap-4 mb-4">
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="radio"
-                                    checked={lockScope === 'all'}
-                                    onChange={() => setLockScope('all')}
-                                    className="w-4 h-4 text-indigo-600"
-                                />
-                                <span className="text-sm text-slate-700">All Students in {className || 'this class'}</span>
+                    {!allClasses && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Lock Scope
                             </label>
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="radio"
-                                    checked={lockScope === 'selected'}
-                                    onChange={() => setLockScope('selected')}
-                                    className="w-4 h-4 text-indigo-600"
-                                />
-                                <span className="text-sm text-slate-700">Select Specific Students</span>
-                            </label>
-                        </div>
-
-                        {lockScope === 'selected' && (
-                            <div className="mt-4 border rounded-lg p-4 bg-slate-50">
-                                <div className="mb-3">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search students by name or exam number..."
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                    </div>
-                                </div>
-
-                                {fetching ? (
-                                    <div className="text-center py-8">
-                                        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                                        <p className="text-sm text-slate-500">Loading students...</p>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="flex items-center justify-between mb-3">
-                                            <p className="text-sm font-medium text-slate-700">
-                                                {filteredStudents.length} students found in {className || 'this class'}
-                                            </p>
-                                            {filteredStudents.length > 0 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={handleSelectAll}
-                                                    className="text-sm text-indigo-600 hover:text-indigo-700"
-                                                >
-                                                    {selectedStudents.length === filteredStudents.length ? 'Deselect All' : 'Select All'}
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 bg-white">
-                                            {filteredStudents.length === 0 ? (
-                                                <p className="text-sm text-slate-500 text-center py-4">
-                                                    {students.length === 0
-                                                        ? `No students found in this class`
-                                                        : `No students matching "${searchTerm}"`}
-                                                </p>
-                                            ) : (
-                                                filteredStudents.map(student => (
-                                                    <label
-                                                        key={student.id}
-                                                        className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded cursor-pointer"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedStudents.includes(student.id)}
-                                                            onChange={() => handleStudentSelect(student.id)}
-                                                            className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-                                                        />
-                                                        <div className="flex-1">
-                                                            <p className="text-sm font-medium text-slate-800">{student.name}</p>
-                                                            <p className="text-xs text-slate-500">{student.examNumber}</p>
-                                                        </div>
-                                                    </label>
-                                                ))
-                                            )}
-                                        </div>
-
-                                        {selectedStudents.length > 0 && (
-                                            <p className="text-xs text-indigo-600 mt-2">
-                                                {selectedStudents.length} student{selectedStudents.length !== 1 ? 's' : ''} selected
-                                            </p>
-                                        )}
-                                    </>
-                                )}
+                            <div className="flex gap-4 mb-4">
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="radio"
+                                        checked={lockScope === 'all'}
+                                        onChange={() => setLockScope('all')}
+                                        className="w-4 h-4 text-indigo-600"
+                                    />
+                                    <span className="text-sm text-slate-700">All Students in {className || 'this class'}</span>
+                                </label>
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="radio"
+                                        checked={lockScope === 'selected'}
+                                        onChange={() => setLockScope('selected')}
+                                        className="w-4 h-4 text-indigo-600"
+                                    />
+                                    <span className="text-sm text-slate-700">Select Specific Students</span>
+                                </label>
                             </div>
-                        )}
-                    </div>
+
+                            {lockScope === 'selected' && (
+                                <div className="mt-4 border rounded-lg p-4 bg-slate-50">
+                                    <div className="mb-3">
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search students by name or exam number..."
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {fetching ? (
+                                        <div className="text-center py-8">
+                                            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                                            <p className="text-sm text-slate-500">Loading students...</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <p className="text-sm font-medium text-slate-700">
+                                                    {filteredStudents.length} students found
+                                                </p>
+                                                {filteredStudents.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSelectAll}
+                                                        className="text-sm text-indigo-600 hover:text-indigo-700"
+                                                    >
+                                                        {selectedStudents.length === filteredStudents.length ? 'Deselect All' : 'Select All'}
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 bg-white">
+                                                {filteredStudents.length === 0 ? (
+                                                    <p className="text-sm text-slate-500 text-center py-4">
+                                                        {students.length === 0
+                                                            ? `No students found in this class`
+                                                            : `No students matching "${searchTerm}"`}
+                                                    </p>
+                                                ) : (
+                                                    filteredStudents.map(student => (
+                                                        <label
+                                                            key={student.id}
+                                                            className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded cursor-pointer"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedStudents.includes(student.id)}
+                                                                onChange={() => handleStudentSelect(student.id)}
+                                                                className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                                                            />
+                                                            <div className="flex-1">
+                                                                <p className="text-sm font-medium text-slate-800">{student.name}</p>
+                                                                <p className="text-xs text-slate-500">{student.examNumber}</p>
+                                                            </div>
+                                                        </label>
+                                                    ))
+                                                )}
+                                            </div>
+
+                                            {selectedStudents.length > 0 && (
+                                                <p className="text-xs text-indigo-600 mt-2">
+                                                    {selectedStudents.length} student{selectedStudents.length !== 1 ? 's' : ''} selected
+                                                </p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="flex gap-3 pt-4 border-t">
                         <button
@@ -341,11 +354,11 @@ const LockModal: React.FC<LockModalProps> = ({
                         </button>
                         <button
                             type="submit"
-                            disabled={loading || (lockScope === 'selected' && selectedStudents.length === 0) || fetching}
+                            disabled={loading || (!allClasses && lockScope === 'selected' && selectedStudents.length === 0) || fetching}
                             className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${lockAction === 'lock'
                                 ? 'bg-red-600 hover:bg-red-700'
                                 : 'bg-yellow-600 hover:bg-yellow-700'
-                                } ${loading || (lockScope === 'selected' && selectedStudents.length === 0) || fetching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                } ${loading || (!allClasses && lockScope === 'selected' && selectedStudents.length === 0) || fetching ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {loading ? (
                                 <>
@@ -356,9 +369,11 @@ const LockModal: React.FC<LockModalProps> = ({
                                 <>
                                     <Lock className="w-4 h-4" />
                                     {lockAction === 'lock' ? 'Lock' : 'Unlock'}
-                                    {lockScope === 'selected' && selectedStudents.length > 0 &&
+                                    {selectedType === 'all' && ' All Assessments'}
+                                    {!allClasses && lockScope === 'selected' && selectedStudents.length > 0 &&
                                         ` (${selectedStudents.length} student${selectedStudents.length !== 1 ? 's' : ''})`
                                     }
+                                    {allClasses && ' All Classes'}
                                 </>
                             )}
                         </button>
@@ -406,31 +421,42 @@ export default LockModal;
 //     const [lockScope, setLockScope] = useState<'all' | 'selected'>('all');
 //     const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
 //     const [searchTerm, setSearchTerm] = useState('');
-//     const [students, setStudents] = useState<Student[]>(propStudents);
+//     const [students, setStudents] = useState<Student[]>([]);
 //     const [fetching, setFetching] = useState(false);
 
-//     // useEffect(() => {
-//     //     if (classId && propStudents.length === 0) {
-//     //         fetchStudents();
-//     //     }
-//     // }, [classId]);
-
-//     // const fetchStudents = async () => {
-//     //     setFetching(true);
-//     //     try {
-//     //         const response = await fetch(`/api/classes/${classId}/students`);
-//     //         const data = await response.json();
-//     //         setStudents(data);
-//     //     } catch (error) {
-//     //         console.error('Error fetching students:', error);
-//     //     } finally {
-//     //         setFetching(false);
-//     //     }
-//     // };
-
+//     // Use useEffect to update students when propStudents changes or classId changes
 //     useEffect(() => {
-//         setStudents(propStudents);
-//     }, [propStudents]);
+//         if (classId) {
+//             if (propStudents.length > 0) {
+//                 // If students are provided as props, use them
+//                 setStudents(propStudents);
+//             } else {
+//                 // Otherwise fetch students for this class
+//                 fetchStudents();
+//             }
+//         }
+//     }, [classId, propStudents]);
+
+//     const fetchStudents = async () => {
+//         if (!classId) return;
+
+//         setFetching(true);
+//         try {
+//             const response = await fetch(`/api/classes/${classId}/students`);
+//             const data = await response.json();
+//             setStudents(data);
+//         } catch (error) {
+//             console.error('Error fetching students:', error);
+//         } finally {
+//             setFetching(false);
+//         }
+//     };
+
+//     // Reset selected students when class changes
+//     useEffect(() => {
+//         setSelectedStudents([]);
+//         setSearchTerm('');
+//     }, [classId]);
 
 //     const filteredStudents = students.filter(student =>
 //         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -471,6 +497,26 @@ export default LockModal;
 
 //     if (!isOpen) return null;
 
+//     // Show class info and validate class selection
+//     if (!classId) {
+//         return (
+//             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+//                 <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+//                     <div className="text-center">
+//                         <h2 className="text-xl font-semibold text-slate-800 mb-4">❌ Class Required</h2>
+//                         <p className="text-slate-600 mb-6">Please select a class first to manage student locks.</p>
+//                         <button
+//                             onClick={onClose}
+//                             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+//                         >
+//                             Close
+//                         </button>
+//                     </div>
+//                 </div>
+//             </div>
+//         );
+//     }
+
 //     return (
 //         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
 //             <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
@@ -482,10 +528,21 @@ export default LockModal;
 //                 </div>
 
 //                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-100px)]">
-//                     {term && (
-//                         <div className="bg-blue-50 p-3 rounded-lg">
+//                     {/* Class and Term Info */}
+//                     {(term || className) && (
+//                         <div className="bg-blue-50 p-3 rounded-lg space-y-1">
+//                             {className && (
+//                                 <p className="text-sm text-blue-700">
+//                                     <span className="font-semibold">Class:</span> {className}
+//                                 </p>
+//                             )}
+//                             {term && (
+//                                 <p className="text-sm text-blue-700">
+//                                     <span className="font-semibold">Term:</span> {term}
+//                                 </p>
+//                             )}
 //                             <p className="text-sm text-blue-700">
-//                                 <span className="font-semibold">Term:</span> {term}
+//                                 <span className="font-semibold">Total Students:</span> {students.length}
 //                             </p>
 //                         </div>
 //                     )}
@@ -531,34 +588,6 @@ export default LockModal;
 //                         </div>
 //                     </div>
 
-//                     {/* {lockAction === 'lock' && (
-//                         <div>
-//                             <label className="block text-sm font-medium text-slate-700 mb-2">
-//                                 Lock Reason
-//                             </label>
-//                             <div className="flex gap-4">
-//                                 <label className="flex items-center gap-2">
-//                                     <input
-//                                         type="radio"
-//                                         checked={lockReason === 'fee'}
-//                                         onChange={() => setLockReason('fee')}
-//                                         className="w-4 h-4 text-indigo-600"
-//                                     />
-//                                     <span className="text-sm text-slate-700">Fee Non-Payment (Hide from parents)</span>
-//                                 </label>
-//                                 <label className="flex items-center gap-2">
-//                                     <input
-//                                         type="radio"
-//                                         checked={lockReason === 'teacher'}
-//                                         onChange={() => setLockReason('teacher')}
-//                                         className="w-4 h-4 text-indigo-600"
-//                                     />
-//                                     <span className="text-sm text-slate-700">Teacher Lock (Prevent editing only)</span>
-//                                 </label>
-//                             </div>
-//                         </div>
-//                     )} */}
-//                     {/* Remove the condition - show for both lock and unlock */}
 //                     <div>
 //                         <label className="block text-sm font-medium text-slate-700 mb-2">
 //                             {lockAction === 'lock' ? 'Lock Reason' : 'Unlock Type'}
@@ -588,6 +617,7 @@ export default LockModal;
 //                             </label>
 //                         </div>
 //                     </div>
+
 //                     <div>
 //                         <label className="block text-sm font-medium text-slate-700 mb-2">
 //                             Lock Scope
@@ -600,7 +630,7 @@ export default LockModal;
 //                                     onChange={() => setLockScope('all')}
 //                                     className="w-4 h-4 text-indigo-600"
 //                                 />
-//                                 <span className="text-sm text-slate-700">All Students</span>
+//                                 <span className="text-sm text-slate-700">All Students in {className || 'this class'}</span>
 //                             </label>
 //                             <label className="flex items-center gap-2">
 //                                 <input
@@ -637,7 +667,7 @@ export default LockModal;
 //                                     <>
 //                                         <div className="flex items-center justify-between mb-3">
 //                                             <p className="text-sm font-medium text-slate-700">
-//                                                 {filteredStudents.length} students found
+//                                                 {filteredStudents.length} students found in {className || 'this class'}
 //                                             </p>
 //                                             {filteredStudents.length > 0 && (
 //                                                 <button
@@ -653,7 +683,9 @@ export default LockModal;
 //                                         <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 bg-white">
 //                                             {filteredStudents.length === 0 ? (
 //                                                 <p className="text-sm text-slate-500 text-center py-4">
-//                                                     No students found matching "{searchTerm}"
+//                                                     {students.length === 0
+//                                                         ? `No students found in this class`
+//                                                         : `No students matching "${searchTerm}"`}
 //                                                 </p>
 //                                             ) : (
 //                                                 filteredStudents.map(student => (
@@ -697,11 +729,11 @@ export default LockModal;
 //                         </button>
 //                         <button
 //                             type="submit"
-//                             disabled={loading || (lockScope === 'selected' && selectedStudents.length === 0)}
+//                             disabled={loading || (lockScope === 'selected' && selectedStudents.length === 0) || fetching}
 //                             className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${lockAction === 'lock'
 //                                 ? 'bg-red-600 hover:bg-red-700'
 //                                 : 'bg-yellow-600 hover:bg-yellow-700'
-//                                 } ${loading || (lockScope === 'selected' && selectedStudents.length === 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
+//                                 } ${loading || (lockScope === 'selected' && selectedStudents.length === 0) || fetching ? 'opacity-50 cursor-not-allowed' : ''}`}
 //                         >
 //                             {loading ? (
 //                                 <>

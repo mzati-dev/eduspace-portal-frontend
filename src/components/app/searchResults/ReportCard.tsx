@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StudentData } from '@/types';
-import { Download, Printer, CheckCircle, AlertCircle, TrendingUp, Calendar, User, Loader2 } from 'lucide-react';
+import { Download, Printer, CheckCircle, AlertCircle, TrendingUp, Calendar, User, Loader2, ChevronDown, ChevronUp, UserCircle } from 'lucide-react';
 // import html2canvas from 'html2canvas';
 import autoTable from 'jspdf-autotable';
 import jsPDF from 'jspdf';
+import StudentAcademicInfo from './StudentAcademicInfo';
 
 interface ReportCardProps {
     studentData: StudentData;
@@ -29,6 +30,19 @@ const ReportCard: React.FC<ReportCardProps> = ({
     const [isDownloading, setIsDownloading] = useState(false)
     // 1. State for the School Name
     const [schoolName, setSchoolName] = useState<string>('Loading School...');
+    const [showInfo, setShowInfo] = useState(false);
+
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 768) {
+                setShowInfo(true);
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
 
     // 2. The Logic to Fetch and Find the School
@@ -88,6 +102,15 @@ const ReportCard: React.FC<ReportCardProps> = ({
 
     const getGradeColor = (grade: string) => {
         if (grade === 'AB' || grade === 'N/A') return 'text-slate-600 bg-slate-100';
+
+        // Handle points 1-9
+        if (grade >= '1' && grade <= '9') {
+            if (grade === '1' || grade === '2') return 'text-emerald-600 bg-emerald-50';
+            if (grade === '3' || grade === '4') return 'text-blue-600 bg-blue-50';
+            if (grade === '5' || grade === '6') return 'text-amber-600 bg-amber-50';
+            if (grade === '7' || grade === '8') return 'text-orange-600 bg-orange-50';
+            return 'text-red-600 bg-red-50';
+        }
         if (grade.includes('A')) return 'text-emerald-600 bg-emerald-50';
         if (grade === 'B') return 'text-blue-600 bg-blue-50';
         if (grade === 'C') return 'text-amber-600 bg-amber-50';
@@ -97,6 +120,29 @@ const ReportCard: React.FC<ReportCardProps> = ({
     const getRemarkColor = (remark: string): string => {
         if (remark === 'Absent') return 'bg-slate-100 text-slate-700';
         return remark === 'Passed' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700';
+    };
+
+    const getRemarkColorFromGrade = (grade: string): string => {
+        if (grade === 'AB') return 'bg-slate-100 text-slate-700';
+
+        // Handle points 1-9
+        if (grade >= '1' && grade <= '9') {
+            if (grade === '1' || grade === '2') return 'bg-emerald-100 text-emerald-700';
+            if (grade === '3' || grade === '4') return 'bg-blue-100 text-blue-700';
+            if (grade === '5' || grade === '6') return 'bg-amber-100 text-amber-700';
+            if (grade === '7' || grade === '8') return 'bg-orange-100 text-orange-700';
+            return 'bg-red-100 text-red-700';
+        }
+
+        // For letter grades
+        switch (grade) {
+            case 'A': return 'bg-emerald-100 text-emerald-700';
+            case 'B': return 'bg-blue-100 text-blue-700';
+            case 'C': return 'bg-amber-100 text-amber-700';
+            case 'D': return 'bg-orange-100 text-orange-700';
+            case 'F': return 'bg-red-100 text-red-700';
+            default: return 'bg-slate-100 text-slate-700';
+        }
     };
 
     // NEW: Check if student has valid score (including 0 and AB)
@@ -218,9 +264,28 @@ const ReportCard: React.FC<ReportCardProps> = ({
     };
 
     // Calculate grade based on score and pass mark (handles AB)
-    const calculateGrade = (score: number | 'AB', passMark?: number): string => {
+    const calculateGrade = (score: number | 'AB', passMark?: number, className?: string): string => {
         if (score === 'AB') return 'AB';
         const effectivePassMark = passMark || 50;
+
+        const isForm3Or4 = className && (
+            className.includes('Form 3') ||
+            className.includes('Form 4') ||
+            className.includes('Form3') ||
+            className.includes('Form4')
+        );
+
+        if (isForm3Or4) {
+            if (score >= 80) return '1';
+            if (score >= 75) return '2';
+            if (score >= 70) return '3';
+            if (score >= 65) return '4';
+            if (score >= 60) return '5';
+            if (score >= 55) return '6';
+            if (score >= 51) return '7';
+            if (score >= effectivePassMark) return '8';
+            return '9';
+        }
 
         if (score >= 80) return 'A';
         if (score >= 70) return 'B';
@@ -337,33 +402,297 @@ const ReportCard: React.FC<ReportCardProps> = ({
     const getOverallGrade = (): string => {
         const overallAverage = parseFloat(calculateOverallAverage());
         const passMark = studentData.gradeConfiguration?.pass_mark || 50;
-        return calculateGrade(isNaN(overallAverage) ? 'AB' : overallAverage, passMark);
+        return calculateGrade(isNaN(overallAverage) ? 'AB' : overallAverage, passMark, studentData.class);
     };
 
     const getSubjectGrade = (subject: StudentData['subjects'][0]): string => {
         const subjectAverage = calculateSubjectAverage(subject);
         const passMark = studentData.gradeConfiguration?.pass_mark || 50;
-        return calculateGrade(subjectAverage, passMark);
+        return calculateGrade(subjectAverage, passMark, studentData.class);
+    };
+
+    const getDescriptiveRemark = (grade: string): string => {
+        // For points system (Form 3/4)
+        if (grade >= '1' && grade <= '9') {
+            if (grade === '1' || grade === '2') return 'Distinction';
+            if (grade === '3' || grade === '4' || grade === '5' || grade === '6') return 'Credit';
+            if (grade === '7' || grade === '8') return 'Pass';
+            return 'Fail';
+        }
+
+        // For letter grades
+        switch (grade) {
+            case 'A': return 'Excellent';
+            case 'B': return 'Very Good';
+            case 'C': return 'Good';
+            case 'D': return 'Satisfactory';
+            case 'F': return 'Fail';
+            default: return 'N/A';
+        }
     };
 
     const getSubjectRemark = (subject: StudentData['subjects'][0]): string => {
         const avg = calculateSubjectAverage(subject);
         if (avg === 'AB') return 'Absent';
         const grade = getSubjectGrade(subject);
-        return grade === 'F' ? 'Failed' : 'Passed';
+        return getDescriptiveRemark(grade);
     };
+
+    const getPassFailStatus = (grade: string): string => {
+        if (grade === 'AB') return 'Absent';
+        return (grade === 'F' || grade === '9') ? 'Failed' : 'Passed';
+    };
+
+    // const getOverallRemark = (): string => {
+    //     const overallGrade = getOverallGrade();
+    //     return overallGrade === 'F' ? 'FAILED' : overallGrade === 'AB' ? 'INCOMPLETE' : 'PASSED';
+    // };
 
     const getOverallRemark = (): string => {
         const overallGrade = getOverallGrade();
-        return overallGrade === 'F' ? 'FAILED' : overallGrade === 'AB' ? 'INCOMPLETE' : 'PASSED';
+
+        // For points system, check if English grade is 9 (Fail)
+        const firstSubject = studentData.subjects[0];
+        const isPointsSystem = firstSubject && getSubjectGrade(firstSubject) >= '1' && getSubjectGrade(firstSubject) <= '9';
+
+        if (isPointsSystem) {
+            // Find English subject
+            const englishSubject = studentData.subjects.find(s =>
+                s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+            );
+            if (englishSubject) {
+                const englishGrade = getSubjectGrade(englishSubject);
+                if (englishGrade === '9') {
+                    return 'FAILED';
+                }
+            }
+        }
+
+        return overallGrade === 'F' ? 'FAILED' : overallGrade === 'AB' ? 'ABSENT' : 'PASSED';
     };
+
+    // const getOverallRemarkColor = (): string => {
+    //     const overallGrade = getOverallGrade();
+    //     if (overallGrade === 'AB') return 'bg-slate-100 text-slate-700';
+    //     return overallGrade === 'F' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700';
+    // };
 
     const getOverallRemarkColor = (): string => {
         const overallGrade = getOverallGrade();
+
+        // For points system, check if English grade is 9 (Fail)
+        const firstSubject = studentData.subjects[0];
+        const isPointsSystem = firstSubject && getSubjectGrade(firstSubject) >= '1' && getSubjectGrade(firstSubject) <= '9';
+
+        if (isPointsSystem) {
+            const englishSubject = studentData.subjects.find(s =>
+                s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+            );
+            if (englishSubject) {
+                const englishGrade = getSubjectGrade(englishSubject);
+                if (englishGrade === '9') {
+                    return 'bg-red-100 text-red-700';
+                }
+            }
+        }
+
         if (overallGrade === 'AB') return 'bg-slate-100 text-slate-700';
         return overallGrade === 'F' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700';
     };
 
+
+
+    // Calculate total points for best 6 subjects - English always included
+    // const calculateBestSixPoints = (): number => {
+    //     // Get all subjects with valid points (1-9), ignore AB
+    //     const allSubjects = studentData.subjects.filter(subject => {
+    //         const grade = getSubjectGrade(subject);
+    //         return grade !== 'AB' && grade >= '1' && grade <= '9';
+    //     });
+
+    //     if (allSubjects.length === 0) return 0;
+
+    //     // Find English subject
+    //     let englishPoints = null;
+    //     const otherPoints = [];
+
+    //     for (const subject of allSubjects) {
+    //         const points = parseInt(getSubjectGrade(subject), 10);
+    //         // if (subject.name.toLowerCase().includes('eng')) {
+    //         if (subject.name.toLowerCase() === 'english' || subject.name.toLowerCase() === 'eng') {
+    //             englishPoints = points;
+    //         } else {
+    //             otherPoints.push(points);
+    //         }
+    //     }
+
+    //     // If no English found, just take best 6 from all subjects
+    //     if (englishPoints === null) {
+    //         const allPoints = allSubjects.map(s => parseInt(getSubjectGrade(s), 10));
+    //         allPoints.sort((a, b) => a - b);
+    //         const bestSix = allPoints.slice(0, 6);
+    //         return bestSix.reduce((sum, p) => sum + p, 0);
+    //     }
+
+    //     // Sort other subjects points ascending
+    //     otherPoints.sort((a, b) => a - b);
+
+    //     // Take best 5 from other subjects
+    //     const bestFive = otherPoints.slice(0, 5);
+
+    //     // Return English + best 5 others
+    //     return englishPoints + bestFive.reduce((sum, p) => sum + p, 0);
+    // };
+
+    // Calculate total points for best 6 subjects - English always included
+    const calculateBestSixPoints = (): number => {
+        // Get all subjects with valid scores AND valid points (1-9)
+        // IMPORTANT: Must check that the subject has an actual score, not just a grade
+        const allSubjects = studentData.subjects.filter(subject => {
+            // First check if there's a valid numeric score
+            const finalScore = calculateSubjectAverage(subject);
+            if (finalScore === 'AB' || typeof finalScore !== 'number') return false;
+
+            // Then check if grade is points (1-9)
+            const grade = getSubjectGrade(subject);
+            return grade !== 'AB' && grade >= '1' && grade <= '9';
+        });
+
+        if (allSubjects.length === 0) return 0;
+
+        // Find English subject
+        let englishPoints = null;
+        const otherPoints = [];
+
+        for (const subject of allSubjects) {
+            const points = parseInt(getSubjectGrade(subject), 10);
+            if (subject.name.toLowerCase() === 'english' || subject.name.toLowerCase() === 'eng') {
+                englishPoints = points;
+            } else {
+                otherPoints.push(points);
+            }
+        }
+
+        // If no English found, just take all subjects (or best 6 if more than 6)
+        if (englishPoints === null) {
+            const allPoints = allSubjects.map(s => parseInt(getSubjectGrade(s), 10));
+            allPoints.sort((a, b) => a - b);
+            // Take all if 6 or less, otherwise take best 6
+            const bestSubjects = allPoints.slice(0, Math.min(allPoints.length, 6));
+            return bestSubjects.reduce((sum, p) => sum + p, 0);
+        }
+
+        // Sort other subjects points ascending
+        otherPoints.sort((a, b) => a - b);
+
+        // Calculate total number of subjects with scores (including English)
+        const totalSubjectsWithScores = 1 + otherPoints.length;
+
+        let bestOthers;
+        if (totalSubjectsWithScores <= 6) {
+            // Take ALL other subjects (no selection needed)
+            bestOthers = otherPoints;
+        } else {
+            // Take best 5 from other subjects
+            bestOthers = otherPoints.slice(0, 5);
+        }
+
+        // Return English + best others
+        return englishPoints + bestOthers.reduce((sum, p) => sum + p, 0);
+    };
+
+    // Calculate average score based on best 5 subjects + English (for points system)
+    // const calculateBestSixAverage = (): string => {
+    //     // Get all subjects with valid numeric scores (not AB, not null)
+    //     const subjectsWithScores = studentData.subjects.filter(subject => {
+    //         const finalScore = calculateSubjectAverage(subject);
+    //         return finalScore !== 'AB' && typeof finalScore === 'number';
+    //     });
+
+    //     if (subjectsWithScores.length === 0) return 'N/A';
+
+    //     // Find English subject
+    //     let englishScore = null;
+    //     const otherScores = [];
+
+    //     for (const subject of subjectsWithScores) {
+    //         const score = calculateSubjectAverage(subject) as number;
+    //         if (subject.name.toLowerCase() === 'english' || subject.name.toLowerCase() === 'eng') {
+    //             englishScore = score;
+    //         } else {
+    //             otherScores.push(score);
+    //         }
+    //     }
+
+    //     // If no English found, return average of all subjects
+    //     if (englishScore === null) {
+    //         const total = subjectsWithScores.reduce((sum, s) => sum + (calculateSubjectAverage(s) as number), 0);
+    //         return (total / subjectsWithScores.length).toFixed(1);
+    //     }
+
+    //     // Sort other scores descending (highest first)
+    //     otherScores.sort((a, b) => b - a);
+
+    //     // Take best 5 from other subjects (or all if less than 5)
+    //     const bestFive = otherScores.slice(0, 5);
+
+    //     // Calculate total: English + best 5 others
+    //     const total = englishScore + bestFive.reduce((sum, s) => sum + s, 0);
+    //     const count = 1 + bestFive.length;
+
+    //     return (total / count).toFixed(1);
+    // };
+
+    // Calculate average score based on best 5 subjects + English (for points system)
+    const calculateBestSixAverage = (): string => {
+        // Get all subjects with valid numeric scores (not AB, not null)
+        const subjectsWithScores = studentData.subjects.filter(subject => {
+            const finalScore = calculateSubjectAverage(subject);
+            return finalScore !== 'AB' && typeof finalScore === 'number';
+        });
+
+        if (subjectsWithScores.length === 0) return 'N/A';
+
+        // Find English subject
+        let englishScore = null;
+        const otherScores = [];
+
+        for (const subject of subjectsWithScores) {
+            const score = calculateSubjectAverage(subject) as number;
+            if (subject.name.toLowerCase() === 'english' || subject.name.toLowerCase() === 'eng') {
+                englishScore = score;
+            } else {
+                otherScores.push(score);
+            }
+        }
+
+        // If no English found, return average of all subjects
+        if (englishScore === null) {
+            const total = subjectsWithScores.reduce((sum, s) => sum + (calculateSubjectAverage(s) as number), 0);
+            return (total / subjectsWithScores.length).toFixed(1);
+        }
+
+        // Sort other scores descending (highest first)
+        otherScores.sort((a, b) => b - a);
+
+        // Calculate total number of subjects with scores (including English)
+        const totalSubjectsWithScores = 1 + otherScores.length;
+
+        let bestOthers;
+        if (totalSubjectsWithScores <= 6) {
+            // Take ALL other subjects
+            bestOthers = otherScores;
+        } else {
+            // Take best 5 from other subjects
+            bestOthers = otherScores.slice(0, 5);
+        }
+
+        // Calculate total: English + best others
+        const total = englishScore + bestOthers.reduce((sum, s) => sum + s, 0);
+        const count = 1 + bestOthers.length;
+
+        return (total / count).toFixed(1);
+    };
     // Handle Print functionality (same as before)
     const handlePrint = () => {
         if (onPrint) {
@@ -466,19 +795,80 @@ const ReportCard: React.FC<ReportCardProps> = ({
             y += 22;
 
             // ===== SUMMARY =====
+            // doc.setFont('helvetica', 'bold');
+            // doc.text('SUMMARY', 14, y);
+            // y += 4;
+            // doc.setFont('helvetica', 'normal');
+
+            // doc.text(`Class Position: ${studentData.classRank || 'N/A'}`, 14, y);
+            // doc.text(`Overall Status: ${getOverallRemark()}`, 120, y);
+
+            // y += 6;
+            // doc.text(`Final Average: ${calculateOverallAverage()}%`, 14, y);
+            // doc.text(`Overall Grade: ${getOverallGrade()}`, 120, y);
+
+            // y += 8;
+
+            // ===== SUMMARY =====
+            // doc.setFont('helvetica', 'bold');
+            // doc.text('SUMMARY', 14, y);
+            // y += 4;
+            // doc.setFont('helvetica', 'normal');
+
+            // doc.text(`Class Position: ${studentData.classRank || 'N/A'}`, 14, y);
+            // doc.text(`Overall Status: ${getOverallRemark()}`, 120, y);
+
+            // y += 6;
+            // doc.text(`Final Average: ${calculateOverallAverage()}%`, 14, y);
+            // doc.text(`Overall Grade: ${getOverallGrade()}`, 120, y);
+
+            // y += 6;
+
+            // // Check if using points system (Form 3/4)
+            // const firstSubject = studentData.subjects[0];
+            // const isPointsSystem = firstSubject && getSubjectGrade(firstSubject) >= '1' && getSubjectGrade(firstSubject) <= '9';
+
+            // if (isPointsSystem) {
+            //     const totalPoints = calculateBestSixPoints();
+            //     doc.text(`Total Points (Best 6): ${totalPoints}`, 14, y);
+            //     doc.text(`Remark: ${getDescriptiveRemark(getOverallGrade())}`, 120, y);
+            //     y += 6;
+            // }
+
+            // y += 2;
+
+            // ===== SUMMARY =====
             doc.setFont('helvetica', 'bold');
             doc.text('SUMMARY', 14, y);
             y += 4;
             doc.setFont('helvetica', 'normal');
 
-            doc.text(`Class Position: ${studentData.classRank || 'N/A'}`, 14, y);
-            doc.text(`Overall Status: ${getOverallRemark()}`, 120, y);
+            const firstSubject = studentData.subjects[0];
+            const isPointsSystem = firstSubject && getSubjectGrade(firstSubject) >= '1' && getSubjectGrade(firstSubject) <= '9';
 
-            y += 6;
-            doc.text(`Final Average: ${calculateOverallAverage()}%`, 14, y);
-            doc.text(`Overall Grade: ${getOverallGrade()}`, 120, y);
+            if (isPointsSystem) {
+                // POINTS SYSTEM: Class Position, Overall Status, Final Average, Total Points
+                doc.text(`Class Position: ${studentData.classRank || 'N/A'}`, 14, y);
+                doc.text(`Overall Status: ${getOverallRemark()}`, 120, y);
+                y += 6;
+                // doc.text(`Final Average: ${calculateOverallAverage()}%`, 14, y);
+                const finalAverage = isPointsSystem ? calculateBestSixAverage() : calculateOverallAverage();
+                doc.text(`Final Average: ${finalAverage}%`, 14, y);
+                doc.text(`Total Points (Best 6): ${calculateBestSixPoints()}`, 120, y);
+                y += 6;
+            } else {
+                // LETTER GRADES: Class Position, Overall Status, Final Average, Overall Grade
+                doc.text(`Class Position: ${studentData.classRank || 'N/A'}`, 14, y);
+                doc.text(`Overall Status: ${getOverallRemark()}`, 120, y);
+                y += 6;
+                // doc.text(`Final Average: ${calculateOverallAverage()}%`, 14, y);
+                const finalAverage = isPointsSystem ? calculateBestSixAverage() : calculateOverallAverage();
+                doc.text(`Final Average: ${finalAverage}%`, 14, y);
+                doc.text(`Overall Grade: ${getOverallGrade()}`, 120, y);
+                y += 6;
+            }
 
-            y += 8;
+            y += 2;
 
             // ===== RESULTS TABLE =====
             doc.setFont('helvetica', 'bold');
@@ -498,6 +888,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                     const avgDisplay = avg === 'AB' ? 'AB' : avg.toFixed(1);
                     const grade = getSubjectGrade(sub);
                     const remark = getSubjectRemark(sub);
+                    const status = getPassFailStatus(grade);
 
                     return [
                         sub.name,
@@ -505,35 +896,126 @@ const ReportCard: React.FC<ReportCardProps> = ({
                         avgDisplay,
                         grade,
                         remark,
+                        status
                     ];
                 });
 
             // Add GRAND TOTAL as last row
-            const grandTotalDisplay = calculateGrandTotal();
-            const overallGrade = getOverallGrade();
-            const overallRemark = getOverallRemark();
+            // Add GRAND TOTAL row ONLY for letter grades (NOT for points system)
+            if (!isPointsSystem) {
+                const grandTotalDisplay = calculateGrandTotal();
+                const overallGrade = getOverallGrade();
+                const overallRemark = getOverallRemark();
+                const overallStatus = getPassFailStatus(overallGrade);
 
-            tableBody.push([
-                'GRAND TOTAL',
-                String(studentData.subjects.length * 100),
-                grandTotalDisplay,
-                overallGrade,
-                overallRemark,
-            ]);
+                tableBody.push([
+                    'GRAND TOTAL',
+                    String(studentData.subjects.length * 100),
+                    grandTotalDisplay,
+                    overallGrade,
+                    getDescriptiveRemark(overallGrade),
+                    overallStatus,
+                ]);
+            }
 
+            // autoTable(doc, {
+            //     startY: y,
+            //     head: [['Subject', 'Total Marks', 'Marks Scored', 'Grade', 'Remark', 'Status']],
+            //     body: tableBody,
+            //     theme: 'striped',
+            //     didParseCell: (data) => {
+            //         if (data.row.index === tableBody.length - 1) {
+            //             data.cell.styles.fontStyle = 'bold';
+            //         }
+            //     },
+            // });
             autoTable(doc, {
                 startY: y,
-                head: [['Subject', 'Total Marks', 'Marks Scored', 'Grade', 'Remark']],
+                head: [['Subject', 'Total Marks', 'Marks Scored', 'Grade', 'Remark', 'Status']],
                 body: tableBody,
                 theme: 'striped',
                 didParseCell: (data) => {
-                    if (data.row.index === tableBody.length - 1) {
+                    // Only make the last row bold for letter grades (when GRAND TOTAL exists)
+                    if (!isPointsSystem && data.row.index === tableBody.length - 1) {
                         data.cell.styles.fontStyle = 'bold';
                     }
                 },
             });
 
             y = (doc as any).lastAutoTable.finalY + 8;
+
+
+
+            // ===== PERFORMANCE ANALYSIS =====
+            // if (studentData.subjects.length > 0) {
+            //     doc.setFont('helvetica', 'bold');
+            //     doc.text('PERFORMANCE ANALYSIS', 14, y);
+            //     y += 4;
+            //     doc.setFont('helvetica', 'normal');
+
+            //     // Filter out AB subjects for performance analysis
+            //     const subjectsWithStats = studentData.subjects
+            //         .map(s => ({
+            //             name: s.name,
+            //             score: calculateSubjectAverage(s),
+            //             grade: getSubjectGrade(s)
+            //         }))
+            //         .filter(s => s.score !== 'AB'); // Exclude AB from analysis
+
+            //     if (subjectsWithStats.length > 0) {
+            //         // Strongest Subject Logic (Handles ties)
+            //         const numericScores = subjectsWithStats.map(s => s.score as number);
+            //         const highestScore = Math.max(...numericScores);
+            //         const strongestSubjects = subjectsWithStats.filter(s => s.score === highestScore);
+            //         const strongestNames = strongestSubjects.map(s => s.name).join(', ');
+
+            //         // Needs Improvement Logic (Lists all D and F with grades)
+            //         const needsImprovement = subjectsWithStats.filter(s => ['D', 'F'].includes(s.grade));
+            //         const improvementNames = needsImprovement.length > 0
+            //             ? needsImprovement.map(s => `${s.name} (${s.grade})`).join(', ')
+            //             : 'None';
+
+            //         // Render Best Subjects (Left)
+            //         const strongLabel = `Best Subject${strongestSubjects.length > 1 ? 's' : ''}: `;
+            //         const strongLines = doc.splitTextToSize(`${strongLabel}${strongestNames}`, 95);
+            //         doc.text(strongLines, 14, y);
+            //         doc.text(`Score: ${Math.round(highestScore)}%`, 14, y + (strongLines.length * 5));
+
+            //         // Render Needs Improvement (Right)
+            //         const improvementLabel = `Needs Improvement: `;
+            //         const improvementLines = doc.splitTextToSize(`${improvementLabel}${improvementNames}`, 75);
+            //         doc.text(improvementLines, 120, y);
+
+            //         if (needsImprovement.length > 0) {
+            //             doc.setFontSize(8);
+            //             doc.text(`Total flagged: ${needsImprovement.length}`, 120, y + (improvementLines.length * 5) + 1);
+            //             doc.setFontSize(10);
+            //         } else {
+            //             doc.text(`All subjects are currently satisfactory`, 120, y + 5);
+            //         }
+
+            //         // Move Y down based on whichever column was longer
+            //         y += Math.max(strongLines.length * 5 + 10, improvementLines.length * 5 + 10);
+
+            //         // Performance Stats (excluding AB subjects)
+            //         const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+
+            //         const subjectsPassed = subjectsWithStats.filter(s => s.grade !== 'F').length;
+            //         const abGrades = subjectsWithStats.filter(s => ['A', 'B'].includes(s.grade)).length;
+            //         const cdGrades = subjectsWithStats.filter(s => ['C', 'D'].includes(s.grade)).length;
+            //         const belowPass = subjectsWithStats.filter(s => (s.score as number) < passMark).length;
+
+            //         doc.text(`Subjects Passed: ${subjectsPassed}/${subjectsWithStats.length}`, 14, y);
+            //         doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);
+            //         doc.text(`C & D Grades: ${cdGrades}`, 14, y + 12);
+            //         doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 18);
+
+            //         y += 28;
+            //     } else {
+            //         doc.text('No valid scores available for performance analysis.', 14, y);
+            //         y += 10;
+            //     }
+            // }
 
             // ===== PERFORMANCE ANALYSIS =====
             if (studentData.subjects.length > 0) {
@@ -559,7 +1041,13 @@ const ReportCard: React.FC<ReportCardProps> = ({
                     const strongestNames = strongestSubjects.map(s => s.name).join(', ');
 
                     // Needs Improvement Logic (Lists all D and F with grades)
-                    const needsImprovement = subjectsWithStats.filter(s => ['D', 'F'].includes(s.grade));
+                    const needsImprovement = subjectsWithStats.filter(s => {
+                        const grade = s.grade;
+                        if (grade >= '1' && grade <= '9') {
+                            return grade === '7' || grade === '8' || grade === '9';
+                        }
+                        return ['D', 'F'].includes(grade);
+                    });
                     const improvementNames = needsImprovement.length > 0
                         ? needsImprovement.map(s => `${s.name} (${s.grade})`).join(', ')
                         : 'None';
@@ -589,17 +1077,43 @@ const ReportCard: React.FC<ReportCardProps> = ({
                     // Performance Stats (excluding AB subjects)
                     const passMark = studentData.gradeConfiguration?.pass_mark || 50;
 
-                    const subjectsPassed = subjectsWithStats.filter(s => s.grade !== 'F').length;
-                    const abGrades = subjectsWithStats.filter(s => ['A', 'B'].includes(s.grade)).length;
-                    const cdGrades = subjectsWithStats.filter(s => ['C', 'D'].includes(s.grade)).length;
+                    const subjectsPassed = subjectsWithStats.filter(s => s.grade !== 'F' && s.grade !== '9').length;
                     const belowPass = subjectsWithStats.filter(s => (s.score as number) < passMark).length;
 
                     doc.text(`Subjects Passed: ${subjectsPassed}/${subjectsWithStats.length}`, 14, y);
-                    doc.text(`A & B Grades: ${abGrades}`, 14, y + 6);
-                    doc.text(`C & D Grades: ${cdGrades}`, 14, y + 12);
-                    doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 18);
+                    y += 6;
 
-                    y += 28;
+                    // Dynamically show grade ranges based on whether using points or letters
+                    const sampleGrade = subjectsWithStats[0]?.grade || '';
+                    const isPointsSystem = sampleGrade >= '1' && sampleGrade <= '9';
+
+                    if (isPointsSystem) {
+                        const distinctionCount = subjectsWithStats.filter(s => s.grade === '1' || s.grade === '2').length;
+                        const creditCount = subjectsWithStats.filter(s => ['3', '4', '5', '6'].includes(s.grade)).length;
+                        const passCount = subjectsWithStats.filter(s => s.grade === '7' || s.grade === '8').length;
+                        const failCount = subjectsWithStats.filter(s => s.grade === '9').length;
+
+                        doc.text(`Distinctions: ${distinctionCount}`, 14, y);
+                        doc.text(`Credits: ${creditCount}`, 14, y + 6);
+                        doc.text(`Pass: ${passCount}`, 14, y + 12);
+                        doc.text(`Fail: ${failCount}`, 14, y + 18);
+                        doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 24);
+                        y += 30;
+                    } else {
+                        const aCount = subjectsWithStats.filter(s => s.grade === 'A').length;
+                        const bCount = subjectsWithStats.filter(s => s.grade === 'B').length;
+                        const cCount = subjectsWithStats.filter(s => s.grade === 'C').length;
+                        const dCount = subjectsWithStats.filter(s => s.grade === 'D').length;
+                        const fCount = subjectsWithStats.filter(s => s.grade === 'F').length;
+
+                        doc.text(`A Grades (Excellent): ${aCount}`, 14, y);
+                        doc.text(`B Grades (Very Good): ${bCount}`, 14, y + 6);
+                        doc.text(`C Grades (Good): ${cCount}`, 14, y + 12);
+                        doc.text(`D Grades (Satisfactory): ${dCount}`, 14, y + 18);
+                        doc.text(`F Grades (Fail): ${fCount}`, 14, y + 24);
+                        doc.text(`Subjects Below ${passMark}% Pass Mark: ${belowPass}`, 14, y + 30);
+                        y += 36;
+                    }
                 } else {
                     doc.text('No valid scores available for performance analysis.', 14, y);
                     y += 10;
@@ -616,18 +1130,33 @@ const ReportCard: React.FC<ReportCardProps> = ({
             const currentOverallGrade = getOverallGrade();
             let teacherRemark = '';
 
-            if (currentOverallGrade === 'AB') {
-                teacherRemark = 'Student was absent for one or more required assessments. Please ensure attendance for all examinations.';
-            } else if (currentOverallGrade === 'A') {
-                teacherRemark = 'An outstanding performance! Keep maintaining this high standard.';
-            } else if (currentOverallGrade === 'B') {
-                teacherRemark = 'A very good result. With a little more push, you can reach excellence.';
-            } else if (currentOverallGrade === 'C') {
-                teacherRemark = 'A satisfactory performance, but there is room for improvement.';
-            } else if (currentOverallGrade === 'D') {
-                teacherRemark = 'You have passed, but more effort is needed to improve grades.';
-            } else {
-                teacherRemark = 'Please focus more on your studies and seek help in weak subjects.';
+            // For points system, check if English grade is 9 (Fail)
+            if (isPointsSystem) {
+                const englishSubject = studentData.subjects.find(s =>
+                    s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+                );
+                if (englishSubject) {
+                    const englishGrade = getSubjectGrade(englishSubject);
+                    if (englishGrade === '9') {
+                        teacherRemark = 'Failed due to English grade 9. Please retake English examination.';
+                    }
+                }
+            }
+
+            if (!teacherRemark) {
+                if (currentOverallGrade === 'AB') {
+                    teacherRemark = 'Student was absent for one or more required assessments. Please ensure attendance for all examinations.';
+                } else if (currentOverallGrade === 'A') {
+                    teacherRemark = 'An outstanding performance! Keep maintaining this high standard.';
+                } else if (currentOverallGrade === 'B') {
+                    teacherRemark = 'A very good result. With a little more push, you can reach excellence.';
+                } else if (currentOverallGrade === 'C') {
+                    teacherRemark = 'A satisfactory performance, but there is room for improvement.';
+                } else if (currentOverallGrade === 'D') {
+                    teacherRemark = 'You have passed, but more effort is needed to improve grades.';
+                } else {
+                    teacherRemark = 'Please focus more on your studies and seek help in weak subjects.';
+                }
             }
 
             const remarkLines = doc.splitTextToSize(`"${teacherRemark}"`, pageWidth - 28);
@@ -734,6 +1263,10 @@ const ReportCard: React.FC<ReportCardProps> = ({
     }
 
     if (showPDFOnly) {
+
+        // Check if using points system
+        const firstSubject = studentData.subjects[0];
+        const isPointsSystem = firstSubject && getSubjectGrade(firstSubject) >= '1' && getSubjectGrade(firstSubject) <= '9';
         // Calculate performance stats
         const subjectsWithScores = studentData.subjects.filter(s =>
             s.qa1 !== null || s.qa2 !== null || s.endOfTerm !== null ||
@@ -772,8 +1305,17 @@ const ReportCard: React.FC<ReportCardProps> = ({
         const strongestNames = strongestSubjects.map(s => s.name).join(', ');
 
         // Get needs improvement subjects
+        // const needsImprovement = subjectsWithScores.filter(s => {
+        //     const grade = getSubjectGrade(s);
+        //     return ['D', 'F'].includes(grade);
+        // });
         const needsImprovement = subjectsWithScores.filter(s => {
             const grade = getSubjectGrade(s);
+            // For letter grades: D and F
+            // For points system: 7, 8, 9 (since 7-8 are Pass, 9 is Fail)
+            if (grade >= '1' && grade <= '9') {
+                return grade === '7' || grade === '8' || grade === '9';
+            }
             return ['D', 'F'].includes(grade);
         });
         const improvementNames = needsImprovement.length > 0
@@ -782,6 +1324,18 @@ const ReportCard: React.FC<ReportCardProps> = ({
 
         // Function to get grade badge color
         const getGradeBadgeColor = (grade: string) => {
+            // Handle points (1-9) for Form 3/4
+            if (grade >= '1' && grade <= '9') {
+                if (grade === '1') return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                if (grade === '2') return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                if (grade === '3') return 'bg-blue-100 text-blue-800 border-blue-300';
+                if (grade === '4') return 'bg-blue-100 text-blue-800 border-blue-300';
+                if (grade === '5') return 'bg-amber-100 text-amber-800 border-amber-300';
+                if (grade === '6') return 'bg-amber-100 text-amber-800 border-amber-300';
+                if (grade === '7') return 'bg-orange-100 text-orange-800 border-orange-300';
+                if (grade === '8') return 'bg-orange-100 text-orange-800 border-orange-300';
+                return 'bg-red-100 text-red-800 border-red-300'; // Grade 9
+            }
             switch (grade) {
                 case 'A': return 'bg-emerald-100 text-emerald-800 border-emerald-300';
                 case 'B': return 'bg-blue-100 text-blue-800 border-blue-300';
@@ -892,26 +1446,28 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                     );
                                 })}
                             </tbody>
-                            <tfoot className="bg-gradient-to-r from-emerald-100 to-teal-100 font-bold">
-                                <tr>
-                                    <td className="px-4 py-3">GRAND TOTAL</td>
-                                    <td className="px-4 py-3 text-center">{subjectsWithScores.length * 100}</td>
-                                    <td className="px-4 py-3 text-center text-emerald-700">{calculateGrandTotal()}</td>
-                                    <td className="px-4 py-3 text-center">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${getGradeBadgeColor(getOverallGrade())}`}>
-                                            {getOverallGrade()}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${getOverallRemark() === 'PASSED' ? 'bg-green-100 text-green-800' :
-                                            getOverallRemark() === 'FAILED' ? 'bg-red-100 text-red-800' :
-                                                'bg-slate-100 text-slate-800'
-                                            }`}>
-                                            {getOverallRemark()}
-                                        </span>
-                                    </td>
-                                </tr>
-                            </tfoot>
+                            {!isPointsSystem && (
+                                <tfoot className="bg-gradient-to-r from-emerald-100 to-teal-100 font-bold">
+                                    <tr>
+                                        <td className="px-4 py-3">GRAND TOTAL</td>
+                                        <td className="px-4 py-3 text-center">{subjectsWithScores.length * 100}</td>
+                                        <td className="px-4 py-3 text-center text-emerald-700">{calculateGrandTotal()}</td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${getGradeBadgeColor(getOverallGrade())}`}>
+                                                {getOverallGrade()}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${getOverallRemark() === 'PASSED' ? 'bg-green-100 text-green-800' :
+                                                getOverallRemark() === 'FAILED' ? 'bg-red-100 text-red-800' :
+                                                    'bg-slate-100 text-slate-800'
+                                                }`}>
+                                                {getOverallRemark()}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            )}
                         </table>
                     </div>
                 </div>
@@ -1011,133 +1567,135 @@ const ReportCard: React.FC<ReportCardProps> = ({
 
     return (
         <div ref={reportCardRef} id="report-card-content" className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <div>
-                    <h4 className="text-xl font-bold text-slate-800">Complete Report Card</h4>
-                    {studentData.gradeConfiguration && (
-                        <p className="text-sm text-indigo-600 mt-1">
-                            Grade Calculation: {studentData.gradeConfiguration.configuration_name}
-                            {studentData.gradeConfiguration.calculation_method === 'weighted_average' &&
-                                ` (QA1: ${studentData.gradeConfiguration.weight_qa1}%, QA2: ${studentData.gradeConfiguration.weight_qa2}%, End Term: ${studentData.gradeConfiguration.weight_end_of_term}%)`}
-                        </p>
-                    )}
-                </div>
+            <div className="flex flex-row items-center justify-between mb-4">
+                <h4 className="text-base sm:text-xl font-bold text-slate-800">Complete Report Card</h4>
 
                 {showActions && (
-                    <div className="flex gap-2 action-buttons">
-                        <button
-                            onClick={handleDownloadPDF}
-                            disabled={isDownloading}
-                            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 text-white transition-colors ${isDownloading
-                                ? 'bg-indigo-400 cursor-wait'
-                                : 'bg-indigo-600 hover:bg-indigo-700'
-                                }`}
-                        >
-                            {isDownloading ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span>Generating PDF...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Download className="w-4 h-4" />
-                                    <span>Download PDF</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleDownloadPDF}
+                        disabled={isDownloading}
+                        className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium flex items-center gap-1 text-xs sm:text-sm text-white transition-colors ${isDownloading
+                            ? 'bg-indigo-400 cursor-wait'
+                            : 'bg-indigo-600 hover:bg-indigo-700'
+                            }`}
+                    >
+                        {isDownloading ? (
+                            <>
+                                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
+                                <span>Wait</span>
+                            </>
+                        ) : (
+                            <>
+                                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                                <span>Download</span>
+                            </>
+                        )}
+                    </button>
                 )}
             </div>
 
-            {/* STUDENT AND SCHOOL INFORMATION SECTION */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-6 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h5 className="text-lg font-bold text-blue-900 mb-3">Student Information</h5>
-                        <div className="space-y-2">
-                            <div className="flex justify-between border-b border-blue-100 pb-2">
-                                <span className="text-blue-700 font-medium">Student Name:</span>
-                                <span className="text-blue-900 font-semibold">{studentData.name || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-blue-100 pb-2">
-                                <span className="text-blue-700 font-medium">Exam Number:</span>
-                                <span className="text-blue-900 font-semibold">{studentData.examNumber || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-blue-100 pb-2">
-                                <span className="text-blue-700 font-medium">Class:</span>
-                                <span className="text-blue-900 font-semibold">
-                                    {studentData.class || 'N/A'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+            {studentData.gradeConfiguration && (
+                <p className="text-xs sm:text-sm text-indigo-600 mb-6">
+                    {studentData.gradeConfiguration.configuration_name}
+                    {studentData.gradeConfiguration.calculation_method === 'weighted_average' &&
+                        ` (QA1: ${studentData.gradeConfiguration.weight_qa1}%, QA2: ${studentData.gradeConfiguration.weight_qa2}%, End: ${studentData.gradeConfiguration.weight_end_of_term}%)`}
+                </p>
+            )}
 
-                    <div>
-                        <h5 className="text-lg font-bold text-indigo-900 mb-3">Academic Information</h5>
-                        <div className="space-y-2">
-                            <div className="flex justify-between border-b border-indigo-100 pb-2">
-                                <span className="text-indigo-700 font-medium">Academic Year:</span>
-                                <span className="text-indigo-900 font-semibold">
-                                    {studentData.academicYear || 'N/A'}
-                                </span>
-                            </div>
-                            <div className="flex justify-between border-b border-indigo-100 pb-2">
-                                <span className="text-indigo-700 font-medium">Term:</span>
-                                <span className="text-indigo-900 font-semibold">
-                                    {studentData.term || 'N/A'}
-                                </span>
-                            </div>
-
-                            {/* DYNAMIC SCHOOL NAME */}
-                            <div className="flex justify-between border-b border-indigo-100 pb-2">
-                                <span className="text-indigo-700 font-medium">School Name:</span>
-                                <span className="text-indigo-900 font-semibold">
-                                    {schoolName}
-                                </span>
-                            </div>
-                        </div>
+            {/* Mobile toggle button */}
+            <div className="md:hidden mb-4">
+                <button
+                    onClick={() => setShowInfo(!showInfo)}
+                    className="w-full flex items-center justify-between bg-indigo-50 px-4 py-3 rounded-lg border border-indigo-200"
+                >
+                    <div className="flex items-center gap-2">
+                        <UserCircle className="w-5 h-5 text-indigo-600" />
+                        <span className="font-medium text-indigo-800">{studentData.name}</span>
                     </div>
-                </div>
+                    {showInfo ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {/* Final Average */}
-                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white">
-                    <p className="text-indigo-100 text-sm">Final Average</p>
-                    <p className="text-3xl font-bold">{calculateOverallAverage()}%</p>
-                </div>
+            {/* STUDENT AND SCHOOL INFORMATION SECTION - now conditional */}
+            {(showInfo || window.innerWidth >= 768) && (
+                <StudentAcademicInfo studentData={studentData} schoolName={schoolName} />
+            )}
 
-                {/* Class Position */}
-                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white">
-                    <p className="text-emerald-100 text-sm">Class Position</p>
-                    <p className="text-3xl font-bold">{studentData.classRank}<span className="text-lg">/{studentData.totalStudents}</span></p>
-                </div>
+            {/* STUDENT AND SCHOOL INFORMATION SECTION */}
+            {/* <StudentAcademicInfo studentData={studentData} schoolName={schoolName} /> */}
 
-                {/* Pass/Fail Status */}
-                <div className={`${getOverallGrade() === 'F' ? 'bg-gradient-to-br from-red-500 to-red-600' :
-                    getOverallGrade() === 'AB' ? 'bg-gradient-to-br from-slate-500 to-slate-600' :
-                        'bg-gradient-to-br from-green-500 to-green-600'
-                    } rounded-xl p-4 text-white`}>
-                    <p className="text-white/90 text-sm">Overall Status</p>
-                    <p className="text-3xl font-bold">{getOverallRemark()}</p>
-                </div>
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-6">
+                {(() => {
+                    const firstSubject = studentData.subjects[0];
+                    const isPointsSystem = firstSubject && getSubjectGrade(firstSubject) >= '1' && getSubjectGrade(firstSubject) <= '9';
 
-                {/* Overall Grade */}
-                <div className={`${getOverallGrade() === 'AB' ? 'bg-gradient-to-br from-slate-500 to-slate-600' :
-                    getOverallGrade() === 'A' || getOverallGrade() === 'B' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
-                        getOverallGrade() === 'C' || getOverallGrade() === 'D' ? 'bg-gradient-to-br from-amber-500 to-amber-600' :
-                            'bg-gradient-to-br from-red-500 to-red-600'
-                    } rounded-xl p-4 text-white`}>
-                    <p className="text-white/90 text-sm">Overall Grade</p>
-                    <p className="text-3xl font-bold">{getOverallGrade()}</p>
-                    <p className="text-xs opacity-90 mt-1">
-                        {getOverallGrade() === 'AB' ? 'Incomplete' :
-                            getOverallGrade() === 'A' ? 'Excellent' :
-                                getOverallGrade() === 'B' ? 'Good' :
-                                    getOverallGrade() === 'C' ? 'Satisfactory' :
-                                        getOverallGrade() === 'D' ? 'Passing' : 'Needs Improvement'}
-                    </p>
-                </div>
+                    if (isPointsSystem) {
+                        // POINTS SYSTEM: 2 rows only
+                        return (
+                            <>
+                                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-emerald-100">Class Position</p>
+                                    <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
+                                </div>
+                                <div className={`${getOverallRemark() === 'FAILED'
+                                    ? 'bg-gradient-to-br from-red-500 to-red-600'
+                                    : getOverallRemark() === 'ABSENT'
+                                        ? 'bg-gradient-to-br from-slate-500 to-slate-600'
+                                        : 'bg-gradient-to-br from-green-500 to-green-600'
+                                    } rounded-xl p-2 sm:p-4 text-white`}>
+                                    <p className="text-[10px] sm:text-sm text-white/90">Overall Status</p>
+                                    <p className="text-base sm:text-3xl font-bold">{getOverallRemark()}</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-indigo-100">Final Average</p>
+                                    <p className="text-base sm:text-3xl font-bold">{calculateBestSixAverage()}%</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-amber-100">Total Points</p>
+                                    <p className="text-base sm:text-3xl font-bold">{calculateBestSixPoints()}</p>
+                                </div>
+                            </>
+                        );
+                    } else {
+                        // LETTER GRADES: Original 4 items (2 rows)
+                        return (
+                            <>
+                                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-indigo-100">Final Average</p>
+                                    <p className="text-base sm:text-3xl font-bold">{calculateOverallAverage()}%</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-2 sm:p-4 text-white">
+                                    <p className="text-[10px] sm:text-sm text-emerald-100">Class Position</p>
+                                    <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
+                                </div>
+                                <div className={`${getOverallRemark() === 'FAILED'
+                                    ? 'bg-gradient-to-br from-red-500 to-red-600'
+                                    : getOverallRemark() === 'ABSENT'
+                                        ? 'bg-gradient-to-br from-slate-500 to-slate-600'
+                                        : 'bg-gradient-to-br from-green-500 to-green-600'
+                                    } rounded-xl p-2 sm:p-4 text-white`}>
+                                    <p className="text-[10px] sm:text-sm text-white/90">Overall Status</p>
+                                    <p className="text-base sm:text-3xl font-bold">{getOverallRemark()}</p>
+                                </div>
+                                <div className={`${getOverallGrade() === 'AB' ? 'bg-gradient-to-br from-slate-500 to-slate-600' :
+                                    getOverallGrade() === 'A' || getOverallGrade() === 'B' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
+                                        getOverallGrade() === 'C' || getOverallGrade() === 'D' ? 'bg-gradient-to-br from-amber-500 to-amber-600' :
+                                            'bg-gradient-to-br from-red-500 to-red-600'
+                                    } rounded-xl p-2 sm:p-4 text-white`}>
+                                    <p className="text-[10px] sm:text-sm text-white/90">Overall Grade</p>
+                                    <p className="text-base sm:text-3xl font-bold">{getOverallGrade()}</p>
+                                    <p className="text-[8px] sm:text-xs opacity-90 mt-0.5 sm:mt-1">
+                                        {getOverallGrade() === 'AB' ? 'Absent' :
+                                            getOverallGrade() === 'A' ? 'Excellent' :
+                                                getOverallGrade() === 'B' ? 'Good' :
+                                                    getOverallGrade() === 'C' ? 'Satisfactory' :
+                                                        getOverallGrade() === 'D' ? 'Passing' : 'Needs Improvement'}
+                                    </p>
+                                </div>
+                            </>
+                        );
+                    }
+                })()}
             </div>
 
             <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
@@ -1156,6 +1714,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                 <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Marks Scored</th>
                                 <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Grade</th>
                                 <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Remark</th>
+                                <th className="text-center px-6 py-3 text-sm font-semibold text-slate-600">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -1170,6 +1729,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                     : subjectAverage;
                                 const grade = getSubjectGrade(subject);
                                 const remark = getSubjectRemark(subject);
+                                const status = getPassFailStatus(grade);
 
                                 return (
                                     <tr key={index} className="hover:bg-slate-50">
@@ -1184,35 +1744,55 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getRemarkColor(remark)}`}>
+                                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getRemarkColorFromGrade(grade)}`}>
                                                 {remark}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${status === 'Failed' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                {status}
                                             </span>
                                         </td>
                                     </tr>
                                 );
                             })}
                         </tbody>
-                        <tfoot>
-                            <tr className="bg-indigo-50 font-bold">
-                                <td className="px-6 py-4 text-slate-800">GRAND TOTAL</td>
-                                <td className="px-6 py-4 text-center text-slate-800">
-                                    {studentData.subjects.length * 100}
-                                </td>
-                                <td className="px-6 py-4 text-center text-indigo-700">
-                                    {calculateGrandTotal()}
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getGradeColor(getOverallGrade())}`}>
-                                        {getOverallGrade()}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getOverallRemarkColor()}`}>
-                                        {getOverallRemark()}
-                                    </span>
-                                </td>
-                            </tr>
-                        </tfoot>
+                        {(() => {
+                            const firstSubject = studentData.subjects[0];
+                            const isPointsSystem = firstSubject && getSubjectGrade(firstSubject) >= '1' && getSubjectGrade(firstSubject) <= '9';
+
+                            if (!isPointsSystem) {
+                                return (
+                                    <tfoot>
+                                        <tr className="bg-indigo-50 font-bold">
+                                            <td className="px-6 py-4 text-slate-800">GRAND TOTAL</td>
+                                            <td className="px-6 py-4 text-center text-slate-800">
+                                                {studentData.subjects.length * 100}
+                                            </td>
+                                            <td className="px-6 py-4 text-center text-indigo-700">
+                                                {calculateGrandTotal()}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getGradeColor(getOverallGrade())}`}>
+                                                    {getOverallGrade()}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getRemarkColorFromGrade(getOverallGrade())}`}>
+                                                    {getDescriptiveRemark(getOverallGrade())}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getPassFailStatus(getOverallGrade()) === 'Failed' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                    {getPassFailStatus(getOverallGrade())}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                );
+                            }
+                            return null;
+                        })()}
                     </table>
                 </div>
             </div>
@@ -1264,7 +1844,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                         <div className="bg-white p-3 rounded-lg">
                             <p className="text-sm text-slate-500">Needs Improvement</p>
                             <p className="font-bold text-amber-700">
-                                {(() => {
+                                {/* {(() => {
                                     const weakSubjects = studentData.subjects.filter(subject => {
                                         const grade = getSubjectGrade(subject);
                                         return ['D', 'F'].includes(grade);
@@ -1277,11 +1857,55 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                     return weakSubjects
                                         .map(s => `${s.name} (${getSubjectGrade(s)})`)
                                         .join(', ');
+                                })()} */}
+                                {(() => {
+                                    const weakSubjects = studentData.subjects.filter(subject => {
+                                        const grade = getSubjectGrade(subject);
+                                        // For letter grades: D and F
+                                        // For points system: 7, 8, 9 (since 7-8 are Pass, 9 is Fail)
+                                        if (grade >= '1' && grade <= '9') {
+                                            return grade === '7' || grade === '8' || grade === '9';
+                                        }
+                                        return ['D', 'F'].includes(grade);
+                                    });
+
+                                    if (weakSubjects.length === 0) {
+                                        return "None";
+                                    }
+
+                                    return weakSubjects
+                                        .map(s => `${s.name} (${getSubjectGrade(s)})`)
+                                        .join(', ');
                                 })()}
                             </p>
+                            {/* {(() => {
+                                const weakSubjects = studentData.subjects.filter(subject => {
+                                    const grade = getSubjectGrade(subject);
+                                    return ['D', 'F'].includes(grade);
+                                });
+
+                                if (weakSubjects.length > 0) {
+                                    return (
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Total flagged: {weakSubjects.length}
+                                        </p>
+                                    );
+                                } else {
+                                    return (
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            All subjects are currently satisfactory
+                                        </p>
+                                    );
+                                }
+                            })()} */}
                             {(() => {
                                 const weakSubjects = studentData.subjects.filter(subject => {
                                     const grade = getSubjectGrade(subject);
+                                    // For letter grades: D and F
+                                    // For points system: 7, 8, 9 (since 7-8 are Pass, 9 is Fail)
+                                    if (grade >= '1' && grade <= '9') {
+                                        return grade === '7' || grade === '8' || grade === '9';
+                                    }
                                     return ['D', 'F'].includes(grade);
                                 });
 
@@ -1302,7 +1926,10 @@ const ReportCard: React.FC<ReportCardProps> = ({
                         </div>
                     </div>
 
-                    <div className="space-y-3">
+
+
+
+                    {/* <div className="space-y-3">
                         <div className="flex justify-between items-center">
                             <span className="text-sm text-slate-600">Subjects Passed:</span>
                             <span className="font-bold text-emerald-800">
@@ -1341,6 +1968,128 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                 }).length}
                             </span>
                         </div>
+                    </div> */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm text-slate-600">Subjects Passed:</span>
+                            <span className="font-bold text-emerald-800">
+                                {studentData.subjects.filter(subject => {
+                                    const grade = getSubjectGrade(subject);
+                                    return grade && grade !== 'F' && grade !== 'AB';
+                                }).length}/{studentData.subjects.length}
+                            </span>
+                        </div>
+
+                        {/* Dynamically show grade ranges based on whether using points or letters */}
+                        {(() => {
+                            const sampleGrade = getSubjectGrade(studentData.subjects[0]);
+                            const isPointsSystem = sampleGrade >= '1' && sampleGrade <= '9';
+
+                            if (isPointsSystem) {
+                                return (
+                                    <>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600">Grades 1 & 2 (Distinction):</span>
+                                            <span className="font-bold text-emerald-800">
+                                                {studentData.subjects.filter(subject => {
+                                                    const grade = getSubjectGrade(subject);
+                                                    return grade === '1' || grade === '2';
+                                                }).length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600">Grades 3-6 (Credit):</span>
+                                            <span className="font-bold text-blue-800">
+                                                {studentData.subjects.filter(subject => {
+                                                    const grade = getSubjectGrade(subject);
+                                                    return grade === '3' || grade === '4' || grade === '5' || grade === '6';
+                                                }).length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600">Grades 7-8 (Pass):</span>
+                                            <span className="font-bold text-amber-800">
+                                                {studentData.subjects.filter(subject => {
+                                                    const grade = getSubjectGrade(subject);
+                                                    return grade === '7' || grade === '8';
+                                                }).length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600">Grade 9 (Fail):</span>
+                                            <span className="font-bold text-red-800">
+                                                {studentData.subjects.filter(subject => {
+                                                    const grade = getSubjectGrade(subject);
+                                                    return grade === '9';
+                                                }).length}
+                                            </span>
+                                        </div>
+                                    </>
+                                );
+                            } else {
+                                return (
+                                    <>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600">A Grades (Excellent):</span>
+                                            <span className="font-bold text-emerald-800">
+                                                {studentData.subjects.filter(subject => {
+                                                    const grade = getSubjectGrade(subject);
+                                                    return grade === 'A';
+                                                }).length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600">B Grades (Very Good):</span>
+                                            <span className="font-bold text-blue-800">
+                                                {studentData.subjects.filter(subject => {
+                                                    const grade = getSubjectGrade(subject);
+                                                    return grade === 'B';
+                                                }).length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600">C Grades (Good):</span>
+                                            <span className="font-bold text-amber-800">
+                                                {studentData.subjects.filter(subject => {
+                                                    const grade = getSubjectGrade(subject);
+                                                    return grade === 'C';
+                                                }).length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600">D Grades (Satisfactory):</span>
+                                            <span className="font-bold text-orange-800">
+                                                {studentData.subjects.filter(subject => {
+                                                    const grade = getSubjectGrade(subject);
+                                                    return grade === 'D';
+                                                }).length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-600">F Grades (Fail):</span>
+                                            <span className="font-bold text-red-800">
+                                                {studentData.subjects.filter(subject => {
+                                                    const grade = getSubjectGrade(subject);
+                                                    return grade === 'F';
+                                                }).length}
+                                            </span>
+                                        </div>
+                                    </>
+                                );
+                            }
+                        })()}
+
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm text-slate-600">Subjects Below {studentData.gradeConfiguration?.pass_mark || 50}% Pass Mark:</span>
+                            <span className="font-bold text-rose-800">
+                                {studentData.subjects.filter(subject => {
+                                    const score = calculateSubjectAverage(subject);
+                                    if (score === 'AB') return false;
+                                    const passMark = studentData.gradeConfiguration?.pass_mark || 50;
+                                    return (score as number) < passMark;
+                                }).length}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -1352,6 +2101,23 @@ const ReportCard: React.FC<ReportCardProps> = ({
                     <p className="text-sm text-slate-700 italic leading-relaxed">
                         "{(() => {
                             const currentOverallGrade = getOverallGrade();
+
+                            // For points system, check if English grade is 9 (Fail)
+                            const firstSubject = studentData.subjects[0];
+                            const isPointsSystem = firstSubject && getSubjectGrade(firstSubject) >= '1' && getSubjectGrade(firstSubject) <= '9';
+
+                            if (isPointsSystem) {
+                                const englishSubject = studentData.subjects.find(s =>
+                                    s.name.toLowerCase() === 'english' || s.name.toLowerCase() === 'eng'
+                                );
+                                if (englishSubject) {
+                                    const englishGrade = getSubjectGrade(englishSubject);
+                                    if (englishGrade === '9') {
+                                        return 'Failed due to English grade 9. Please retake English examination.';
+                                    }
+                                }
+                            }
+
                             if (currentOverallGrade === 'AB') {
                                 return 'Student was absent for one or more required assessments. Please ensure attendance for all examinations.';
                             } else if (currentOverallGrade === 'A') {
@@ -1470,7 +2236,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

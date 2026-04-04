@@ -329,9 +329,30 @@ export const fetchStudentReportCard = async (id: string, term: string) => {
   }
   return res.json();
 };
-
-export const calculateGrade = (score: number, passMark: number = 50, isAbsent?: boolean) => {
+// 
+// export const calculateGrade = (score: number, passMark: number = 50, isAbsent?: boolean) => {
+export const calculateGrade = (score: number, passMark: number = 50, isAbsent?: boolean, className?: string) => {
   if (isAbsent) return 'AB';
+
+  const isForm3Or4 = className && (
+    className.includes('Form 3') ||
+    className.includes('Form 4') ||
+    className.includes('Form3') ||
+    className.includes('Form4')
+  );
+
+  if (isForm3Or4) {
+    if (score >= 80) return '1';
+    if (score >= 75) return '2';
+    if (score >= 70) return '3';
+    if (score >= 65) return '4';
+    if (score >= 60) return '5';
+    if (score >= 55) return '6';
+    if (score >= 51) return '7';
+    if (score >= passMark) return '8';
+    return '9';
+  }
+
   if (score >= 80) return 'A';
   if (score >= 70) return 'B';
   if (score >= 60) return 'C';

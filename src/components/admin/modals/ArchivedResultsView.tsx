@@ -14,7 +14,8 @@ interface ArchivedResultsViewProps {
     schoolName?: string;
     subjects?: SubjectRecord[];
     activeConfig?: GradeConfiguration | null;
-    calculateGrade?: (score: number, passMark?: number) => string;
+    // calculateGrade?: (score: number, passMark?: number) => string;
+    calculateGrade?: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string;
 }
 
 const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
@@ -25,11 +26,40 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
     schoolName: propSchoolName = 'School Name',
     subjects = [],
     activeConfig = null,
-    calculateGrade = (score) => {
+    // calculateGrade = (score) => {
+    //     if (score >= 80) return 'A';
+    //     if (score >= 70) return 'B';
+    //     if (score >= 60) return 'C';
+    //     if (score >= 50) return 'D';
+    //     return 'F';
+    // }
+
+    calculateGrade = (score, passMark, isAbsent = false, className) => {
+        if (isAbsent) return 'AB';
+
+        const isForm3Or4 = className && (
+            className.includes('Form 3') ||
+            className.includes('Form 4') ||
+            className.includes('Form3') ||
+            className.includes('Form4')
+        );
+
+        if (isForm3Or4) {
+            if (score >= 80) return '1';
+            if (score >= 75) return '2';
+            if (score >= 70) return '3';
+            if (score >= 65) return '4';
+            if (score >= 60) return '5';
+            if (score >= 55) return '6';
+            if (score >= 51) return '7';
+            if (score >= passMark) return '8';
+            return '9';
+        }
+
         if (score >= 80) return 'A';
         if (score >= 70) return 'B';
         if (score >= 60) return 'C';
-        if (score >= 50) return 'D';
+        if (score >= passMark) return 'D';
         return 'F';
     }
 }) => {
@@ -187,7 +217,8 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
 
                         average = totalFinalScore / subjectsWithScores.length;
                         totalMarks = totalFinalScore;
-                        grade = calculateGrade(average);
+                        // grade = calculateGrade(average);
+                        grade = calculateGrade(average, activeConfig?.pass_mark, false, student.class);
                         status = grade === 'F' ? 'Failed' : 'Passed';
                     }
                 } else {
@@ -214,7 +245,8 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
 
                     const subjectCount = student.subjects?.length || 1;
                     average = totalMarks / subjectCount;
-                    grade = calculateGrade(average);
+                    // grade = calculateGrade(average);
+                    grade = calculateGrade(average, activeConfig?.pass_mark, false, student.class);
                     status = grade === 'F' ? 'Failed' : 'Passed';
                 }
 
@@ -249,7 +281,8 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
                             }
                         }
 
-                        const subjectGrade = calculateGrade(finalScore);
+                        //    const subjectGrade = calculateGrade(finalScore); 
+                        const subjectGrade = calculateGrade(finalScore, activeConfig?.pass_mark, false, student.class);
 
                         if (subject.endOfTerm_absent) {
                             return `AB (${subjectGrade})`;
@@ -273,7 +306,8 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
 
                         if (isAbsent) return 'AB';
                         if (score !== null && score >= 0) {
-                            const subjectGrade = calculateGrade(score);
+                            // const subjectGrade = calculateGrade(score);
+                            const subjectGrade = calculateGrade(score, activeConfig?.pass_mark, false, student.class);
                             return `${score} (${subjectGrade})`;
                         }
                         return '-';

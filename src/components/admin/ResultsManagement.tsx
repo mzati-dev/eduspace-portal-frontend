@@ -20,7 +20,8 @@ interface ResultsManagementProps {
     loadStudentResults: (student: Student) => Promise<void>;
     saveAllResults: () => Promise<void>;
     updateAssessmentScore: (subjectId: string, field: 'qa1' | 'qa2' | 'end_of_term', value: number, isAbsent?: boolean) => void;
-    calculateGrade: (score: number, passMark?: number) => string;
+    // calculateGrade: (score: number, passMark?: number) => string;
+    calculateGrade: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string;
     calculateFinalScore: (qa1: number, qa2: number, endOfTerm: number, config: GradeConfiguration) => number;
     isTeacherView?: boolean;
     isClassTeacher?: boolean; // ADDED

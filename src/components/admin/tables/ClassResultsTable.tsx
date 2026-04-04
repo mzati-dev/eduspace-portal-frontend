@@ -9,11 +9,13 @@ interface ClassResultsTableProps {
     subjects: SubjectRecord[];
     activeAssessmentType: 'qa1' | 'qa2' | 'endOfTerm' | 'overall';
     activeConfig: GradeConfiguration | null;
-    calculateGrade: (score: number, passMark?: number) => string;
+    // calculateGrade: (score: number, passMark?: number) => string;
+    calculateGrade: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string;
     onPrint: () => void;
     onExport: () => void;
     isDownloading?: boolean;
     hideDownload?: boolean;
+    className?: string;
 }
 
 const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
@@ -26,6 +28,7 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
     onExport,
     isDownloading = false,
     hideDownload = false,
+    className = '',
 
 }) => {
     // Function to calculate final score for a subject based on grade configuration
@@ -242,16 +245,19 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
     };
 
     // Function to get overall grade based on average score
+    // const getOverallGrade = (average: number): string => {
+    //     const passMark = activeConfig?.pass_mark || 50;
+
+    //     if (average >= 80) return 'A';
+    //     if (average >= 70) return 'B';
+    //     if (average >= 60) return 'C';
+    //     if (average >= passMark) return 'D';
+    //     return 'F';
+    // };
     const getOverallGrade = (average: number): string => {
         const passMark = activeConfig?.pass_mark || 50;
-
-        if (average >= 80) return 'A';
-        if (average >= 70) return 'B';
-        if (average >= 60) return 'C';
-        if (average >= passMark) return 'D';
-        return 'F';
+        return calculateGrade(average, passMark, false, className);
     };
-
 
     // ===== CHANGE 4: Update getStudentSubjectsWithScores function (around line 85) =====
     // const getStudentSubjectsWithScores = (student: ClassResultStudent) => {
@@ -367,9 +373,13 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
     };
 
     // Function to calculate assessment-specific grade
+    // const getAssessmentGrade = (student: ClassResultStudent): string => {
+    //     const average = calculateStudentAssessmentAverage(student);
+    //     return calculateGrade(average, activeConfig?.pass_mark || 50);
+    // };
     const getAssessmentGrade = (student: ClassResultStudent): string => {
         const average = calculateStudentAssessmentAverage(student);
-        return calculateGrade(average, activeConfig?.pass_mark || 50);
+        return calculateGrade(average, activeConfig?.pass_mark || 50, false, className);
     };
 
     // Function to calculate status based on grade
@@ -387,11 +397,17 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
             calculatedAverage: activeAssessmentType === 'overall'
                 ? calculateStudentOverallAverage(student)
                 : calculateStudentAssessmentAverage(student),
+            // calculatedGrade: activeAssessmentType === 'overall'
+            //     ? getOverallGrade(calculateStudentOverallAverage(student), )
+            //     : getAssessmentGrade(student),
             calculatedGrade: activeAssessmentType === 'overall'
-                ? getOverallGrade(calculateStudentOverallAverage(student))
+                ? calculateGrade(calculateStudentOverallAverage(student), activeConfig?.pass_mark || 50, false, className)
                 : getAssessmentGrade(student),
+            // calculatedStatus: activeAssessmentType === 'overall'
+            //     ? (getOverallGrade(calculateStudentOverallAverage(student)) === 'F' ? 'Failed' : 'Passed')
+            //     : getAssessmentStatus(student)
             calculatedStatus: activeAssessmentType === 'overall'
-                ? (getOverallGrade(calculateStudentOverallAverage(student)) === 'F' ? 'Failed' : 'Passed')
+                ? (calculateGrade(calculateStudentOverallAverage(student), activeConfig?.pass_mark || 50, false, className) === 'F' ? 'Failed' : 'Passed')
                 : getAssessmentStatus(student)
         }));
 
@@ -601,7 +617,7 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
                                             }
 
                                             const finalScore = calculateSubjectFinalScore(studentSubject);
-                                            const subjectGrade = calculateGrade(finalScore, activeConfig?.pass_mark || 50);
+                                            const subjectGrade = calculateGrade(finalScore, activeConfig?.pass_mark || 50, false, className);
 
                                             return (
                                                 <td key={subject.id} className="px-4 py-3 text-center">
@@ -650,7 +666,7 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
                                                                 {score}%
                                                             </span>
                                                             <span className="text-xs text-slate-500">
-                                                                {calculateGrade(score, activeConfig?.pass_mark || 50)}
+                                                                {calculateGrade(score, activeConfig?.pass_mark || 50, false, className)}
                                                             </span>
                                                         </div>
                                                     ) : (
