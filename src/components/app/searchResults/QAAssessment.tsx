@@ -22,6 +22,7 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
     const [isDownloading, setIsDownloading] = useState(false);
     const [schoolName, setSchoolName] = useState<string>('Loading School...');
     const assessmentType = activeTab as 'qa1' | 'qa2' | 'endOfTerm';
+    const displayRank = studentData.assessmentStats?.[assessmentType]?.classRank || 'N/A';  // ✅ ADD THIS HERE
     const [showInfo, setShowInfo] = useState(false);
 
 
@@ -1492,7 +1493,7 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                             <>
                                 <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-2 sm:p-4 text-white">
                                     <p className="text-[10px] sm:text-sm text-emerald-100">Class Position</p>
-                                    <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
+                                    <p className="text-base sm:text-3xl font-bold">{displayRank}</p>
                                 </div>
                                 <div className={`${assessmentStatus === 'FAILED' ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-green-500 to-green-600'} rounded-xl p-2 sm:p-4 text-white`}>
                                     <p className="text-[10px] sm:text-sm text-white/90">Overall Status</p>
@@ -1518,7 +1519,7 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                                 </div>
                                 <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-2 sm:p-4 text-white">
                                     <p className="text-[10px] sm:text-sm text-emerald-100">Class Position</p>
-                                    <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
+                                    <p className="text-base sm:text-3xl font-bold">{displayRank}</p>
                                 </div>
                                 <div className={`${assessmentStatus === 'FAILED' ? 'bg-gradient-to-br from-red-500 to-red-600' : 'bg-gradient-to-br from-green-500 to-green-600'} rounded-xl p-2 sm:p-4 text-white`}>
                                     <p className="text-[10px] sm:text-sm text-white/90">Overall Status</p>
