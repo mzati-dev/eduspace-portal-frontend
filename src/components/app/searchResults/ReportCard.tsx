@@ -1633,11 +1633,15 @@ const ReportCard: React.FC<ReportCardProps> = ({
                         // POINTS SYSTEM: 2 rows only
                         return (
                             <>
-                                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-2 sm:p-4 text-white">
+                                {/* <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-2 sm:p-4 text-white">
                                     <p className="text-[10px] sm:text-sm text-emerald-100">Class Position</p>
                                     <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
+                                </div> */}
+                                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-2 sm:p-4 text-white shadow-lg border-l-4 border-amber-500">
+                                    <p className="text-[10px] sm:text-sm text-amber-400">🏆 Class Position</p>
+                                    <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
                                 </div>
-                                <div className={`${getOverallRemark() === 'FAILED'
+                                {/* <div className={`${getOverallRemark() === 'FAILED'
                                     ? 'bg-gradient-to-br from-red-500 to-red-600'
                                     : getOverallRemark() === 'ABSENT'
                                         ? 'bg-gradient-to-br from-slate-500 to-slate-600'
@@ -1645,13 +1649,28 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                     } rounded-xl p-2 sm:p-4 text-white`}>
                                     <p className="text-[10px] sm:text-sm text-white/90">Overall Status</p>
                                     <p className="text-base sm:text-3xl font-bold">{getOverallRemark()}</p>
+                                </div> */}
+                                {/* Overall Status */}
+                                <div className={`${getOverallRemark() === 'FAILED' ? 'bg-gradient-to-br from-red-600 to-red-800 border-l-4 border-red-400' :
+                                    getOverallRemark() === 'ABSENT' ? 'bg-gradient-to-br from-slate-600 to-slate-800 border-l-4 border-slate-400' :
+                                        'bg-gradient-to-br from-emerald-600 to-emerald-800 border-l-4 border-emerald-400'} rounded-xl p-2 sm:p-4 text-white shadow-lg`}>
+                                    <p className="text-[10px] sm:text-sm opacity-90">✓ Overall Status</p>
+                                    <p className="text-base sm:text-3xl font-bold">{getOverallRemark()}</p>
                                 </div>
-                                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-2 sm:p-4 text-white">
+                                {/* <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-2 sm:p-4 text-white">
                                     <p className="text-[10px] sm:text-sm text-indigo-100">Final Average</p>
                                     <p className="text-base sm:text-3xl font-bold">{calculateBestSixAverage()}%</p>
+                                </div> */}
+                                <div className="bg-blue-600 rounded-xl p-2 sm:p-4 text-white shadow-lg">
+                                    <p className="text-[10px] sm:text-sm font-semibold">📊 Final Average</p>
+                                    <p className="text-base sm:text-3xl font-bold">{calculateBestSixAverage()}%</p>
                                 </div>
-                                <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-2 sm:p-4 text-white">
+                                {/* <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-2 sm:p-4 text-white">
                                     <p className="text-[10px] sm:text-sm text-amber-100">Total Points</p>
+                                    <p className="text-base sm:text-3xl font-bold">{calculateBestSixPoints()}</p>
+                                </div> */}
+                                <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl p-2 sm:p-4 text-white shadow-lg border-l-4 border-purple-400">
+                                    <p className="text-[10px] sm:text-sm text-purple-300">🎯 Total Points</p>
                                     <p className="text-base sm:text-3xl font-bold">{calculateBestSixPoints()}</p>
                                 </div>
                             </>
@@ -1660,15 +1679,48 @@ const ReportCard: React.FC<ReportCardProps> = ({
                         // LETTER GRADES: Original 4 items (2 rows)
                         return (
                             <>
-                                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-2 sm:p-4 text-white">
+
+                                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-2 sm:p-4 text-white shadow-lg border-l-4 border-amber-500">
+                                    <p className="text-[10px] sm:text-sm text-amber-400">🏆 Class Position</p>
+                                    <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
+                                </div>
+
+                                <div className={`${getOverallRemark() === 'FAILED' ? 'bg-gradient-to-br from-red-600 to-red-800 border-l-4 border-red-400' :
+                                    getOverallRemark() === 'ABSENT' ? 'bg-gradient-to-br from-slate-600 to-slate-800 border-l-4 border-slate-400' :
+                                        'bg-gradient-to-br from-emerald-600 to-emerald-800 border-l-4 border-emerald-400'} rounded-xl p-2 sm:p-4 text-white shadow-lg`}>
+                                    <p className="text-[10px] sm:text-sm opacity-90">✓ Overall Status</p>
+                                    <p className="text-base sm:text-3xl font-bold">{getOverallRemark()}</p>
+                                </div>
+
+                                <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl p-2 sm:p-4 text-white shadow-lg">
+                                    <p className="text-[10px] sm:text-sm font-semibold">📊 Final Average</p>
+                                    <p className="text-base sm:text-3xl font-bold">{calculateOverallAverage()}%</p>
+                                </div>
+                                <div className={`${getOverallGrade() === 'F' ? 'bg-gradient-to-br from-red-600 to-red-800 border-l-4 border-red-400' :
+                                    getOverallGrade() === 'A' || getOverallGrade() === 'B' ? 'bg-gradient-to-br from-purple-600 to-purple-800 border-l-4 border-purple-400' :
+                                        getOverallGrade() === 'C' || getOverallGrade() === 'D' ? 'bg-gradient-to-br from-amber-600 to-amber-800 border-l-4 border-amber-400' :
+                                            'bg-gradient-to-br from-red-600 to-red-800 border-l-4 border-red-400'
+                                    } rounded-xl p-2 sm:p-4 text-white shadow-lg`}>
+                                    <p className="text-[10px] sm:text-sm opacity-90">⭐ Overall Grade</p>
+                                    <p className="text-base sm:text-3xl font-bold">{getOverallGrade()}</p>
+                                    <p className="text-[8px] sm:text-xs opacity-90 mt-0.5 sm:mt-1">
+                                        {getOverallGrade() === 'AB' ? 'Absent' :
+                                            getOverallGrade() === 'A' ? 'Excellent' :
+                                                getOverallGrade() === 'B' ? 'Very Good' :
+                                                    getOverallGrade() === 'C' ? 'Good' :
+                                                        getOverallGrade() === 'D' ? 'Satisfactory' : 'Needs Support'}
+                                    </p>
+                                </div>
+
+                                {/* <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-2 sm:p-4 text-white">
                                     <p className="text-[10px] sm:text-sm text-indigo-100">Final Average</p>
                                     <p className="text-base sm:text-3xl font-bold">{calculateOverallAverage()}%</p>
                                 </div>
                                 <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-2 sm:p-4 text-white">
                                     <p className="text-[10px] sm:text-sm text-emerald-100">Class Position</p>
                                     <p className="text-base sm:text-3xl font-bold">{studentData.classRank}</p>
-                                </div>
-                                <div className={`${getOverallRemark() === 'FAILED'
+                                </div> */}
+                                {/* <div className={`${getOverallRemark() === 'FAILED'
                                     ? 'bg-gradient-to-br from-red-500 to-red-600'
                                     : getOverallRemark() === 'ABSENT'
                                         ? 'bg-gradient-to-br from-slate-500 to-slate-600'
@@ -1676,8 +1728,8 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                     } rounded-xl p-2 sm:p-4 text-white`}>
                                     <p className="text-[10px] sm:text-sm text-white/90">Overall Status</p>
                                     <p className="text-base sm:text-3xl font-bold">{getOverallRemark()}</p>
-                                </div>
-                                <div className={`${getOverallGrade() === 'AB' ? 'bg-gradient-to-br from-slate-500 to-slate-600' :
+                                </div> */}
+                                {/* <div className={`${getOverallGrade() === 'AB' ? 'bg-gradient-to-br from-slate-500 to-slate-600' :
                                     getOverallGrade() === 'A' || getOverallGrade() === 'B' ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
                                         getOverallGrade() === 'C' || getOverallGrade() === 'D' ? 'bg-gradient-to-br from-amber-500 to-amber-600' :
                                             'bg-gradient-to-br from-red-500 to-red-600'
@@ -1691,7 +1743,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                                     getOverallGrade() === 'C' ? 'Satisfactory' :
                                                         getOverallGrade() === 'D' ? 'Passing' : 'Needs Improvement'}
                                     </p>
-                                </div>
+                                </div> */}
                             </>
                         );
                     }
