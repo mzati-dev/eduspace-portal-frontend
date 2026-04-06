@@ -46,12 +46,13 @@ import StudentReportArchiveModal from './components/admin/modals/StudentReportAr
 // import ArchiveStudentReportsModal from './components/admin/modals/ArchiveStudentReportsModal';
 import PreviewModal from './components/admin/modals/PreviewModal';
 import AdminSidebar from './components/admin/sidebar/AdminSidebar';
-import AttendanceManagement from './components/admin/sidebar/AttendanceManagement';
+// import AttendanceManagement from './components/admin/sidebar/AttendanceManagement';
 import AnalyticsManagement from './components/admin/sidebar/AnalyticsManagement';
 import FeesManagement from './components/admin/sidebar/FeesManagement';
 import MessagingManagement from './components/admin/sidebar/MessagingManagement';
 import SettingsManagement from './components/admin/sidebar/SettingsManagement';
 import TimetableManagement from './components/admin/sidebar/TimetableManagement';
+import AttendanceManagement from './components/admin/sidebar/attendance/AttendanceManagement';
 
 interface AdminPanelProps {
     onBack: () => void;
@@ -168,6 +169,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
     // NEW (mobile sidebar): controls the drawer visibility on small screens
     const [sidebarMobileOpen, setSidebarMobileOpen] = useState<boolean>(false);
+    const [monthlyStats, setMonthlyStats] = useState<any[]>([]);
+    const [termStats, setTermStats] = useState<any>({ averageRate: 0, highestRate: 0, lowestRate: 0, totalDays: 0, termName: 'Term 1 2024' });
 
     // Auto-generate exam number effect
     // useEffect(() => {
@@ -199,15 +202,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
                 // Get school ID from localStorage (same as backend will use)
                 const userStr = localStorage.getItem('user');
-                let schoolIdPrefix = 'SCH'; // default
-                if (userStr) {
-                    try {
-                        const user = JSON.parse(userStr);
-                        schoolIdPrefix = user.schoolId ? user.schoolId.substring(0, 3) : 'SCH';
-                    } catch (e) {
-                        // keep default
-                    }
+                // let schoolIdPrefix = 'SCH'; // default
+                // if (userStr) {
+                //     try {
+                //         const user = JSON.parse(userStr);
+                //         schoolIdPrefix = user.schoolId ? user.schoolId.substring(0, 3) : 'SCH';
+                //     } catch (e) {
+                //         // keep default
+                //     }
+                // }
+
+                const user = JSON.parse(userStr);
+                if (!user.schoolId) {
+                    throw new Error('School ID not found. Please log in again.');
                 }
+                const schoolIdPrefix = user.schoolId.substring(0, 3);
 
                 const examNumber = `${schoolIdPrefix}-${currentYear}-${classNumber}${nextNumber.toString().padStart(3, '0')}`;
                 setStudentForm(prev => ({ ...prev, exam_number: examNumber }));
@@ -1076,6 +1085,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                                     handleUpdateStudent={handleUpdateStudent}
                                     handleDeleteStudent={handleDeleteStudent}
                                     startEditStudent={startEditStudent}
+                                    onRefresh={loadData}
                                 />
                             )
 
@@ -1444,6 +1454,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                             classes={classes}
                             students={students}
                             showMessage={showMessage}
+                            monthlyStats={monthlyStats}
+                            termStats={termStats}
                         />
                     </div>
                 ) : activeMainMenu === 'analytics' ? (

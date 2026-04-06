@@ -1012,3 +1012,66 @@ export const previewReportCards = async (classId: string, term: string, assessme
   }
   return res.json();
 };
+// ====================== IMPORT STUDENTS FROM FILE FUNCTIONS ======================
+
+/**
+ * Upload and preview file before import
+ * Shows parsed data with auto-generated exam numbers
+ */
+export const previewImportFile = async (file: File, classId: string) => {
+  const schoolId = getSchoolId();
+
+  if (!schoolId) {
+    throw new Error('School ID not found. Please log in again.');
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('classId', classId);
+  formData.append('schoolId', schoolId);
+
+  const url = `${API_BASE_URL}/api/classes/import/preview`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${getAuthToken()}`
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Failed to preview file');
+  }
+  return res.json();
+};
+
+/**
+ * Import selected students from preview data
+ */
+export const importSelectedStudents = async (classId: string, selectedStudents: any[]) => {
+  const schoolId = getSchoolId();
+
+  if (!schoolId) {
+    throw new Error('School ID not found. Please log in again.');
+  }
+
+  const url = `${API_BASE_URL}/api/classes/import/batch?schoolId=${schoolId}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      classId,
+      students: selectedStudents,
+      schoolId
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Failed to import students');
+  }
+  return res.json();
+};

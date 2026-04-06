@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Upload } from 'lucide-react';
 import { Student } from '@/types/admin';
 import StudentForm from './forms/StudentForm';
+import ImportStudentsModal from './modals/ImportStudentsModal';
 
 interface StudentsManagementProps {
     students: Student[];
@@ -16,6 +17,7 @@ interface StudentsManagementProps {
     handleUpdateStudent: (e: React.FormEvent) => Promise<void>;
     handleDeleteStudent: (student: Student) => Promise<void>;
     startEditStudent: (student: Student) => void;
+    onRefresh?: () => Promise<void>;
 }
 
 const StudentsManagement: React.FC<StudentsManagementProps> = ({
@@ -31,10 +33,13 @@ const StudentsManagement: React.FC<StudentsManagementProps> = ({
     handleUpdateStudent,
     handleDeleteStudent,
     startEditStudent,
+    onRefresh
 }) => {
     const [detailsModalStudent, setDetailsModalStudent] = useState<Student | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClassFilter, setSelectedClassFilter] = useState<string>('');
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [selectedClassForImport, setSelectedClassForImport] = useState<{ id: string; name: string } | null>(null);
     // ADD THIS LINE - calculate filtered students once
     const filteredStudents = students.filter(student => {
         const matchesSearch = !searchTerm ||
@@ -43,9 +48,16 @@ const StudentsManagement: React.FC<StudentsManagementProps> = ({
         const matchesClass = !selectedClassFilter || student.class?.id === selectedClassFilter;
         return matchesSearch && matchesClass;
     });
+
+    const handleImportSuccess = () => {
+        // Call a refresh function passed from parent instead of reload
+        if (onRefresh) {
+            onRefresh();
+        }
+    };
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            {/* <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold text-slate-800">All Students ({students.length})</h2>
                 <button
                     onClick={() => { setShowStudentForm(true); setEditingStudent(null); setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '' }); }}
@@ -54,6 +66,39 @@ const StudentsManagement: React.FC<StudentsManagementProps> = ({
                     <Plus className="w-4 h-4" />
                     Add Student
                 </button>
+            </div> */}
+
+            <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-slate-800">All Students ({students.length})</h2>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => {
+                            // Open class selector modal or use selected class filter
+                            if (selectedClassFilter) {
+                                const cls = classes.find(c => c.id === selectedClassFilter);
+                                if (cls) {
+                                    setSelectedClassForImport({ id: cls.id, name: cls.name });
+                                    setShowImportModal(true);
+                                } else {
+                                    alert('Please select a class filter first');
+                                }
+                            } else {
+                                alert('Please select a class filter first to import students into a specific class');
+                            }
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+                    >
+                        <Upload className="w-4 h-4" />
+                        Import from File
+                    </button>
+                    <button
+                        onClick={() => { setShowStudentForm(true); setEditingStudent(null); setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '' }); }}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Add Student
+                    </button>
+                </div>
             </div>
 
             {/* ADD THIS SEARCH AND FILTER SECTION */}
@@ -302,6 +347,19 @@ const StudentsManagement: React.FC<StudentsManagementProps> = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showImportModal && selectedClassForImport && (
+                <ImportStudentsModal
+                    isOpen={showImportModal}
+                    onClose={() => {
+                        setShowImportModal(false);
+                        setSelectedClassForImport(null);
+                    }}
+                    classId={selectedClassForImport.id}
+                    className={selectedClassForImport.name}
+                    onSuccess={handleImportSuccess}
+                />
             )}
         </div>
     );

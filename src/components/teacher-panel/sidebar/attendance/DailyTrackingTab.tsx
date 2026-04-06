@@ -1,0 +1,1483 @@
+import React, { useState, useEffect } from 'react';
+import {
+    Calendar,
+    Search,
+    UserCheck,
+    UserX,
+    Clock3,
+    CheckCircle,
+    AlertCircle,
+    Users,
+    TrendingUp,
+    Gift,
+    CloudRain,
+    Plus,
+    Lock,
+    Info
+} from 'lucide-react';
+import { StudentAttendance, AttendanceStats } from './TeacherAttendance';
+
+interface Props {
+    classes: any[];
+    selectedClass: string;
+    setSelectedClass: (value: string) => void;
+    selectedDate: string;
+    setSelectedDate: (value: string) => void;
+    searchTerm: string;
+    setSearchTerm: (value: string) => void;
+    loading: boolean;
+    saving: boolean;
+    markingAll: boolean;
+    stats: AttendanceStats;
+    filteredStudents: StudentAttendance[];
+    onStatusChange: (studentId: string, status: StudentAttendance['status']) => void;
+    onSaveAttendance: () => void;
+    onMarkAllPresent: () => void;
+    getStatusColor: (status: string) => string;
+    getStatusIcon: (status: string) => JSX.Element;
+}
+
+const DailyTrackingTab: React.FC<Props> = ({
+    classes,
+    selectedClass,
+    setSelectedClass,
+    selectedDate,
+    setSelectedDate,
+    searchTerm,
+    setSearchTerm,
+    loading,
+    saving,
+    markingAll,
+    stats,
+    filteredStudents,
+    onStatusChange,
+    onSaveAttendance,
+    onMarkAllPresent,
+    getStatusColor,
+    getStatusIcon
+}) => {
+    // Get term info from selected class
+    const getTermInfoFromClass = () => {
+        const selectedClassData = classes.find(c => c.id === selectedClass);
+        if (selectedClassData) {
+            return {
+                name: selectedClassData.term || 'Term 1, 2026',
+                startDate: selectedClassData.start_date || '2026-01-15',
+                endDate: selectedClassData.end_date || '2026-04-10'
+            };
+        }
+        return {
+            name: 'Term 1, 2026',
+            startDate: '2026-01-15',
+            endDate: '2026-04-10'
+        };
+    };
+
+    const termInfo = getTermInfoFromClass();
+
+    // Holiday states
+    const [autoHolidays, setAutoHolidays] = useState<Set<string>>(new Set());
+    const [manualHolidays, setManualHolidays] = useState<Set<string>>(new Set());
+    const [markingHoliday, setMarkingHoliday] = useState(false);
+    const [loadingHolidays, setLoadingHolidays] = useState(false);
+
+    // Track if attendance has been recorded for the selected date
+    const [hasAttendanceRecorded, setHasAttendanceRecorded] = useState<boolean>(false);
+
+    // Combined holidays
+    const allHolidays = new Set([...autoHolidays, ...manualHolidays]);
+
+    // Helper functions for date information
+    const getMonthName = (date: string): string => {
+        const d = new Date(date);
+        return d.toLocaleString('default', { month: 'long', year: 'numeric' });
+    };
+
+    const getWeekNumber = (date: string): number => {
+        const d = new Date(date);
+        const startOfYear = new Date(d.getFullYear(), 0, 1);
+        const days = Math.floor((d.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+        return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+    };
+
+    const getDayOfWeek = (date: string): string => {
+        const d = new Date(date);
+        return d.toLocaleString('default', { weekday: 'long' });
+    };
+
+    // Check if attendance has been recorded for this date
+    const checkAttendanceRecorded = () => {
+        // Check if any student has a status that's not the default
+        // This assumes that if attendance was saved, at least one student has a status
+        const hasAnyRecord = filteredStudents.some(student =>
+            student.status !== 'present' || student.checkInTime
+        );
+        setHasAttendanceRecorded(hasAnyRecord);
+    };
+
+    // Check attendance recorded status when filteredStudents changes
+    useEffect(() => {
+        if (selectedClass && filteredStudents.length > 0) {
+            checkAttendanceRecorded();
+        }
+    }, [filteredStudents, selectedClass]);
+
+    // Check if date is within term range
+    const isWithinTerm = (date: string): boolean => {
+        const checkDate = new Date(date);
+        const start = new Date(termInfo.startDate);
+        const end = new Date(termInfo.endDate);
+        return checkDate >= start && checkDate <= end;
+    };
+
+    // Fetch public holidays
+    const fetchPublicHolidays = async () => {
+        setLoadingHolidays(true);
+        try {
+            const year = new Date(termInfo.startDate).getFullYear();
+            const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/ZA`);
+            const data = await response.json();
+            const holidaySet = new Set<string>();
+            data.forEach((holiday: any) => {
+                holidaySet.add(holiday.date);
+            });
+            setAutoHolidays(holidaySet);
+        } catch (error) {
+            console.error('Failed to fetch public holidays:', error);
+            const fallbackHolidays = new Set<string>([
+                '2026-01-01', '2026-03-21', '2026-04-03', '2026-04-06',
+                '2026-04-27', '2026-05-01', '2026-06-16', '2026-08-09',
+                '2026-09-24', '2026-12-16', '2026-12-25', '2026-12-26'
+            ]);
+            setAutoHolidays(fallbackHolidays);
+        } finally {
+            setLoadingHolidays(false);
+        }
+    };
+
+    // Load manual holidays
+    const loadManualHolidays = async () => {
+        try {
+            const saved = localStorage.getItem(`manualHolidays_${selectedClass}`);
+            if (saved) {
+                const holidays = JSON.parse(saved);
+                setManualHolidays(new Set(holidays));
+            }
+        } catch (error) {
+            console.error('Failed to load manual holidays:', error);
+        }
+    };
+
+    // Save manual holiday
+    const saveManualHoliday = (date: string) => {
+        const newManualHolidays = new Set(manualHolidays);
+        newManualHolidays.add(date);
+        setManualHolidays(newManualHolidays);
+        localStorage.setItem(`manualHolidays_${selectedClass}`, JSON.stringify([...newManualHolidays]));
+    };
+
+    // Remove manual holiday
+    const removeManualHoliday = (date: string) => {
+        const newManualHolidays = new Set(manualHolidays);
+        newManualHolidays.delete(date);
+        setManualHolidays(newManualHolidays);
+        localStorage.setItem(`manualHolidays_${selectedClass}`, JSON.stringify([...newManualHolidays]));
+    };
+
+    // Load holidays when class changes
+    useEffect(() => {
+        if (selectedClass) {
+            fetchPublicHolidays();
+            loadManualHolidays();
+        }
+    }, [selectedClass]);
+
+    // Calculate total term days
+    const calculateTotalDays = () => {
+        const start = new Date(termInfo.startDate);
+        const end = new Date(termInfo.endDate);
+        let total = 0;
+        let current = new Date(start);
+
+        while (current <= end) {
+            const dayOfWeek = current.getDay();
+            const dateStr = current.toISOString().split('T')[0];
+
+            if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
+                total++;
+            }
+            current.setDate(current.getDate() + 1);
+        }
+        return total;
+    };
+
+    const totalDays = calculateTotalDays();
+    const recordedDays = filteredStudents.filter(s => s.checkInTime || s.status !== 'present').length;
+    const remainingDays = totalDays - recordedDays;
+
+    // Check status of selected date
+    const isDateInTerm = isWithinTerm(selectedDate);
+    const isAutoHoliday = autoHolidays.has(selectedDate);
+    const isManualHoliday = manualHolidays.has(selectedDate);
+    const isHoliday = isAutoHoliday || isManualHoliday;
+    const dayOfWeekNum = new Date(selectedDate).getDay();
+    const isWeekend = dayOfWeekNum === 0 || dayOfWeekNum === 6;
+    const isFrozen = !selectedClass || !isDateInTerm || isHoliday || isWeekend;
+
+    // Get frozen reason
+    const getFrozenReason = (): string => {
+        if (!selectedClass) return 'Select a class first';
+        if (!isDateInTerm) return `School Closed - ${termInfo.name} runs from ${termInfo.startDate} to ${termInfo.endDate}`;
+        if (isAutoHoliday) return 'Public Holiday (Auto-detected)';
+        if (isManualHoliday) return 'School Holiday (Manually added)';
+        if (isWeekend) return 'Weekend - No school';
+        return '';
+    };
+
+    // Handle mark as holiday
+    const handleMarkAsHoliday = () => {
+        if (!selectedClass) {
+            alert('Please select a class first');
+            return;
+        }
+
+        if (!isDateInTerm) {
+            alert(`Cannot mark holiday outside term. ${termInfo.name} is ${termInfo.startDate} to ${termInfo.endDate}`);
+            return;
+        }
+
+        if (isWeekend) {
+            alert('Weekends are already non-school days. No need to mark as holiday.');
+            return;
+        }
+
+        if (isAutoHoliday) {
+            alert(`${selectedDate} is already a public holiday.`);
+            return;
+        }
+
+        if (isManualHoliday) {
+            alert(`${selectedDate} is already marked as a holiday`);
+            return;
+        }
+
+        setMarkingHoliday(true);
+        setTimeout(() => {
+            saveManualHoliday(selectedDate);
+            alert(`${selectedDate} has been marked as a school holiday`);
+            setMarkingHoliday(false);
+        }, 500);
+    };
+
+    const handleRemoveHoliday = () => {
+        if (!isManualHoliday) {
+            alert('Only manually added holidays can be removed');
+            return;
+        }
+
+        if (confirm(`Remove holiday status from ${selectedDate}?`)) {
+            removeManualHoliday(selectedDate);
+            alert(`${selectedDate} is no longer a holiday`);
+        }
+    };
+
+    const frozenReason = getFrozenReason();
+
+    // Get attendance status display
+    const getAttendanceStatusDisplay = () => {
+        if (!selectedClass) return 'No class selected';
+        if (isFrozen) return '❄️ Frozen - Cannot mark attendance';
+        if (hasAttendanceRecorded) return '✅ Attendance has been recorded';
+        return '⚠️ Attendance not yet recorded for this date';
+    };
+
+    const attendanceStatusColor = () => {
+        if (!selectedClass) return 'text-gray-500';
+        if (isFrozen) return 'text-gray-500';
+        if (hasAttendanceRecorded) return 'text-green-600';
+        return 'text-amber-600';
+    };
+
+    return (
+        <>
+            {/* Date Info Card - NEW */}
+            {selectedClass && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-indigo-100 rounded-lg">
+                                <Calendar className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-medium text-slate-500">Date Information</h4>
+                                <div className="flex flex-wrap gap-3 mt-1">
+                                    <span className="text-sm font-semibold text-slate-800">
+                                        {getMonthName(selectedDate)}
+                                    </span>
+                                    <span className="text-sm text-slate-400">•</span>
+                                    <span className="text-sm font-semibold text-slate-800">
+                                        Week {getWeekNumber(selectedDate)}
+                                    </span>
+                                    <span className="text-sm text-slate-400">•</span>
+                                    <span className="text-sm font-semibold text-slate-800">
+                                        {getDayOfWeek(selectedDate)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className={`flex items-center gap-2 ${attendanceStatusColor()}`}>
+                            <Info className="w-4 h-4" />
+                            <span className="text-sm font-medium">{getAttendanceStatusDisplay()}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Term Stats Card - Only show when class is selected */}
+            {selectedClass && (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-5 mb-6">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-indigo-900">{termInfo.name}</h3>
+                            <p className="text-sm text-indigo-600">
+                                {termInfo.startDate} to {termInfo.endDate} | Monday-Friday only
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            {loadingHolidays && (
+                                <div className="text-xs text-amber-600 flex items-center gap-1">
+                                    <CloudRain className="w-3 h-3" />
+                                    Loading holidays...
+                                </div>
+                            )}
+                            {!loadingHolidays && autoHolidays.size > 0 && (
+                                <div className="text-xs text-green-600">
+                                    {autoHolidays.size} public holidays
+                                </div>
+                            )}
+                            {manualHolidays.size > 0 && (
+                                <div className="text-xs text-purple-600">
+                                    +{manualHolidays.size} school holidays
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center">
+                            <p className="text-2xl font-bold text-indigo-800">{totalDays}</p>
+                            <p className="text-xs text-indigo-600">Total School Days</p>
+                        </div>
+                        <div className="text-center border-l border-r border-indigo-200">
+                            <p className="text-2xl font-bold text-emerald-700">{recordedDays}</p>
+                            <p className="text-xs text-indigo-600">Recorded</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-2xl font-bold text-amber-700">{remainingDays}</p>
+                            <p className="text-xs text-indigo-600">Remaining</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Filters */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            min={termInfo.startDate}
+                            max={termInfo.endDate}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        />
+                        {selectedClass && (
+                            <p className="text-xs text-slate-400 mt-1">
+                                Term: {termInfo.startDate} to {termInfo.endDate}
+                            </p>
+                        )}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Class</label>
+                        <select
+                            value={selectedClass}
+                            onChange={(e) => setSelectedClass(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        >
+                            <option value="">Select a class</option>
+                            {classes.map(cls => (
+                                <option key={cls.id} value={cls.id}>
+                                    {cls.name} - {cls.term} ({cls.academic_year})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                placeholder="Search students..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {selectedClass ? (
+                <>
+                    {/* Frozen Message */}
+                    {isFrozen && (
+                        <div className={`rounded-lg p-3 flex items-center gap-2 text-sm ${frozenReason.includes('Closed') ? 'bg-red-50 border border-red-200 text-red-700' :
+                            frozenReason.includes('Public') ? 'bg-green-50 border border-green-200 text-green-700' :
+                                frozenReason.includes('School') ? 'bg-purple-50 border border-purple-200 text-purple-700' :
+                                    'bg-gray-50 border border-gray-200 text-gray-500'
+                            }`}>
+                            <Lock className="w-4 h-4 flex-shrink-0" />
+                            <span>
+                                <strong>Frozen</strong> - {frozenReason}
+                                {frozenReason.includes('School Holiday') && ' You can remove this holiday using the button below.'}
+                                {frozenReason.includes('Closed') && ' Attendance cannot be marked when school is closed.'}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Holiday Actions */}
+                    {isDateInTerm && !isWeekend && (
+                        <div className="flex gap-2">
+                            {!isHoliday ? (
+                                <button
+                                    onClick={handleMarkAsHoliday}
+                                    disabled={markingHoliday}
+                                    className="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    {markingHoliday ? 'Marking...' : 'Mark as School Holiday'}
+                                </button>
+                            ) : isManualHoliday ? (
+                                <button
+                                    onClick={handleRemoveHoliday}
+                                    className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                                >
+                                    <Gift className="w-4 h-4" />
+                                    Remove Holiday
+                                </button>
+                            ) : isAutoHoliday && (
+                                <div className="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm flex items-center gap-2">
+                                    <CloudRain className="w-4 h-4" />
+                                    Public Holiday (Auto-detected)
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Total Students</p>
+                                    <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
+                                </div>
+                                <Users className="w-8 h-8 text-indigo-600" />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Present</p>
+                                    <p className="text-2xl font-bold text-green-600">{stats.present}</p>
+                                </div>
+                                <UserCheck className="w-8 h-8 text-green-600" />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Absent</p>
+                                    <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
+                                </div>
+                                <UserX className="w-8 h-8 text-red-600" />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Late</p>
+                                    <p className="text-2xl font-bold text-yellow-600">{stats.late}</p>
+                                </div>
+                                <Clock3 className="w-8 h-8 text-yellow-600" />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Attendance Rate</p>
+                                    <p className="text-2xl font-bold text-indigo-600">{stats.rate}%</p>
+                                </div>
+                                <TrendingUp className="w-8 h-8 text-indigo-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Reminder Message - Only show when NOT frozen */}
+                    {!isFrozen && !hasAttendanceRecorded && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-amber-700 text-sm">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <span>Don't forget to click <strong>Save Attendance</strong> after making changes! Unsaved changes will be lost.</span>
+                        </div>
+                    )}
+
+                    {/* Success Message - When attendance has been recorded */}
+                    {!isFrozen && hasAttendanceRecorded && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2 text-green-700 text-sm">
+                            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                            <span>Attendance has been recorded for {selectedDate}. You can make changes and save again if needed.</span>
+                        </div>
+                    )}
+
+                    {/* Quick Actions */}
+                    <div className="flex justify-end gap-3">
+                        <button
+                            onClick={onSaveAttendance}
+                            disabled={saving || isFrozen}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 shadow-sm"
+                        >
+                            {saving ? (
+                                <>
+                                    <span className="animate-spin">⏳</span>
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Save Attendance
+                                </>
+                            )}
+                        </button>
+                        <button
+                            onClick={onMarkAllPresent}
+                            disabled={markingAll || isFrozen}
+                            className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200 transition-colors disabled:opacity-50 border border-green-200 flex items-center gap-2"
+                        >
+                            {markingAll ? (
+                                <>
+                                    <span className="animate-spin">⏳</span>
+                                    Marking...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Mark All Present
+                                </>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Attendance Table */}
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Student</th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Exam Number</th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Status</th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Check-in Time</th>
+                                        <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {loading ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                                                Loading attendance data...
+                                            </td>
+                                        </tr>
+                                    ) : filteredStudents.length > 0 ? (
+                                        filteredStudents.map(student => (
+                                            <tr key={student.id} className="hover:bg-slate-50">
+                                                <td className="px-4 py-3 font-medium text-slate-800">{student.name}</td>
+                                                <td className="px-4 py-3 font-mono text-sm text-indigo-600">{student.examNumber}</td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.status)}`}>
+                                                        {getStatusIcon(student.status)}
+                                                        {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-600">{student.checkInTime || '—'}</td>
+                                                <td className="px-4 py-3">
+                                                    <select
+                                                        value={student.status}
+                                                        onChange={(e) => onStatusChange(student.id, e.target.value as any)}
+                                                        className={`px-2 py-1 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all ${isFrozen
+                                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+                                                            : 'bg-white border-slate-300 hover:border-indigo-300'
+                                                            }`}
+                                                        disabled={saving || isFrozen}
+                                                    >
+                                                        <option value="present">Present</option>
+                                                        <option value="absent">Absent</option>
+                                                        <option value="late">Late</option>
+                                                        <option value="excused">Excused</option>
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                                                No students found
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="bg-white rounded-xl p-12 text-center border border-slate-200">
+                    <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-slate-700 mb-2">Select a Class</h3>
+                    <p className="text-slate-500">Choose a class from the dropdown above to start taking attendance</p>
+                </div>
+            )}
+        </>
+    );
+};
+
+export default DailyTrackingTab;
+
+
+// import React, { useState, useEffect } from 'react';
+// import {
+//     Calendar,
+//     Search,
+//     UserCheck,
+//     UserX,
+//     Clock3,
+//     CheckCircle,
+//     AlertCircle,
+//     Users,
+//     TrendingUp,
+//     Gift,
+//     CloudRain,
+//     Plus,
+//     Lock
+// } from 'lucide-react';
+// import { StudentAttendance, AttendanceStats } from './TeacherAttendance';
+
+// interface Props {
+//     classes: any[];
+//     selectedClass: string;
+//     setSelectedClass: (value: string) => void;
+//     selectedDate: string;
+//     setSelectedDate: (value: string) => void;
+//     searchTerm: string;
+//     setSearchTerm: (value: string) => void;
+//     loading: boolean;
+//     saving: boolean;
+//     markingAll: boolean;
+//     stats: AttendanceStats;
+//     filteredStudents: StudentAttendance[];
+//     onStatusChange: (studentId: string, status: StudentAttendance['status']) => void;
+//     onSaveAttendance: () => void;
+//     onMarkAllPresent: () => void;
+//     getStatusColor: (status: string) => string;
+//     getStatusIcon: (status: string) => JSX.Element;
+// }
+
+// const DailyTrackingTab: React.FC<Props> = ({
+//     classes,
+//     selectedClass,
+//     setSelectedClass,
+//     selectedDate,
+//     setSelectedDate,
+//     searchTerm,
+//     setSearchTerm,
+//     loading,
+//     saving,
+//     markingAll,
+//     stats,
+//     filteredStudents,
+//     onStatusChange,
+//     onSaveAttendance,
+//     onMarkAllPresent,
+//     getStatusColor,
+//     getStatusIcon
+// }) => {
+//     // Get term info from selected class
+//     const getTermInfoFromClass = () => {
+//         const selectedClassData = classes.find(c => c.id === selectedClass);
+//         if (selectedClassData) {
+//             return {
+//                 name: selectedClassData.term || 'Term 1, 2026',
+//                 startDate: selectedClassData.start_date || '2026-01-15',
+//                 endDate: selectedClassData.end_date || '2026-04-10'
+//             };
+//         }
+//         return {
+//             name: 'Term 1, 2026',
+//             startDate: '2026-01-15',
+//             endDate: '2026-04-10'
+//         };
+//     };
+
+//     const termInfo = getTermInfoFromClass();
+
+//     // Holiday states
+//     const [autoHolidays, setAutoHolidays] = useState<Set<string>>(new Set());
+//     const [manualHolidays, setManualHolidays] = useState<Set<string>>(new Set());
+//     const [markingHoliday, setMarkingHoliday] = useState(false);
+//     const [loadingHolidays, setLoadingHolidays] = useState(false);
+
+//     // Combined holidays
+//     const allHolidays = new Set([...autoHolidays, ...manualHolidays]);
+
+//     // Check if date is within term range
+//     const isWithinTerm = (date: string): boolean => {
+//         const checkDate = new Date(date);
+//         const start = new Date(termInfo.startDate);
+//         const end = new Date(termInfo.endDate);
+//         return checkDate >= start && checkDate <= end;
+//     };
+
+//     // Fetch public holidays
+//     const fetchPublicHolidays = async () => {
+//         setLoadingHolidays(true);
+//         try {
+//             const year = new Date(termInfo.startDate).getFullYear();
+//             const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/ZA`);
+//             const data = await response.json();
+//             const holidaySet = new Set<string>();
+//             data.forEach((holiday: any) => {
+//                 holidaySet.add(holiday.date);
+//             });
+//             setAutoHolidays(holidaySet);
+//         } catch (error) {
+//             console.error('Failed to fetch public holidays:', error);
+//             const fallbackHolidays = new Set<string>([
+//                 '2026-01-01', '2026-03-21', '2026-04-03', '2026-04-06',
+//                 '2026-04-27', '2026-05-01', '2026-06-16', '2026-08-09',
+//                 '2026-09-24', '2026-12-16', '2026-12-25', '2026-12-26'
+//             ]);
+//             setAutoHolidays(fallbackHolidays);
+//         } finally {
+//             setLoadingHolidays(false);
+//         }
+//     };
+
+//     // Load manual holidays
+//     const loadManualHolidays = async () => {
+//         try {
+//             const saved = localStorage.getItem(`manualHolidays_${selectedClass}`);
+//             if (saved) {
+//                 const holidays = JSON.parse(saved);
+//                 setManualHolidays(new Set(holidays));
+//             }
+//         } catch (error) {
+//             console.error('Failed to load manual holidays:', error);
+//         }
+//     };
+
+//     // Save manual holiday
+//     const saveManualHoliday = (date: string) => {
+//         const newManualHolidays = new Set(manualHolidays);
+//         newManualHolidays.add(date);
+//         setManualHolidays(newManualHolidays);
+//         localStorage.setItem(`manualHolidays_${selectedClass}`, JSON.stringify([...newManualHolidays]));
+//     };
+
+//     // Remove manual holiday
+//     const removeManualHoliday = (date: string) => {
+//         const newManualHolidays = new Set(manualHolidays);
+//         newManualHolidays.delete(date);
+//         setManualHolidays(newManualHolidays);
+//         localStorage.setItem(`manualHolidays_${selectedClass}`, JSON.stringify([...newManualHolidays]));
+//     };
+
+//     // Load holidays when class changes
+//     useEffect(() => {
+//         if (selectedClass) {
+//             fetchPublicHolidays();
+//             loadManualHolidays();
+//         }
+//     }, [selectedClass]);
+
+//     // Calculate total term days
+//     const calculateTotalDays = () => {
+//         const start = new Date(termInfo.startDate);
+//         const end = new Date(termInfo.endDate);
+//         let total = 0;
+//         let current = new Date(start);
+
+//         while (current <= end) {
+//             const dayOfWeek = current.getDay();
+//             const dateStr = current.toISOString().split('T')[0];
+
+//             if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
+//                 total++;
+//             }
+//             current.setDate(current.getDate() + 1);
+//         }
+//         return total;
+//     };
+
+//     const totalDays = calculateTotalDays();
+//     const recordedDays = 0; // Will come from actual attendance data
+//     const remainingDays = totalDays - recordedDays;
+
+//     // Check status of selected date
+//     const isDateInTerm = isWithinTerm(selectedDate);
+//     const isAutoHoliday = autoHolidays.has(selectedDate);
+//     const isManualHoliday = manualHolidays.has(selectedDate);
+//     const isHoliday = isAutoHoliday || isManualHoliday;
+//     const dayOfWeek = new Date(selectedDate).getDay();
+//     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+//     const isFrozen = !selectedClass || !isDateInTerm || isHoliday || isWeekend;
+
+//     // Get frozen reason
+//     const getFrozenReason = (): string => {
+//         if (!selectedClass) return 'Select a class first';
+//         if (!isDateInTerm) return `School Closed - ${termInfo.name} runs from ${termInfo.startDate} to ${termInfo.endDate}`;
+//         if (isAutoHoliday) return 'Public Holiday (Auto-detected)';
+//         if (isManualHoliday) return 'School Holiday (Manually added)';
+//         if (isWeekend) return 'Weekend - No school';
+//         return '';
+//     };
+
+//     // Handle mark as holiday
+//     const handleMarkAsHoliday = () => {
+//         if (!selectedClass) {
+//             alert('Please select a class first');
+//             return;
+//         }
+
+//         if (!isDateInTerm) {
+//             alert(`Cannot mark holiday outside term. ${termInfo.name} is ${termInfo.startDate} to ${termInfo.endDate}`);
+//             return;
+//         }
+
+//         if (isWeekend) {
+//             alert('Weekends are already non-school days. No need to mark as holiday.');
+//             return;
+//         }
+
+//         if (isAutoHoliday) {
+//             alert(`${selectedDate} is already a public holiday.`);
+//             return;
+//         }
+
+//         if (isManualHoliday) {
+//             alert(`${selectedDate} is already marked as a holiday`);
+//             return;
+//         }
+
+//         setMarkingHoliday(true);
+//         setTimeout(() => {
+//             saveManualHoliday(selectedDate);
+//             alert(`${selectedDate} has been marked as a school holiday`);
+//             setMarkingHoliday(false);
+//         }, 500);
+//     };
+
+//     const handleRemoveHoliday = () => {
+//         if (!isManualHoliday) {
+//             alert('Only manually added holidays can be removed');
+//             return;
+//         }
+
+//         if (confirm(`Remove holiday status from ${selectedDate}?`)) {
+//             removeManualHoliday(selectedDate);
+//             alert(`${selectedDate} is no longer a holiday`);
+//         }
+//     };
+
+//     const frozenReason = getFrozenReason();
+
+//     return (
+//         <>
+//             {/* Term Stats Card - Only show when class is selected */}
+//             {selectedClass && (
+//                 <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-5 mb-6">
+//                     <div className="flex justify-between items-start mb-4">
+//                         <div>
+//                             <h3 className="text-lg font-bold text-indigo-900">{termInfo.name}</h3>
+//                             <p className="text-sm text-indigo-600">
+//                                 {termInfo.startDate} to {termInfo.endDate} | Monday-Friday only
+//                             </p>
+//                         </div>
+//                         <div className="text-right">
+//                             {loadingHolidays && (
+//                                 <div className="text-xs text-amber-600 flex items-center gap-1">
+//                                     <CloudRain className="w-3 h-3" />
+//                                     Loading holidays...
+//                                 </div>
+//                             )}
+//                             {!loadingHolidays && autoHolidays.size > 0 && (
+//                                 <div className="text-xs text-green-600">
+//                                     {autoHolidays.size} public holidays
+//                                 </div>
+//                             )}
+//                             {manualHolidays.size > 0 && (
+//                                 <div className="text-xs text-purple-600">
+//                                     +{manualHolidays.size} school holidays
+//                                 </div>
+//                             )}
+//                         </div>
+//                     </div>
+//                     <div className="grid grid-cols-3 gap-4">
+//                         <div className="text-center">
+//                             <p className="text-2xl font-bold text-indigo-800">{totalDays}</p>
+//                             <p className="text-xs text-indigo-600">Total School Days</p>
+//                         </div>
+//                         <div className="text-center border-l border-r border-indigo-200">
+//                             <p className="text-2xl font-bold text-emerald-700">{recordedDays}</p>
+//                             <p className="text-xs text-indigo-600">Recorded</p>
+//                         </div>
+//                         <div className="text-center">
+//                             <p className="text-2xl font-bold text-amber-700">{remainingDays}</p>
+//                             <p className="text-xs text-indigo-600">Remaining</p>
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+
+//             {/* Filters */}
+//             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+//                     <div>
+//                         <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+//                         <input
+//                             type="date"
+//                             value={selectedDate}
+//                             onChange={(e) => setSelectedDate(e.target.value)}
+//                             min={termInfo.startDate}
+//                             max={termInfo.endDate}
+//                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+//                         />
+//                         {selectedClass && (
+//                             <p className="text-xs text-slate-400 mt-1">
+//                                 Term: {termInfo.startDate} to {termInfo.endDate}
+//                             </p>
+//                         )}
+//                     </div>
+//                     <div>
+//                         <label className="block text-sm font-medium text-slate-700 mb-1">Class</label>
+//                         <select
+//                             value={selectedClass}
+//                             onChange={(e) => setSelectedClass(e.target.value)}
+//                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+//                         >
+//                             <option value="">Select a class</option>
+//                             {classes.map(cls => (
+//                                 <option key={cls.id} value={cls.id}>
+//                                     {cls.name} - {cls.term} ({cls.academic_year})
+//                                 </option>
+//                             ))}
+//                         </select>
+//                     </div>
+//                     <div>
+//                         <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
+//                         <div className="relative">
+//                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+//                             <input
+//                                 type="text"
+//                                 placeholder="Search students..."
+//                                 value={searchTerm}
+//                                 onChange={(e) => setSearchTerm(e.target.value)}
+//                                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+//                             />
+//                         </div>
+//                     </div>
+//                 </div>
+//             </div>
+
+//             {selectedClass ? (
+//                 <>
+//                     {/* Frozen Message */}
+//                     {isFrozen && (
+//                         <div className={`rounded-lg p-3 flex items-center gap-2 text-sm ${frozenReason.includes('Closed') ? 'bg-red-50 border border-red-200 text-red-700' :
+//                                 frozenReason.includes('Public') ? 'bg-green-50 border border-green-200 text-green-700' :
+//                                     frozenReason.includes('School') ? 'bg-purple-50 border border-purple-200 text-purple-700' :
+//                                         'bg-gray-50 border border-gray-200 text-gray-500'
+//                             }`}>
+//                             <Lock className="w-4 h-4 flex-shrink-0" />
+//                             <span>
+//                                 <strong>Frozen</strong> - {frozenReason}
+//                                 {frozenReason.includes('School Holiday') && ' You can remove this holiday using the button below.'}
+//                                 {frozenReason.includes('Closed') && ' Attendance cannot be marked when school is closed.'}
+//                             </span>
+//                         </div>
+//                     )}
+
+//                     {/* Holiday Actions */}
+//                     {isDateInTerm && !isWeekend && (
+//                         <div className="flex gap-2">
+//                             {!isHoliday ? (
+//                                 <button
+//                                     onClick={handleMarkAsHoliday}
+//                                     disabled={markingHoliday}
+//                                     className="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+//                                 >
+//                                     <Plus className="w-4 h-4" />
+//                                     {markingHoliday ? 'Marking...' : 'Mark as School Holiday'}
+//                                 </button>
+//                             ) : isManualHoliday ? (
+//                                 <button
+//                                     onClick={handleRemoveHoliday}
+//                                     className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2 transition-colors"
+//                                 >
+//                                     <Gift className="w-4 h-4" />
+//                                     Remove Holiday
+//                                 </button>
+//                             ) : isAutoHoliday && (
+//                                 <div className="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm flex items-center gap-2">
+//                                     <CloudRain className="w-4 h-4" />
+//                                     Public Holiday (Auto-detected)
+//                                 </div>
+//                             )}
+//                         </div>
+//                     )}
+
+//                     {/* Stats Cards */}
+//                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Total Students</p>
+//                                     <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
+//                                 </div>
+//                                 <Users className="w-8 h-8 text-indigo-600" />
+//                             </div>
+//                         </div>
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Present</p>
+//                                     <p className="text-2xl font-bold text-green-600">{stats.present}</p>
+//                                 </div>
+//                                 <UserCheck className="w-8 h-8 text-green-600" />
+//                             </div>
+//                         </div>
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Absent</p>
+//                                     <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
+//                                 </div>
+//                                 <UserX className="w-8 h-8 text-red-600" />
+//                             </div>
+//                         </div>
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Late</p>
+//                                     <p className="text-2xl font-bold text-yellow-600">{stats.late}</p>
+//                                 </div>
+//                                 <Clock3 className="w-8 h-8 text-yellow-600" />
+//                             </div>
+//                         </div>
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Attendance Rate</p>
+//                                     <p className="text-2xl font-bold text-indigo-600">{stats.rate}%</p>
+//                                 </div>
+//                                 <TrendingUp className="w-8 h-8 text-indigo-600" />
+//                             </div>
+//                         </div>
+//                     </div>
+
+//                     {/* Reminder Message - Only show when NOT frozen */}
+//                     {!isFrozen && (
+//                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-amber-700 text-sm">
+//                             <AlertCircle className="w-4 h-4 flex-shrink-0" />
+//                             <span>Don't forget to click <strong>Save Attendance</strong> after making changes! Unsaved changes will be lost.</span>
+//                         </div>
+//                     )}
+
+//                     {/* Quick Actions */}
+//                     <div className="flex justify-end gap-3">
+//                         <button
+//                             onClick={onSaveAttendance}
+//                             disabled={saving || isFrozen}
+//                             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 shadow-sm"
+//                         >
+//                             {saving ? (
+//                                 <>
+//                                     <span className="animate-spin">⏳</span>
+//                                     Saving...
+//                                 </>
+//                             ) : (
+//                                 <>
+//                                     <CheckCircle className="w-4 h-4" />
+//                                     Save Attendance
+//                                 </>
+//                             )}
+//                         </button>
+//                         <button
+//                             onClick={onMarkAllPresent}
+//                             disabled={markingAll || isFrozen}
+//                             className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200 transition-colors disabled:opacity-50 border border-green-200 flex items-center gap-2"
+//                         >
+//                             {markingAll ? (
+//                                 <>
+//                                     <span className="animate-spin">⏳</span>
+//                                     Marking...
+//                                 </>
+//                             ) : (
+//                                 <>
+//                                     <CheckCircle className="w-4 h-4" />
+//                                     Mark All Present
+//                                 </>
+//                             )}
+//                         </button>
+//                     </div>
+
+//                     {/* Attendance Table */}
+//                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+//                         <div className="overflow-x-auto">
+//                             <table className="w-full">
+//                                 <thead className="bg-slate-50">
+//                                     <tr>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Student</th>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Exam Number</th>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Status</th>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Check-in Time</th>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Actions</th>
+//                                     </tr>
+//                                 </thead>
+//                                 <tbody className="divide-y divide-slate-100">
+//                                     {loading ? (
+//                                         <tr>
+//                                             <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+//                                                 Loading attendance data...
+//                                             </td>
+//                                         </tr>
+//                                     ) : filteredStudents.length > 0 ? (
+//                                         filteredStudents.map(student => (
+//                                             <tr key={student.id} className="hover:bg-slate-50">
+//                                                 <td className="px-4 py-3 font-medium text-slate-800">{student.name}</td>
+//                                                 <td className="px-4 py-3 font-mono text-sm text-indigo-600">{student.examNumber}</td>
+//                                                 <td className="px-4 py-3">
+//                                                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.status)}`}>
+//                                                         {getStatusIcon(student.status)}
+//                                                         {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+//                                                     </span>
+//                                                 </td>
+//                                                 <td className="px-4 py-3 text-slate-600">{student.checkInTime || '—'}</td>
+//                                                 <td className="px-4 py-3">
+//                                                     <select
+//                                                         value={student.status}
+//                                                         onChange={(e) => onStatusChange(student.id, e.target.value as any)}
+//                                                         className={`px-2 py-1 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all ${isFrozen
+//                                                                 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+//                                                                 : 'bg-white border-slate-300 hover:border-indigo-300'
+//                                                             }`}
+//                                                         disabled={saving || isFrozen}
+//                                                     >
+//                                                         <option value="present">Present</option>
+//                                                         <option value="absent">Absent</option>
+//                                                         <option value="late">Late</option>
+//                                                         <option value="excused">Excused</option>
+//                                                     </select>
+//                                                 </td>
+//                                             </tr>
+//                                         ))
+//                                     ) : (
+//                                         <tr>
+//                                             <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+//                                                 No students found
+//                                             </td>
+//                                         </tr>
+//                                     )}
+//                                 </tbody>
+//                             </table>
+//                         </div>
+//                     </div>
+//                 </>
+//             ) : (
+//                 <div className="bg-white rounded-xl p-12 text-center border border-slate-200">
+//                     <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+//                     <h3 className="text-xl font-semibold text-slate-700 mb-2">Select a Class</h3>
+//                     <p className="text-slate-500">Choose a class from the dropdown above to start taking attendance</p>
+//                 </div>
+//             )}
+//         </>
+//     );
+// };
+
+// export default DailyTrackingTab;
+
+
+// import React from 'react';
+// import {
+//     Calendar,
+//     Search,
+//     UserCheck,
+//     UserX,
+//     Clock3,
+//     CheckCircle,
+//     AlertCircle,
+//     Users,
+//     TrendingUp
+// } from 'lucide-react';
+// import { StudentAttendance, AttendanceStats } from './TeacherAttendance';
+
+// interface Props {
+//     classes: any[];
+//     selectedClass: string;
+//     setSelectedClass: (value: string) => void;
+//     selectedDate: string;
+//     setSelectedDate: (value: string) => void;
+//     searchTerm: string;
+//     setSearchTerm: (value: string) => void;
+//     loading: boolean;
+//     saving: boolean;
+//     markingAll: boolean;
+//     stats: AttendanceStats;
+//     filteredStudents: StudentAttendance[];
+//     onStatusChange: (studentId: string, status: StudentAttendance['status']) => void;
+//     onSaveAttendance: () => void;
+//     onMarkAllPresent: () => void;
+//     getStatusColor: (status: string) => string;
+//     getStatusIcon: (status: string) => JSX.Element;
+// }
+
+// const DailyTrackingTab: React.FC<Props> = ({
+//     classes,
+//     selectedClass,
+//     setSelectedClass,
+//     selectedDate,
+//     setSelectedDate,
+//     searchTerm,
+//     setSearchTerm,
+//     loading,
+//     saving,
+//     markingAll,
+//     stats,
+//     filteredStudents,
+//     onStatusChange,
+//     onSaveAttendance,
+//     onMarkAllPresent,
+//     getStatusColor,
+//     getStatusIcon
+// }) => {
+//     return (
+//         <>
+//             {/* Filters */}
+//             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+//                     <div>
+//                         <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+//                         <input
+//                             type="date"
+//                             value={selectedDate}
+//                             onChange={(e) => setSelectedDate(e.target.value)}
+//                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+//                         />
+//                     </div>
+//                     <div>
+//                         <label className="block text-sm font-medium text-slate-700 mb-1">Class</label>
+//                         <select
+//                             value={selectedClass}
+//                             onChange={(e) => setSelectedClass(e.target.value)}
+//                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+//                         >
+//                             <option value="">Select a class</option>
+//                             {classes.map(cls => (
+//                                 <option key={cls.id} value={cls.id}>
+//                                     {cls.name} - {cls.term} ({cls.academic_year})
+//                                 </option>
+//                             ))}
+//                         </select>
+//                     </div>
+//                     <div>
+//                         <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
+//                         <div className="relative">
+//                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+//                             <input
+//                                 type="text"
+//                                 placeholder="Search students..."
+//                                 value={searchTerm}
+//                                 onChange={(e) => setSearchTerm(e.target.value)}
+//                                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+//                             />
+//                         </div>
+//                     </div>
+//                 </div>
+//             </div>
+
+//             {selectedClass ? (
+//                 <>
+//                     {/* Stats Cards */}
+//                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Total Students</p>
+//                                     <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
+//                                 </div>
+//                                 <Users className="w-8 h-8 text-indigo-600" />
+//                             </div>
+//                         </div>
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Present</p>
+//                                     <p className="text-2xl font-bold text-green-600">{stats.present}</p>
+//                                 </div>
+//                                 <UserCheck className="w-8 h-8 text-green-600" />
+//                             </div>
+//                         </div>
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Absent</p>
+//                                     <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
+//                                 </div>
+//                                 <UserX className="w-8 h-8 text-red-600" />
+//                             </div>
+//                         </div>
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Late</p>
+//                                     <p className="text-2xl font-bold text-yellow-600">{stats.late}</p>
+//                                 </div>
+//                                 <Clock3 className="w-8 h-8 text-yellow-600" />
+//                             </div>
+//                         </div>
+//                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+//                             <div className="flex items-center justify-between">
+//                                 <div>
+//                                     <p className="text-sm text-slate-500">Attendance Rate</p>
+//                                     <p className="text-2xl font-bold text-indigo-600">{stats.rate}%</p>
+//                                 </div>
+//                                 <TrendingUp className="w-8 h-8 text-indigo-600" />
+//                             </div>
+//                         </div>
+//                     </div>
+
+//                     {/* Reminder Message */}
+//                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-amber-700 text-sm">
+//                         <AlertCircle className="w-4 h-4 flex-shrink-0" />
+//                         <span>Don't forget to click <strong>Save Attendance</strong> after making changes! Unsaved changes will be lost.</span>
+//                     </div>
+
+//                     {/* Quick Actions */}
+//                     <div className="flex justify-end gap-3">
+//                         <button
+//                             onClick={onSaveAttendance}
+//                             disabled={saving || !selectedClass}
+//                             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 shadow-sm"
+//                         >
+//                             {saving ? (
+//                                 <>
+//                                     <span className="animate-spin">⏳</span>
+//                                     Saving...
+//                                 </>
+//                             ) : (
+//                                 <>
+//                                     <CheckCircle className="w-4 h-4" />
+//                                     Save Attendance
+//                                 </>
+//                             )}
+//                         </button>
+//                         <button
+//                             onClick={onMarkAllPresent}
+//                             disabled={markingAll || !selectedClass}
+//                             className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200 transition-colors disabled:opacity-50 border border-green-200 flex items-center gap-2"
+//                         >
+//                             {markingAll ? (
+//                                 <>
+//                                     <span className="animate-spin">⏳</span>
+//                                     Marking...
+//                                 </>
+//                             ) : (
+//                                 <>
+//                                     <CheckCircle className="w-4 h-4" />
+//                                     Mark All Present
+//                                 </>
+//                             )}
+//                         </button>
+//                     </div>
+
+//                     {/* Attendance Table */}
+//                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+//                         <div className="overflow-x-auto">
+//                             <table className="w-full">
+//                                 <thead className="bg-slate-50">
+//                                     <tr>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Student</th>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Exam Number</th>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Status</th>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Check-in Time</th>
+//                                         <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Actions</th>
+//                                     </tr>
+//                                 </thead>
+//                                 <tbody className="divide-y divide-slate-100">
+//                                     {loading ? (
+//                                         <tr>
+//                                             <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+//                                                 Loading attendance data...
+//                                             </td>
+//                                         </tr>
+//                                     ) : filteredStudents.length > 0 ? (
+//                                         filteredStudents.map(student => (
+//                                             <tr key={student.id} className="hover:bg-slate-50">
+//                                                 <td className="px-4 py-3 font-medium text-slate-800">{student.name}</td>
+//                                                 <td className="px-4 py-3 font-mono text-sm text-indigo-600">{student.examNumber}</td>
+//                                                 <td className="px-4 py-3">
+//                                                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.status)}`}>
+//                                                         {getStatusIcon(student.status)}
+//                                                         {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+//                                                     </span>
+//                                                 </td>
+//                                                 <td className="px-4 py-3 text-slate-600">{student.checkInTime || '—'}</td>
+//                                                 <td className="px-4 py-3">
+//                                                     <select
+//                                                         value={student.status}
+//                                                         onChange={(e) => onStatusChange(student.id, e.target.value as any)}
+//                                                         className="px-2 py-1 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+//                                                         disabled={saving}
+//                                                     >
+//                                                         <option value="present">Present</option>
+//                                                         <option value="absent">Absent</option>
+//                                                         <option value="late">Late</option>
+//                                                         <option value="excused">Excused</option>
+//                                                     </select>
+//                                                 </td>
+//                                             </tr>
+//                                         ))
+//                                     ) : (
+//                                         <tr>
+//                                             <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+//                                                 No students found
+//                                             </td>
+//                                         </tr>
+//                                     )}
+//                                 </tbody>
+//                             </table>
+//                         </div>
+//                     </div>
+//                 </>
+//             ) : (
+//                 <div className="bg-white rounded-xl p-12 text-center border border-slate-200">
+//                     <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+//                     <h3 className="text-xl font-semibold text-slate-700 mb-2">Select a Class</h3>
+//                     <p className="text-slate-500">Choose a class from the dropdown above to start taking attendance</p>
+//                 </div>
+//             )}
+//         </>
+//     );
+// };
+
+// export default DailyTrackingTab;
