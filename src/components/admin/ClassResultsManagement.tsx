@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { TrendingUp, Award, CheckCircle, Users, Download } from 'lucide-react';
@@ -41,6 +41,27 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
 
     const tableRef = useRef<HTMLDivElement>(null);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [schoolName, setSchoolName] = useState('School Name');
+
+    useEffect(() => {
+        const fetchSchoolName = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('https://eduspace-portal-backend.onrender.com/schools', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const schools = await response.json();
+                    if (schools.length > 0) {
+                        setSchoolName(schools[0].name);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load school name');
+            }
+        };
+        fetchSchoolName();
+    }, []);
 
     const handleClassChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const classId = e.target.value;
@@ -300,7 +321,8 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
             const academicYear = selectedClass?.academic_year || '';
 
             // Text Strings
-            const mainTitle = `${className} - ${termName}, ${academicYear} - Results (${activeAssessmentType.toUpperCase()})`;
+            const mainTitle = `${schoolName}`;
+            const subTitle = `${className} - ${termName}, ${academicYear} - Results (${activeAssessmentType.toUpperCase()})`;
             const statsLine1 = `Total Students: ${totalStudents}    |    Class Average: ${classAverage.toFixed(1)}%`;
             const statsLine2 = `Passed: ${passedCount}    |    Failed: ${failedCount}    |    Pass Rate: ${passRate.toFixed(1)}%`;
 
@@ -399,21 +421,43 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
             autoTable(doc, {
                 head: [tableHead],
                 body: tableBody,
-                startY: 35,
+                startY: 50,
                 styles: { fontSize: 7, cellPadding: 1 },
                 headStyles: { fillColor: [63, 81, 181] },
                 didDrawPage: (data) => {
                     if (data.pageNumber === 1) {
+                        const pageWidth = doc.internal.pageSize.getWidth();
+                        const centerX = pageWidth / 2;
+
                         doc.setFontSize(16);
                         doc.setTextColor(40);
-                        doc.text(mainTitle, 14, 15);
+                        doc.text(mainTitle, centerX, 15, { align: 'center' });
+
+                        doc.setFontSize(12);
+                        doc.text(subTitle, centerX, 25, { align: 'center' });
 
                         doc.setFontSize(10);
                         doc.setTextColor(80);
-                        doc.text(statsLine1, 14, 22);
-                        doc.text(statsLine2, 14, 27);
+                        doc.text(statsLine1, centerX, 33, { align: 'center' });
+                        doc.text(statsLine2, centerX, 39, { align: 'center' });
                     }
                 }
+                // didDrawPage: (data) => {
+                //     if (data.pageNumber === 1) {
+
+                //         doc.setFontSize(16);
+                //         doc.setTextColor(40);
+                //         // doc.text(mainTitle, 14, 15);
+
+                //         doc.setFontSize(12);
+                //         doc.text(subTitle, 14, 25);
+
+                //         doc.setFontSize(10);
+                //         doc.setTextColor(80);
+                //         doc.text(statsLine1, 14, 33);
+                //         doc.text(statsLine2, 14, 39);
+                //     }
+                // }
             });
 
             doc.save(`${className}_Results_${activeAssessmentType}.pdf`);
