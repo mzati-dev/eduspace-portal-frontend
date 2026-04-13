@@ -5,7 +5,7 @@ export interface StudentAttendance {
     examNumber: string;
     class: string;
     classId: string;
-    status: 'present' | 'absent' | 'late' | 'excused';
+    status: 'present' | 'absent' | 'late' | 'excused' | 'unmarked';
     checkInTime?: string;
     parentContact?: string;
     parentEmail?: string;

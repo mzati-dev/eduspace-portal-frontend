@@ -47,12 +47,13 @@ import StudentReportArchiveModal from './components/admin/modals/StudentReportAr
 import PreviewModal from './components/admin/modals/PreviewModal';
 import AdminSidebar from './components/admin/sidebar/AdminSidebar';
 // import AttendanceManagement from './components/admin/sidebar/AttendanceManagement';
-import AnalyticsManagement from './components/admin/sidebar/AnalyticsManagement';
+// import AnalyticsManagement from './components/admin/sidebar/AnalyticsManagement';
 import FeesManagement from './components/admin/sidebar/FeesManagement';
 import MessagingManagement from './components/admin/sidebar/MessagingManagement';
 import SettingsManagement from './components/admin/sidebar/SettingsManagement';
 import TimetableManagement from './components/admin/sidebar/TimetableManagement';
 import AttendanceManagement from './components/admin/sidebar/attendance/AttendanceManagement';
+import AnalyticsManagement from './components/admin/sidebar/analytics/AnalyticsManagement';
 
 interface AdminPanelProps {
     onBack: () => void;
@@ -96,7 +97,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     const [classForm, setClassForm] = useState({
         name: '',
         academic_year: '',
-        term: 'Term 1'
+        term: 'Term 1',
+        start_date: '',   // add this
+        end_date: ''      // add this
     });
     const [classLoading, setClassLoading] = useState(false);
 
@@ -341,7 +344,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             await createClass(classForm);
             showMessage('Class created successfully!');
             setShowClassForm(false);
-            setClassForm({ name: '', academic_year: '', term: 'Term 1' });
+            setClassForm({ name: '', academic_year: '', term: 'Term 1', start_date: '', end_date: '' });
             loadData();
         } catch (err: any) {
             showMessage(err.message || 'Failed to create class', true);

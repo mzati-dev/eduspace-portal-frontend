@@ -8,10 +8,10 @@ interface ClassesManagementProps {
     classes: any[];
     students: Student[];
     showClassForm: boolean;
-    classForm: { name: string; academic_year: string; term: string };
+    classForm: { name: string; academic_year: string; term: string; start_date: string; end_date: string };
     classLoading: boolean;
     setShowClassForm: (show: boolean) => void;
-    setClassForm: (form: { name: string; academic_year: string; term: string }) => void;
+    setClassForm: (form: { name: string; academic_year: string; term: string; start_date: string; end_date: string }) => void;
     handleCreateClass: (e: React.FormEvent) => Promise<void>;
     handleDeleteClass: (classId: string) => Promise<void>;
     handleDeleteStudent: (student: Student) => Promise<void>;
@@ -112,6 +112,12 @@ const ClassesManagement: React.FC<ClassesManagementProps> = ({
                                     <p className="text-sm text-indigo-600 font-mono mt-1">
                                         Class Code: {cls.class_code || 'N/A'}
                                     </p>
+
+                                    {cls.start_date && cls.end_date && (
+                                        <p className="text-sm text-emerald-600 font-medium mt-1">
+                                            📅 Term Period: {new Date(cls.start_date).toLocaleDateString('en-GB')} to {new Date(cls.end_date).toLocaleDateString('en-GB')}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="text-right">
                                     <p className="text-2xl font-bold text-emerald-600">{students.filter(s => s.class?.id === cls.id).length}</p>

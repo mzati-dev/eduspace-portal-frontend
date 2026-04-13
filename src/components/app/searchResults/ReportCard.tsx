@@ -772,7 +772,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
             y += 6;
             doc.setFontSize(12);
             doc.setFont('helvetica', 'normal');
-            doc.text('Student Term Report', pageWidth / 2, y, { align: 'center' });
+            doc.text(`Student ${studentData.term} Report Card`, pageWidth / 2, y, { align: 'center' });
 
             y += 8;
 
@@ -1352,7 +1352,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                 {/* Header with gradient */}
                 <div className="text-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-t-xl -mt-8 -mx-8 mb-6">
                     <h1 className="text-3xl font-bold tracking-wide">{schoolName}</h1>
-                    <h2 className="text-xl font-semibold mt-2 opacity-90">Complete Report Card</h2>
+                    <h2 className="text-xl font-semibold mt-2 opacity-90">Report Card</h2>
                     <div className="flex justify-center gap-4 mt-3 text-sm">
                         <span className="px-3 py-1 bg-white/20 rounded-full">Year: {studentData.academicYear}</span>
                         <span className="px-3 py-1 bg-white/20 rounded-full">Term: {studentData.term}</span>
@@ -1568,7 +1568,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
     return (
         <div ref={reportCardRef} id="report-card-content" className="space-y-6">
             <div className="flex flex-row items-center justify-between mb-4">
-                <h4 className="text-base sm:text-xl font-bold text-slate-800">Complete Report Card</h4>
+                <h4 className="text-base sm:text-xl font-bold text-slate-800">{studentData.term} Report Card</h4>
 
                 {showActions && (
                     <button

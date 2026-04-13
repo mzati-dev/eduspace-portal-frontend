@@ -21,6 +21,14 @@ export interface StudentData {
     resultsLocked?: boolean;
     message?: string;
 
+    // ADD THIS LINE - reportCards array
+    reportCards?: Array<{
+        term: string;
+        qa1_published: boolean;
+        qa2_published: boolean;
+        endOfTerm_published: boolean;
+    }>;
+
     assessmentStats?: {
         qa1: {
             classRank: number;

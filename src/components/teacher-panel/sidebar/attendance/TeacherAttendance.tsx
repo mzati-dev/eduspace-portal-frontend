@@ -1,22 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, BarChart3, Bell, Calendar, CheckCircle, Clock3, UserCheck, UserX } from 'lucide-react';
-// import {
-//     AttendanceRecord,
-//     fetchAttendanceByClassAndDate,
-//     saveAttendance,
-//     saveSingleAttendance,
-//     markAllPresent,
-//     fetchWeeklyStats,
-//     fetchClassSummaries,
-//     fetchStudentPerformance,
-//     sendAttendanceAlerts,
-//     fetchAlertHistory,
-//     fetchStudentAttendanceHistory,
-//     WeeklyStats,
-//     ClassAttendanceSummary
-// } from '@/services/attendanceService';
 import {
-    AttendanceRecord,
+
     fetchAttendanceByClassAndDate,
     saveAttendance,
     saveSingleAttendance,
@@ -28,11 +13,13 @@ import {
     fetchStudentPerformance,
     sendAttendanceAlerts,
     fetchAlertHistory,
-    fetchStudentAttendanceHistory,
+
     WeeklyStats,
-    MonthlyStats,
-    TermStats,
-    ClassAttendanceSummary
+
+    ClassAttendanceSummary,
+    fetchCurrentTerm,
+    fetchTerms,
+    fetchStudentAttendanceHistoryByDateRange
 } from '@/services/attendanceService';
 import DailyTrackingTab from './DailyTrackingTab';
 import OverviewTab from './OverviewTab';
@@ -45,7 +32,9 @@ export interface StudentAttendance {
     id: string;
     name: string;
     examNumber: string;
-    status: 'present' | 'absent' | 'late' | 'excused';
+    classId: string;      // Add this
+    class: string;
+    status: 'present' | 'absent' | 'late' | 'excused' | 'unmarked';
     checkInTime?: string;
     parentContact?: string;
 }
@@ -81,15 +70,11 @@ const TeacherAttendance: React.FC<Props> = ({
     const [attendanceData, setAttendanceData] = useState<StudentAttendance[]>([]);
     const [markingAll, setMarkingAll] = useState(false);
 
-    // Overview data states
-    // const [weeklyStats, setWeeklyStats] = useState<WeeklyStats[]>([]);
-    // const [classSummaries, setClassSummaries] = useState<ClassAttendanceSummary[]>([]);
-    // const [bestStudents, setBestStudents] = useState<any[]>([]);
-    // const [needsImprovementStudents, setNeedsImprovementStudents] = useState<any[]>([]);
-    // const [showAllBest, setShowAllBest] = useState(false);
-    // const [showAllNeeds, setShowAllNeeds] = useState(false);
-    // Overview data states
-    // Overview data states
+    // Add with other state declarations
+    const [availableTerms, setAvailableTerms] = useState<Array<{ id: string; name: string; startDate: string; endDate: string }>>([]);
+    const [selectedTerm, setSelectedTerm] = useState<string>('');
+    const [currentTerm, setCurrentTerm] = useState<{ id: string; name: string; startDate: string; endDate: string } | null>(null);
+
     const [weeklyStats, setWeeklyStats] = useState<WeeklyStats[]>([]);
     const [monthlyStats, setMonthlyStats] = useState<any[]>([]);
     const [termStats, setTermStats] = useState<any>({ averageRate: 0, highestRate: 0, lowestRate: 0, totalDays: 0, termName: 'Term 1 2024' });
@@ -106,7 +91,7 @@ const TeacherAttendance: React.FC<Props> = ({
     // Student history view states
     const [selectedStudent, setSelectedStudent] = useState<StudentAttendance | null>(null);
     const [studentHistory, setStudentHistory] = useState<any[]>([]);
-    const [historyPeriod, setHistoryPeriod] = useState<'month' | 'term'>('month');
+
     const [loadingHistory, setLoadingHistory] = useState(false);
 
     // Load attendance data when class or date changes
@@ -130,6 +115,39 @@ const TeacherAttendance: React.FC<Props> = ({
         }
     }, [viewMode, selectedClass]);
 
+    useEffect(() => {
+        loadTerms();  // changed from fetchTerms()
+    }, []);
+
+    useEffect(() => {
+        loadCurrentTerm();  // changed from fetchCurrentTerm()
+    }, []);
+
+    // Change this function name from fetchCurrentTerm to loadCurrentTerm
+    const loadCurrentTerm = async () => {
+        try {
+            const term = await fetchCurrentTerm();
+            if (term) {
+                setCurrentTerm(term);
+            }
+        } catch (error) {
+            console.error('Failed to fetch current term:', error);
+        }
+    };
+
+    // Change this function name from fetchTerms to loadTerms
+    const loadTerms = async () => {
+        try {
+            const terms = await fetchTerms();
+            setAvailableTerms(terms);
+            if (terms.length > 0) {
+                setSelectedTerm(terms[0].id);
+            }
+        } catch (error) {
+            console.error('Failed to fetch terms:', error);
+        }
+    };
+
     const loadAttendanceData = async () => {
         setLoading(true);
         try {
@@ -144,7 +162,9 @@ const TeacherAttendance: React.FC<Props> = ({
                     id: student.id,
                     name: student.name,
                     examNumber: student.examNumber,
-                    status: existing?.status || 'present',
+                    classId: student.class?.id || '',     // Add this
+                    class: student.class?.name || '',     // Add this
+                    status: existing?.status || 'unmarked',
                     checkInTime: existing?.checkInTime || (existing?.status === 'present' || existing?.status === 'late'
                         ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                         : undefined),
@@ -203,41 +223,8 @@ const TeacherAttendance: React.FC<Props> = ({
         }
     };
 
-    // const loadOverviewData = async () => {
-    //     setLoading(true);
-    //     try {
-    //         if (!teacherId) return;
 
-    //         const today = new Date();
-    //         const startOfWeek = new Date(today);
-    //         startOfWeek.setDate(today.getDate() - today.getDay());
-    //         const endOfWeek = new Date(today);
-    //         endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
 
-    //         const startDate = startOfWeek.toISOString().split('T')[0];
-    //         const endDate = endOfWeek.toISOString().split('T')[0];
-
-    //         const [summaries, best, needsImprovement] = await Promise.all([
-    //             fetchClassSummaries(teacherId),
-    //             selectedClass ? fetchStudentPerformance(selectedClass, 'best') : Promise.resolve([]),
-    //             selectedClass ? fetchStudentPerformance(selectedClass, 'needs-improvement') : Promise.resolve([])
-    //         ]);
-
-    //         setClassSummaries(summaries);
-    //         setBestStudents(best);
-    //         setNeedsImprovementStudents(needsImprovement);
-
-    //         if (selectedClass) {
-    //             const weekly = await fetchWeeklyStats(selectedClass, startDate, endDate);
-    //             setWeeklyStats(weekly);
-    //         }
-    //     } catch (err) {
-    //         showMessage('Failed to load overview data', true);
-    //         console.error('Error loading overview:', err);
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // };
 
     const loadAlertHistory = async () => {
         try {
@@ -263,20 +250,23 @@ const TeacherAttendance: React.FC<Props> = ({
             )
         );
 
-        try {
-            await saveSingleAttendance({
-                studentId,
-                classId: selectedClass,
-                date: selectedDate,
-                status: newStatus,
-                checkInTime: newStatus === 'present' || newStatus === 'late'
-                    ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : undefined
-            });
-            showMessage(`Attendance updated`);
-        } catch (err) {
-            loadAttendanceData();
-            showMessage('Failed to update attendance', true);
+        // Only save if status is not 'unmarked'
+        if (newStatus !== 'unmarked') {
+            try {
+                await saveSingleAttendance({
+                    studentId,
+                    classId: selectedClass,
+                    date: selectedDate,
+                    status: newStatus as 'present' | 'absent' | 'late' | 'excused',
+                    checkInTime: newStatus === 'present' || newStatus === 'late'
+                        ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : undefined
+                });
+                showMessage(`Attendance updated`);
+            } catch (err) {
+                loadAttendanceData();
+                showMessage('Failed to update attendance', true);
+            }
         }
     };
 
@@ -321,13 +311,16 @@ const TeacherAttendance: React.FC<Props> = ({
     const handleSaveAttendance = async () => {
         try {
             setSaving(true);
-            const records = attendanceData.map(s => ({
-                studentId: s.id,
-                classId: selectedClass,
-                date: selectedDate,
-                status: s.status,
-                checkInTime: s.checkInTime
-            }));
+            // Filter out students with 'unmarked' status
+            const records = attendanceData
+                .filter(s => s.status !== 'unmarked')
+                .map(s => ({
+                    studentId: s.id,
+                    classId: selectedClass,
+                    date: selectedDate,
+                    status: s.status as 'present' | 'absent' | 'late' | 'excused',
+                    checkInTime: s.checkInTime
+                }));
             await saveAttendance(records);
             showMessage('Attendance saved successfully');
             await loadAttendanceData();
@@ -338,30 +331,26 @@ const TeacherAttendance: React.FC<Props> = ({
             setSaving(false);
         }
     };
-
     const loadStudentHistory = async (student: StudentAttendance) => {
+        if (!selectedTerm) {
+            showMessage('Please select a term first', true);
+            return;
+        }
+
         setLoadingHistory(true);
         setSelectedStudent(student);
-
         try {
-            const endDate = new Date().toISOString().split('T')[0];
-            let startDate: string;
+            const selectedTermObj = availableTerms.find(t => t.id === selectedTerm);
+            if (!selectedTermObj) return;
 
-            if (historyPeriod === 'month') {
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                startDate = thirtyDaysAgo.toISOString().split('T')[0];
-            } else {
-                const threeMonthsAgo = new Date();
-                threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-                startDate = threeMonthsAgo.toISOString().split('T')[0];
-            }
-
-            const history = await fetchStudentAttendanceHistory(student.id, startDate, endDate);
+            const history = await fetchStudentAttendanceHistoryByDateRange(
+                student.id,
+                selectedTermObj.startDate,
+                selectedTermObj.endDate
+            );
             setStudentHistory(history);
         } catch (error) {
             showMessage('Failed to load student history', true);
-            console.error('Error loading student history:', error);
         } finally {
             setLoadingHistory(false);
         }
@@ -390,7 +379,7 @@ const TeacherAttendance: React.FC<Props> = ({
     return (
         <div className="space-y-6">
             {/* Header */}
-            {/* Header with BIG Term Display */}
+
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
@@ -408,14 +397,15 @@ const TeacherAttendance: React.FC<Props> = ({
                         </button>
                     </div>
                 </div>
-
                 {/* Term and Academic Year - BIG AND CLEAR */}
                 <div className="mt-4 pt-4 border-t border-slate-200">
                     <div className="flex items-center gap-3 bg-indigo-50 rounded-xl p-4">
                         <Calendar className="w-8 h-8 text-indigo-600" />
                         <div>
                             <p className="text-xs text-indigo-600 font-medium">CURRENT ACADEMIC PERIOD</p>
-                            <p className="text-2xl font-bold text-indigo-800">Term 1 • 2024/2025</p>
+                            <p className="text-2xl font-bold text-indigo-800">
+                                {currentTerm?.name || 'Loading term...'}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -498,6 +488,7 @@ const TeacherAttendance: React.FC<Props> = ({
                             case 'absent': return 'bg-red-100 text-red-700 border-red-200';
                             case 'late': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
                             case 'excused': return 'bg-blue-100 text-blue-700 border-blue-200';
+                            case 'unmarked': return 'bg-orange-100 text-orange-700 border-orange-300 font-semibold';
                             default: return 'bg-slate-100 text-slate-700 border-slate-200';
                         }
                     }}
@@ -507,6 +498,7 @@ const TeacherAttendance: React.FC<Props> = ({
                             case 'absent': return <UserX className="w-4 h-4" />;
                             case 'late': return <Clock3 className="w-4 h-4" />;
                             case 'excused': return <CheckCircle className="w-4 h-4" />;
+                            case 'unmarked': return <AlertCircle className="w-4 h-4" />;
                             default: return <AlertCircle className="w-4 h-4" />;
                         }
                     }}
@@ -586,10 +578,16 @@ const TeacherAttendance: React.FC<Props> = ({
                 <StudentHistoryModal
                     student={selectedStudent}
                     studentHistory={studentHistory}
-                    historyPeriod={historyPeriod}
+                    selectedTerm={selectedTerm}
+                    availableTerms={availableTerms}
                     loadingHistory={loadingHistory}
                     onClose={() => setSelectedStudent(null)}
-                    onPeriodChange={setHistoryPeriod}
+                    onTermChange={(termId) => {
+                        setSelectedTerm(termId);
+                        if (selectedStudent) {
+                            loadStudentHistory(selectedStudent);
+                        }
+                    }}
                 />
             )}
         </div>

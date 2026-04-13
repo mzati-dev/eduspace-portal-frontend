@@ -35,6 +35,8 @@ import TeacherMessages from './sidebar/MessagingCenter';
 import TeacherReports from './sidebar/TeacherReports';
 import TeacherProfile from './sidebar/TeacherProfile';
 import TeacherAttendance from './sidebar/attendance/TeacherAttendance';
+import TeacherAnalyticsManagement from './sidebar/analytics/TeacherAnalyticsManagement';
+// import TeacherAnalytics from './sidebar/TeacherAnalytics';
 
 interface TeacherPanelProps {
     onBack: () => void;
@@ -672,6 +674,17 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                             classes={teacherClasses}
                             students={students}
                             teacherId={teacherId}
+                            showMessage={showMessage}
+                        />
+                    </div>
+                ) : activeMainMenu === 'performance-analytics' ? (
+                    <div className="px-4 sm:px-6 lg:px-8 py-6">
+                        <TeacherAnalyticsManagement
+                            teacherId={teacherId}
+                            teacherName={teacherName}
+                            classes={teacherClasses}
+                            students={students}
+                            subjects={teacherSubjects}
                             showMessage={showMessage}
                         />
                     </div>

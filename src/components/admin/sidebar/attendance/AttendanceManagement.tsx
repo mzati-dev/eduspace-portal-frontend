@@ -9,7 +9,8 @@ import {
     CheckCircle,
     Clock3,
     UserCheck,
-    UserX
+    UserX,
+    AlertCircle
 } from 'lucide-react';
 
 import { StudentAttendance, Props } from './types';
@@ -19,7 +20,11 @@ import PatternsTab from './PatternsTab';
 import HistoryTab from './HistoryTab';
 import AlertsTab from './AlertsTab';
 import StudentHistoryModal from './StudentHistoryModal';
-import { fetchAttendanceByClassAndDate, fetchWeeklyStats, fetchClassSummaries, fetchAlertHistory, fetchAttendancePatterns, fetchStudentPerformance, saveSingleAttendance, markAllPresent, saveAttendance, sendAttendanceAlerts } from '@/services/attendanceService';
+import {
+    fetchAttendanceByClassAndDate, fetchWeeklyStats, fetchClassSummaries, fetchAlertHistory, fetchAttendancePatterns, fetchStudentPerformance, saveSingleAttendance, markAllPresent, saveAttendance, sendAttendanceAlerts, fetchCurrentTerm,
+    fetchTerms,
+    fetchStudentAttendanceHistoryByDateRange
+} from '@/services/attendanceService';
 import AttendanceAnalytics from './AttendanceAnalytics';
 
 const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?: any }> = ({ classes, students, showMessage, monthlyStats = [], termStats = {} }) => {
@@ -33,6 +38,10 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
     const [markingAll, setMarkingAll] = useState(false);
     const [loadingPatterns, setLoadingPatterns] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    // Add with your other state declarations
+    const [availableTerms, setAvailableTerms] = useState<Array<{ id: string; name: string; startDate: string; endDate: string }>>([]);
+    const [selectedTerm, setSelectedTerm] = useState<string>('');
+    const [currentTerm, setCurrentTerm] = useState<{ id: string; name: string; startDate: string; endDate: string } | null>(null);
 
     // Data states
     const [attendanceData, setAttendanceData] = useState<StudentAttendance[]>([]);
@@ -57,8 +66,30 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
     // History states
     const [selectedStudent, setSelectedStudent] = useState<StudentAttendance | null>(null);
     const [studentHistory, setStudentHistory] = useState<any[]>([]);
-    const [historyPeriod, setHistoryPeriod] = useState<'month' | 'term'>('month');
+
     const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+
+
+
+    useEffect(() => {
+        loadTerms();  // changed from fetchTerms()
+    }, []);
+
+    useEffect(() => {
+        loadCurrentTerm();  // changed from fetchCurrentTerm()
+    }, []);
+
+    const loadCurrentTerm = async () => {
+        try {
+            const term = await fetchCurrentTerm();  // calls imported service
+            if (term) {
+                setCurrentTerm(term);
+            }
+        } catch (error) {
+            console.error('Failed to fetch current term:', error);
+        }
+    };
 
     // Load functions (keep all your existing load functions here)
     const loadAttendanceData = async () => {
@@ -76,7 +107,7 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
                         examNumber: student.examNumber,
                         class: student.class?.name || '',
                         classId: student.class?.id || '',
-                        status: record?.status || 'present',
+                        status: record?.status || 'unmarked',  // ← CHANGE THIS
                         checkInTime: record?.checkInTime,
                         parentContact: student.parentPhone,
                         parentEmail: student.parentEmail
@@ -89,6 +120,19 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
             setLoading(false);
         }
     };
+
+    const loadTerms = async () => {
+        try {
+            const terms = await fetchTerms();  // calls imported service
+            setAvailableTerms(terms);
+            if (terms.length > 0) {
+                setSelectedTerm(terms[0].id);
+            }
+        } catch (error) {
+            console.error('Failed to fetch terms:', error);
+        }
+    };
+
 
     const loadAllClassesAttendance = async () => {
         setLoading(true);
@@ -105,7 +149,7 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
                         examNumber: student.examNumber,
                         class: cls.name,
                         classId: cls.id,
-                        status: record?.status || 'present',
+                        status: record?.status || 'unmarked',  // ← CHANGE 'present' to 'unmarked'
                         checkInTime: record?.checkInTime,
                         parentContact: student.parentPhone,
                         parentEmail: student.parentEmail
@@ -120,22 +164,6 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
         }
     };
 
-    const loadWeeklyStats = async () => {
-        if (!selectedClass || selectedClass === 'all') return;
-        try {
-            const today = new Date(selectedDate);
-            const startOfWeek = new Date(today);
-            startOfWeek.setDate(today.getDate() - today.getDay());
-            const endOfWeek = new Date(today);
-            endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
-            const startDate = startOfWeek.toISOString().split('T')[0];
-            const endDate = endOfWeek.toISOString().split('T')[0];
-            const stats = await fetchWeeklyStats(selectedClass, startDate, endDate);
-            setWeeklyStats(stats);
-        } catch (error) {
-            showMessage('Failed to load weekly stats', true);
-        }
-    };
 
     const loadClassSummaries = async () => {
         try {
@@ -207,34 +235,32 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
         }
     };
 
+
     const loadStudentHistory = async (student: StudentAttendance) => {
+        if (!selectedTerm) {
+            showMessage('Please select a term first', true);
+            return;
+        }
+
         setLoadingHistory(true);
         setSelectedStudent(student);
         try {
-            const endDate = new Date().toISOString().split('T')[0];
-            let startDate: string;
-            if (historyPeriod === 'month') {
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                startDate = thirtyDaysAgo.toISOString().split('T')[0];
-            } else {
-                const threeMonthsAgo = new Date();
-                threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-                startDate = threeMonthsAgo.toISOString().split('T')[0];
-            }
-            const response = await fetch(`https://eduspace-portal-backend.onrender.com/attendance/student/${student.id}?startDate=${startDate}&endDate=${endDate}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            const data = await response.json();
-            if (data.success) {
-                setStudentHistory(data.data);
-            }
+            const selectedTermObj = availableTerms.find(t => t.id === selectedTerm);
+            if (!selectedTermObj) return;
+
+            const history = await fetchStudentAttendanceHistoryByDateRange(
+                student.id,
+                selectedTermObj.startDate,
+                selectedTermObj.endDate
+            );
+            setStudentHistory(history);
         } catch (error) {
             showMessage('Failed to load student history', true);
         } finally {
             setLoadingHistory(false);
         }
     };
+
 
     const loadOverviewData = async () => {
         setLoading(true);
@@ -282,15 +308,27 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
         );
         try {
             const student = students.find(s => s.id === studentId);
-            await saveSingleAttendance({
-                studentId,
-                classId: student?.class?.id || '',
-                date: selectedDate,
-                status: newStatus,
-                checkInTime: newStatus === 'present' || newStatus === 'late'
-                    ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : undefined
-            });
+            // await saveSingleAttendance({
+            //     studentId,
+            //     classId: student?.class?.id || '',
+            //     date: selectedDate,
+            //     status: newStatus,
+            //     checkInTime: newStatus === 'present' || newStatus === 'late'
+            //         ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            //         : undefined
+            // });
+            // Only save if status is not 'unmarked'
+            if (newStatus !== 'unmarked') {
+                await saveSingleAttendance({
+                    studentId,
+                    classId: student?.class?.id || '',
+                    date: selectedDate,
+                    status: newStatus as 'present' | 'absent' | 'late' | 'excused',
+                    checkInTime: newStatus === 'present' || newStatus === 'late'
+                        ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : undefined
+                });
+            }
             showMessage('Status updated successfully');
         } catch (error) {
             loadAttendanceData();
@@ -322,6 +360,7 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
         }
     };
 
+
     const handleSaveAttendance = async () => {
         if (selectedClass === 'all') {
             showMessage('Please select a specific class', true);
@@ -329,13 +368,17 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
         }
         setSaving(true);
         try {
-            const records = attendanceData.map(s => ({
-                studentId: s.id,
-                classId: selectedClass,
-                date: selectedDate,
-                status: s.status,
-                checkInTime: s.checkInTime
-            }));
+            // Filter out students with 'unmarked' status - only save actual attendance records
+            const records = attendanceData
+                .filter(s => s.status !== 'unmarked')  // ← Don't save unmarked status
+                .map(s => ({
+                    studentId: s.id,
+                    classId: selectedClass,
+                    date: selectedDate,
+                    status: s.status as 'present' | 'absent' | 'late' | 'excused', // Type assertion
+                    checkInTime: s.checkInTime
+                }));
+
             await saveAttendance(records);
             showMessage('Attendance saved successfully');
             await loadAttendanceData();
@@ -374,6 +417,7 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
             case 'absent': return 'bg-red-100 text-red-700 border-red-200';
             case 'late': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
             case 'excused': return 'bg-blue-100 text-blue-700 border-blue-200';
+            case 'unmarked': return 'bg-orange-100 text-orange-700 border-orange-300 font-semibold';
             default: return 'bg-slate-100 text-slate-700 border-slate-200';
         }
     };
@@ -384,6 +428,7 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
             case 'absent': return <UserX className="w-4 h-4" />;
             case 'late': return <Clock3 className="w-4 h-4" />;
             case 'excused': return <CheckCircle className="w-4 h-4" />;
+            case 'unmarked': return <AlertCircle className="w-4 h-4" />;
             default: return <Clock className="w-4 h-4" />;
         }
     };
@@ -454,13 +499,13 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
                 </div>
 
                 {/* Term and Academic Year - BIG AND CLEAR */}
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                    <div className="flex items-center gap-3 bg-indigo-50 rounded-xl p-4">
-                        <Calendar className="w-8 h-8 text-indigo-600" />
-                        <div>
-                            <p className="text-xs text-indigo-600 font-medium">CURRENT ACADEMIC PERIOD</p>
-                            <p className="text-2xl font-bold text-indigo-800">Term 1 • 2024/2025</p>
-                        </div>
+                <div className="flex items-center gap-3 bg-indigo-50 rounded-xl p-4">
+                    <Calendar className="w-8 h-8 text-indigo-600" />
+                    <div>
+                        <p className="text-xs text-indigo-600 font-medium">CURRENT ACADEMIC PERIOD</p>
+                        <p className="text-2xl font-bold text-indigo-800">
+                            {currentTerm?.name || 'Loading term...'}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -611,13 +656,14 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
                     selectedStudent={selectedStudent}
                     studentHistory={studentHistory}
                     loadingHistory={loadingHistory}
-                    historyPeriod={historyPeriod}
+                    selectedTerm={selectedTerm}
+                    availableTerms={availableTerms}
                     onClose={() => {
                         setShowHistoryModal(false);
                         setSelectedStudent(null);
                     }}
-                    onPeriodChange={(period) => {
-                        setHistoryPeriod(period);
+                    onTermChange={(termId) => {
+                        setSelectedTerm(termId);
                         if (selectedStudent) {
                             loadStudentHistory(selectedStudent);
                         }

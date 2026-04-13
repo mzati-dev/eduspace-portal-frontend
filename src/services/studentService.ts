@@ -77,6 +77,14 @@ export interface StudentData {
   totalStudents: number;
   teacherRemarks: string;
 
+  // ADD THIS:
+  reportCards?: Array<{
+    term: string;
+    qa1_published: boolean;
+    qa2_published: boolean;
+    endOfTerm_published: boolean;
+  }>;
+
   assessmentStats?: {
     qa1: {
       classRank: number;
@@ -451,6 +459,8 @@ export const createClass = async (data: {
   name: string;
   academic_year: string;
   term: string;
+  start_date: string;
+  end_date: string;
 }): Promise<Class> => {
   const schoolId = getSchoolId();
   console.log('createClass - schoolId:', schoolId); // Should show the same ID
