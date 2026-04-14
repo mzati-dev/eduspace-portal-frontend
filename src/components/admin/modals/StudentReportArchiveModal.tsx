@@ -305,18 +305,20 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                     const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
                     const grade = getGrade(avg, passMark, studentData?.class);
                     const remark = grade === 'F' ? 'Failed' : 'Passed';
-                    return [sub.name, '100', avgDisplay, grade, remark];
+                    const status = remark;
+                    return [sub.name, '100', avgDisplay, grade, remark, status];
                 } else {
                     const score = sub[type];
                     const isAbsent = type === 'qa1' ? sub.qa1_absent :
                         type === 'qa2' ? sub.qa2_absent :
                             sub.endOfTerm_absent;
-                    if (isAbsent) return [sub.name, '100', 'AB', 'AB', 'Absent'];
+                    if (isAbsent) return [sub.name, '100', 'AB', 'AB', 'Absent', 'Absent'];
                     // const grade = score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : score >= 50 ? 'D' : 'F';
                     const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
                     const grade = getGrade(score, passMark, studentData?.class);
                     const remark = grade === 'F' ? 'Failed' : 'Passed';
-                    return [sub.name, '100', score.toFixed(1), grade, remark];
+                    const status = remark;
+                    return [sub.name, '100', score.toFixed(1), grade, remark, remark];
                 }
             }) || [];
 
@@ -356,12 +358,13 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
         }
 
         const overallRemark = overallGrade === 'F' ? 'Failed' : 'Passed';
+        const overallStatus = overallRemark;
 
-        tableBody.push(['GRAND TOTAL', String(totalPossible), totalScored.toFixed(1), overallGrade, overallRemark]);
+        tableBody.push(['GRAND TOTAL', String(totalPossible), totalScored.toFixed(1), overallGrade, overallRemark, overallStatus]);
 
         autoTable(doc, {
             startY: y,
-            head: [['Subject', 'Total Marks', 'Marks Scored', 'Grade', 'Remark']],
+            head: [['Subject', 'Total Marks', 'Marks Scored', 'Grade', 'Remark', 'Status']],
             body: tableBody,
             theme: 'striped',
             headStyles: {
@@ -996,287 +999,3 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
 
 export default StudentReportArchiveModal;
 
-
-// import React, { useState } from 'react';
-// import { X, Download, Mail, MessageSquare, Eye, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
-// import ReportCard from '@/components/app/searchResults/ReportCard';
-// import QAAssessment from '@/components/app/searchResults/QAAssessment';
-
-// interface StudentReportArchiveModalProps {
-//     isOpen: boolean;
-//     onClose: () => void;
-//     archives: any[];
-//     schoolName?: string;
-//     onSendEmail: (archiveId: string) => Promise<void>;
-//     onSendWhatsApp: (archiveId: string) => Promise<void>;
-//     onSendSMS?: (archiveId: string) => Promise<void>;
-// }
-
-// const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
-//     isOpen,
-//     onClose,
-//     archives,
-//     schoolName = 'School Name',
-//     onSendEmail,
-//     onSendWhatsApp,
-//     onSendSMS
-// }) => {
-//     const [selectedArchive, setSelectedArchive] = useState<any>(null);
-//     const [showDetail, setShowDetail] = useState(false);
-//     const [sendingId, setSendingId] = useState<string | null>(null);
-//     const [selectedReportType, setSelectedReportType] = useState<'qa1' | 'qa2' | 'endOfTerm' | 'overall'>('overall');
-//     const [selectedStudentIndex, setSelectedStudentIndex] = useState(0);
-
-//     if (!isOpen) return null;
-
-//     const handleSendEmail = async (archiveId: string) => {
-//         setSendingId(archiveId);
-//         try {
-//             await onSendEmail(archiveId);
-//         } finally {
-//             setSendingId(null);
-//         }
-//     };
-
-//     const handleSendWhatsApp = async (archiveId: string) => {
-//         setSendingId(archiveId);
-//         try {
-//             await onSendWhatsApp(archiveId);
-//         } finally {
-//             setSendingId(null);
-//         }
-//     };
-
-//     const handleSendSMS = async (archiveId: string) => {
-//         setSendingId(archiveId);
-//         try {
-//             if (onSendSMS) {
-//                 await onSendSMS(archiveId);
-//             } else {
-//                 const archive = archives.find(a => a.id === archiveId);
-//                 if (archive?.whatsappNumber) {
-//                     window.location.href = `sms:${archive.whatsappNumber}`;
-//                 }
-//             }
-//         } finally {
-//             setSendingId(null);
-//         }
-//     };
-
-//     // Group archives by student
-//     const studentArchives = archives.filter(a => a.studentId === selectedArchive?.studentId);
-//     const availableTypes = studentArchives.map(a => a.assessmentType);
-
-//     return (
-//         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-//             <div className="bg-white rounded-xl shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden">
-//                 <div className="flex items-center justify-between p-6 border-b border-slate-200">
-//                     <h2 className="text-xl font-semibold text-slate-800">📄 Student Report Archives</h2>
-//                     <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-//                         <X className="w-5 h-5 text-slate-500" />
-//                     </button>
-//                 </div>
-
-//                 <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-//                     {!showDetail ? (
-//                         // GRID VIEW - Show all archives
-//                         archives.length === 0 ? (
-//                             <div className="text-center py-12">
-//                                 <p className="text-slate-500">No student report archives found</p>
-//                             </div>
-//                         ) : (
-//                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-//                                 {archives.map((archive) => {
-//                                     const studentData = archive.reportCardData;
-//                                     return (
-//                                         <div key={archive.id} className="border border-slate-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
-//                                             <div className="mb-3">
-//                                                 <h3 className="font-semibold text-slate-800">{studentData?.name || archive.studentName}</h3>
-//                                                 <p className="text-xs text-slate-500">{studentData?.examNumber || archive.examNumber}</p>
-//                                             </div>
-
-//                                             <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-//                                                 <div className="bg-slate-50 p-2 rounded">
-//                                                     <p className="text-xs text-slate-500">Term</p>
-//                                                     <p className="font-semibold">{studentData?.term || archive.term}</p>
-//                                                 </div>
-//                                                 <div className="bg-slate-50 p-2 rounded">
-//                                                     <p className="text-xs text-slate-500">Type</p>
-//                                                     <p className="font-semibold uppercase">
-//                                                         {archive.assessmentType === 'qa1' ? 'QA1' :
-//                                                             archive.assessmentType === 'qa2' ? 'QA2' :
-//                                                                 archive.assessmentType === 'endOfTerm' ? 'End Term' : 'Overall'}
-//                                                     </p>
-//                                                 </div>
-//                                             </div>
-
-//                                             {/* Single View Button */}
-//                                             <button
-//                                                 onClick={() => {
-//                                                     setSelectedArchive(archive);
-//                                                     setSelectedReportType(archive.assessmentType === 'overall' ? 'overall' :
-//                                                         archive.assessmentType as 'qa1' | 'qa2' | 'endOfTerm');
-//                                                     setShowDetail(true);
-//                                                 }}
-//                                                 className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors flex items-center justify-center gap-1 mb-2"
-//                                             >
-//                                                 <Eye className="w-4 h-4" />
-//                                                 View Report
-//                                             </button>
-
-//                                             {/* Sharing Buttons Section */}
-//                                             <div className="border-t border-slate-100 pt-3 mt-1">
-//                                                 <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-//                                                     <Share2 className="w-3 h-3" /> Share
-//                                                 </p>
-//                                                 <div className="flex gap-2">
-//                                                     {archive.parentEmail && (
-//                                                         <button
-//                                                             onClick={() => handleSendEmail(archive.id)}
-//                                                             disabled={sendingId === archive.id}
-//                                                             className="flex-1 px-2 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white text-xs rounded-lg transition-colors flex items-center justify-center gap-1"
-//                                                             title="Send via Email"
-//                                                         >
-//                                                             <Mail className="w-3 h-3" />
-//                                                             Email
-//                                                         </button>
-//                                                     )}
-
-//                                                     {archive.whatsappNumber && (
-//                                                         <button
-//                                                             onClick={() => handleSendWhatsApp(archive.id)}
-//                                                             disabled={sendingId === archive.id}
-//                                                             className="flex-1 px-2 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white text-xs rounded-lg transition-colors flex items-center justify-center gap-1"
-//                                                             title="Send via WhatsApp"
-//                                                         >
-//                                                             <MessageSquare className="w-3 h-3" />
-//                                                             WhatsApp
-//                                                         </button>
-//                                                     )}
-
-//                                                     {/* Built-in Messaging Button */}
-//                                                     {archive.whatsappNumber && (
-//                                                         <button
-//                                                             onClick={() => handleSendSMS(archive.id)}
-//                                                             disabled={sendingId === archive.id}
-//                                                             className="flex-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-400 text-white text-xs rounded-lg transition-colors flex items-center justify-center gap-1"
-//                                                             title="Send via SMS"
-//                                                         >
-//                                                             <MessageSquare className="w-3 h-3" />
-//                                                             SMS
-//                                                         </button>
-//                                                     )}
-//                                                 </div>
-//                                             </div>
-//                                         </div>
-//                                     );
-//                                 })}
-//                             </div>
-//                         )
-//                     ) : (
-//                         // DETAIL VIEW - Show full report with PDF-only view
-//                         <div>
-//                             <button
-//                                 onClick={() => setShowDetail(false)}
-//                                 className="mb-4 text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
-//                             >
-//                                 ← Back to Archives
-//                             </button>
-
-//                             {selectedArchive && (
-//                                 <div>
-//                                     {/* Report Type Selector - if multiple archives for same student */}
-//                                     {studentArchives.length > 1 && (
-//                                         <div className="mb-4 p-4 bg-slate-50 rounded-lg">
-//                                             <div className="flex items-center gap-4">
-//                                                 <label className="text-sm font-medium text-slate-700">View Report:</label>
-//                                                 <select
-//                                                     value={selectedReportType}
-//                                                     onChange={(e) => setSelectedReportType(e.target.value as any)}
-//                                                     className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm"
-//                                                 >
-//                                                     {availableTypes.includes('qa1') && (
-//                                                         <option value="qa1">Quarterly Assessment 1 (QA1)</option>
-//                                                     )}
-//                                                     {availableTypes.includes('qa2') && (
-//                                                         <option value="qa2">Quarterly Assessment 2 (QA2)</option>
-//                                                     )}
-//                                                     {availableTypes.includes('endOfTerm') && (
-//                                                         <option value="endOfTerm">End of Term</option>
-//                                                     )}
-//                                                     <option value="overall">Complete Report Card (Overall)</option>
-//                                                 </select>
-//                                             </div>
-//                                         </div>
-//                                     )}
-
-//                                     {/* Render the appropriate component with PDF-only view */}
-//                                     <div className="bg-white rounded-lg shadow-lg overflow-auto max-h-[60vh] p-4">
-//                                         {selectedReportType === 'overall' ? (
-//                                             <ReportCard
-//                                                 studentData={selectedArchive.reportCardData}
-//                                                 showActions={false}
-//                                                 showPDFOnly={true}
-//                                             />
-//                                         ) : (
-//                                             <QAAssessment
-//                                                 studentData={selectedArchive.reportCardData}
-//                                                 activeTab={selectedReportType}
-//                                                 showPDFOnly={true}
-//                                             />
-//                                         )}
-//                                     </div>
-
-//                                     {/* Email/WhatsApp/SMS buttons in detail view */}
-//                                     <div className="mt-6 flex gap-2 justify-end border-t pt-4">
-//                                         {selectedArchive.parentEmail && (
-//                                             <button
-//                                                 onClick={() => handleSendEmail(selectedArchive.id)}
-//                                                 disabled={sendingId === selectedArchive.id}
-//                                                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white rounded-lg flex items-center gap-2"
-//                                             >
-//                                                 <Mail className="w-4 h-4" />
-//                                                 {sendingId === selectedArchive.id ? 'Sending...' : 'Send Email'}
-//                                             </button>
-//                                         )}
-//                                         {selectedArchive.whatsappNumber && (
-//                                             <button
-//                                                 onClick={() => handleSendWhatsApp(selectedArchive.id)}
-//                                                 disabled={sendingId === selectedArchive.id}
-//                                                 className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white rounded-lg flex items-center gap-2"
-//                                             >
-//                                                 <MessageSquare className="w-4 h-4" />
-//                                                 {sendingId === selectedArchive.id ? 'Sending...' : 'Send WhatsApp'}
-//                                             </button>
-//                                         )}
-//                                         {selectedArchive.whatsappNumber && (
-//                                             <button
-//                                                 onClick={() => handleSendSMS(selectedArchive.id)}
-//                                                 disabled={sendingId === selectedArchive.id}
-//                                                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-400 text-white rounded-lg flex items-center gap-2"
-//                                             >
-//                                                 <MessageSquare className="w-4 h-4" />
-//                                                 {sendingId === selectedArchive.id ? 'Sending...' : 'Send SMS'}
-//                                             </button>
-//                                         )}
-//                                     </div>
-//                                 </div>
-//                             )}
-//                         </div>
-//                     )}
-//                 </div>
-
-//                 <div className="border-t border-slate-200 p-4 bg-slate-50">
-//                     <button
-//                         onClick={onClose}
-//                         className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-colors"
-//                     >
-//                         Close
-//                     </button>
-//                 </div>
-//             </div>
-//         </div>
-//     );
-// };
-
-// export default StudentReportArchiveModal;
