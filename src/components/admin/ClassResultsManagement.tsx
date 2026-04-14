@@ -46,18 +46,21 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
     useEffect(() => {
         const fetchSchoolName = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const response = await fetch('https://eduspace-portal-backend.onrender.com/schools', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (response.ok) {
-                    const schools = await response.json();
-                    if (schools.length > 0) {
-                        setSchoolName(schools[0].name);
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    // Try different possible field names
+                    const schoolName = user.school?.name || user.schoolName || user.school_name;
+                    if (schoolName) {
+                        setSchoolName(schoolName);
+                        return;
                     }
                 }
+                // Fallback if no school name in user object
+                setSchoolName('School Name');
             } catch (error) {
-                console.error('Failed to load school name');
+                console.error('Failed to load school name:', error);
+                setSchoolName('School Name');
             }
         };
         fetchSchoolName();
@@ -657,6 +660,7 @@ const ClassResultsManagement: React.FC<ClassResultsManagementProps> = ({
                                 ))}
                             </div>
                         </div>
+
                     </div>
                 </div>
 

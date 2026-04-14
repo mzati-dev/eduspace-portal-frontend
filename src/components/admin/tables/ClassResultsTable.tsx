@@ -512,28 +512,54 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
-                <h3 className="font-semibold text-slate-800">
-                    {activeAssessmentType === 'overall' ? 'Overall Results' :
-                        activeAssessmentType === 'qa1' ? 'QA1 Results' :
-                            activeAssessmentType === 'qa2' ? 'QA2 Results' : 'End Term Results'}
-                </h3>
-                <p className="text-sm text-slate-500 mt-1">
-                    {activeAssessmentType === 'overall'
-                        ? activeConfig
-                            ? `Based on ${activeConfig.configuration_name} calculation`
-                            : 'Based on average of all tests'
-                        : `Ranked by ${activeAssessmentType} score`}
-                </p>
-                {activeAssessmentType === 'overall' && activeConfig && (
-                    <p className="text-xs text-indigo-600 mt-1">
-                        {activeConfig.calculation_method === 'weighted_average'
-                            ? `Weights: QA1: ${activeConfig.weight_qa1}%, QA2: ${activeConfig.weight_qa2}%, End Term: ${activeConfig.weight_end_of_term}%`
-                            : activeConfig.calculation_method === 'end_of_term_only'
-                                ? 'End of Term Only Calculation'
-                                : 'Average of All Tests'}
+                <div className="flex justify-between items-start">
+                    <h3 className="font-semibold text-slate-800">
+                        {activeAssessmentType === 'overall' ? 'Overall Results' :
+                            activeAssessmentType === 'qa1' ? 'QA1 Results' :
+                                activeAssessmentType === 'qa2' ? 'QA2 Results' : 'End Term Results'}
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1">
+                        {activeAssessmentType === 'overall'
+                            ? activeConfig
+                                ? `Based on ${activeConfig.configuration_name} calculation`
+                                : 'Based on average of all tests'
+                            : `Ranked by ${activeAssessmentType} score`}
                     </p>
-                )}
+                    {activeAssessmentType === 'overall' && activeConfig && (
+                        <p className="text-xs text-indigo-600 mt-1">
+                            {activeConfig.calculation_method === 'weighted_average'
+                                ? `Weights: QA1: ${activeConfig.weight_qa1}%, QA2: ${activeConfig.weight_qa2}%, End Term: ${activeConfig.weight_end_of_term}%`
+                                : activeConfig.calculation_method === 'end_of_term_only'
+                                    ? 'End of Term Only Calculation'
+                                    : 'Average of All Tests'}
+                        </p>
+                    )}
+                    {/* Download Button - Far Right */}
+
+                    {!hideDownload && (  // ← ADD THIS CONDITION
+                        <button
+                            onClick={onExport}
+                            disabled={isDownloading}
+                            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 ${isDownloading ? 'bg-indigo-400 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-700'
+                                } text-white`}
+                        >
+                            {isDownloading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Generating...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="w-4 h-4" />
+                                    <span>Download</span>
+                                </>
+                            )}
+                        </button>
+                    )}
+
+                </div>
             </div>
+
 
             <div className="overflow-x-auto">
                 <table className="w-full">
@@ -754,28 +780,7 @@ const ClassResultsTable: React.FC<ClassResultsTableProps> = ({
             </div> */}
 
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-                {!hideDownload && (  // ← ADD THIS CONDITION
-                    <button
-                        onClick={onExport}
-                        disabled={isDownloading}
-                        className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 ${isDownloading ? 'bg-indigo-400 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-700'
-                            } text-white`}
-                    >
-                        {isDownloading ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>Generating...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Download className="w-4 h-4" />
-                                <span>Download</span>
-                            </>
-                        )}
-                    </button>
-                )}
-            </div>
+
         </div>
     );
 };
