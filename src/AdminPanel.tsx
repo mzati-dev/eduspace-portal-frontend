@@ -54,13 +54,14 @@ import SettingsManagement from './components/admin/sidebar/SettingsManagement';
 import TimetableManagement from './components/admin/sidebar/TimetableManagement';
 import AttendanceManagement from './components/admin/sidebar/attendance/AttendanceManagement';
 import AnalyticsManagement from './components/admin/sidebar/analytics/AnalyticsManagement';
+import ExternalResultsManagement from './components/admin/ExternalResultsManagement';
 
 interface AdminPanelProps {
     onBack: () => void;
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
-    const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults'>('classes');
+    const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults' | 'externalResults'>('classes');
     const [students, setStudents] = useState<Student[]>([]);
     const [subjects, setSubjects] = useState<SubjectRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -792,7 +793,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         }
     };
 
-    const handleTabChange = (tab: 'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults') => {
+    const handleTabChange = (tab: 'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults' | 'externalResults') => {
         setActiveTab(tab);
         setSelectedStudent(null);
     };
@@ -956,6 +957,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
     // NEW: used by `AdminHeader` and `AdminSidebar` branding
     const schoolInitial = (schoolName || 'School').charAt(0).toUpperCase();
+    const determineSchoolLevel = () => {
+        const hasPrimaryClasses = classes.some(c =>
+            c.name?.toLowerCase().includes('standard') ||
+            c.name?.toLowerCase().includes('std')
+        );
+        const hasSecondaryClasses = classes.some(c =>
+            c.name?.toLowerCase().includes('form')
+        );
+
+        if (hasPrimaryClasses && !hasSecondaryClasses) {
+            return 'primary';
+        }
+        return 'secondary';
+    };
 
     return (
         <div className="min-h-screen bg-slate-100 overflow-x-hidden md:flex">
@@ -1135,6 +1150,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                                             startEditConfig={startEditConfig}
                                             loadData={loadData}
                                         />
+                                    ) : activeTab === 'externalResults' ? (
+                                        <ExternalResultsManagement
+                                            classes={classes}
+                                            students={students}
+                                            subjects={subjects}
+                                            schoolLevel={determineSchoolLevel()}
+                                            showMessage={showMessage}
+                                        />
+
                                     ) : activeTab === 'classResults' ? (
                                         <>
                                             {/* Add buttons above ClassResultsManagement */}
@@ -1274,6 +1298,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                                             setSuccessMessage={setSuccessMessage}
                                             setShowSuccessModal={setShowSuccessModal}
                                             setErrorMessage={setErrorMessage}
+                                            schoolLevel={determineSchoolLevel()}
                                         />
 
                                     )}
@@ -1472,6 +1497,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                             students={students}
                             subjects={subjects}
                             showMessage={showMessage}
+                            schoolLevel={determineSchoolLevel()}
                         />
                     </div>
                 ) : activeMainMenu === 'fees' ? (

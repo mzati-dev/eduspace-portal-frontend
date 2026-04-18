@@ -102,9 +102,9 @@ export interface TeacherStudentHistorical {
 export interface TeacherStudentDetail {
     id: string;
     name: string;
+    examNumber: string;        // ← REPLACES rollNo
     className: string;
-    batch: string;
-    rollNo: string;
+    // batch removed
     status: string;
     classTeacher: string;
     currentMarks: number;
@@ -148,5 +148,8 @@ export interface TeacherCompareData {
     classes: TeacherCompareDepartment[];
     newRiskStudents: TeacherCompareRiskStudent[];
 }
+
+
+
 
 export type TeacherViewType = 'main' | 'class' | 'student' | 'compare';

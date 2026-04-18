@@ -1,9 +1,9 @@
 import React from 'react';
-import { Users, BookOpen, FileText, Settings, Award } from 'lucide-react';
+import { Users, BookOpen, FileText, Settings, Award, Globe } from 'lucide-react';
 
 interface AdminTabsProps {
-    activeTab: 'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults';
-    onTabChange: (tab: 'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults') => void;
+    activeTab: 'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults' | 'externalResults';
+    onTabChange: (tab: 'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults' | 'externalResults') => void;
 }
 
 const AdminTabs: React.FC<AdminTabsProps> = ({ activeTab, onTabChange }) => {
@@ -13,7 +13,8 @@ const AdminTabs: React.FC<AdminTabsProps> = ({ activeTab, onTabChange }) => {
         { id: 'teachers' as const, label: 'Manage Teachers', icon: Users },
         { id: 'subjects' as const, label: 'Manage Subjects', icon: BookOpen },
         { id: 'results' as const, label: 'Enter Results', icon: FileText },
-        { id: 'classResults' as const, label: 'Class Results', icon: Award },
+        { id: 'classResults' as const, label: 'Internal Results', icon: Award },
+        { id: 'externalResults' as const, label: 'External Results', icon: Globe },
         { id: 'gradeConfig' as const, label: 'Grade Configuration', icon: Settings },
     ];
 

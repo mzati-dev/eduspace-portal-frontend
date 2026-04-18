@@ -102,9 +102,10 @@ export interface StudentHistorical {
 export interface StudentDetail {
     id: string;
     name: string;
+    examNumber: string;        // Changed from rollNo to examNumber
     grade: string;
-    batch: string;
-    rollNo: string;
+    // batch removed
+    // rollNo removed
     status: string;
     classTeacher: string;
     currentMarks: number;
@@ -150,7 +151,6 @@ export interface CompareData {
 }
 
 export type ViewType = 'main' | 'student' | 'compare';
-// components/admin/analytics/types.ts
 
 // Add these new interfaces
 
@@ -180,13 +180,7 @@ export interface ExamAnalysis {
     totalStudents: number;
     passed: number;
     passRate: number;
-    divisionBreakdown: {
-        divisionI: number;
-        divisionII: number;
-        divisionIII: number;
-        divisionIV: number;
-        fail: number;
-    };
+
     topPerformers: StudentExamPerformance[];
     atRiskStudents: StudentExamPerformance[];
     subjectPerformance: {
@@ -196,7 +190,7 @@ export interface ExamAnalysis {
         highestScore: number;
         lowestScore: number;
     }[];
-    allStudents?: {  // ← ADD THIS
+    allStudents?: {
         studentId: string;
         name: string;
         examNumber: string;
@@ -204,7 +198,6 @@ export interface ExamAnalysis {
         totalPoints: number;
         averageScore: number;
         passed: boolean;
-        division: string;
     }[];
 }
 
