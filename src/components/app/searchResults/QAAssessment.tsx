@@ -1232,7 +1232,7 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                     </p>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                         <div className="bg-white p-2 rounded shadow-sm"><span className="font-medium text-purple-700">Assessment Type:</span> {getAssessmentTitle(assessmentType)}</div>
-                        <div className="bg-white p-2 rounded shadow-sm"><span className="font-medium text-purple-700">Subjects Assessed:</span> {subjectsWithScores.length}/{studentData.subjects.length}</div>
+                        <div className="bg-white p-2 rounded shadow-sm"><span className="font-medium text-purple-700">Subjects Assessed:</span> {subjectsWithScores.length}</div>
                         <div className="bg-white p-2 rounded shadow-sm"><span className="font-medium text-purple-700">Average Score:</span> {avgScore}%</div>
                         <div className="bg-white p-2 rounded shadow-sm"><span className="font-medium text-purple-700">Class Position:</span> {displayRank}</div>
 
@@ -1406,7 +1406,7 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
                 <div className="mt-4 grid grid-cols-4 gap-3">
                     <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-3 rounded-lg text-center border border-emerald-200">
                         <p className="text-xs text-emerald-700">Subjects Passed</p>
-                        <p className="text-xl font-bold text-emerald-800">{subjectsPassed}/{subjectsWithScores.length}</p>
+                        <p className="text-xl font-bold text-emerald-800">{subjectsPassed}</p>
                     </div>
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg text-center border border-blue-200">
                         <p className="text-xs text-blue-700">A & B Grades</p>

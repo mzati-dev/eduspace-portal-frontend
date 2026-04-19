@@ -784,9 +784,45 @@ export const archiveResults = async (classId: string, term: string, academicYear
 //   return res.json();
 // };
 
-export const fetchArchivedResults = async (classId: string, term: string, academicYear: string) => {
+// export const fetchArchivedResults = async (classId: string, term: string, academicYear: string) => {
+//   const schoolId = getSchoolId();
+//   const url = `${API_BASE_URL}/api/classes/archived-results?classId=${classId}&term=${term}&academicYear=${academicYear}${schoolId ? `&schoolId=${schoolId}` : ''}`;
+
+//   try {
+//     const res = await fetch(url, {
+//       headers: authHeaders()
+//     });
+
+//     if (!res.ok) {
+//       if (res.status === 404) return [];
+//       throw new Error('Failed to fetch archived results');
+//     }
+
+//     // Check if response has content
+//     const text = await res.text();
+//     if (!text) return [];
+
+//     // Parse JSON
+//     const data = JSON.parse(text);
+
+//     // Always return an array
+//     return Array.isArray(data) ? data : (data ? [data] : []);
+
+//   } catch (error) {
+//     console.error('Error fetching archived results:', error);
+//     return []; // Return empty array on error
+//   }
+// };
+
+export const fetchArchivedResults = async (classId?: string, term?: string, academicYear?: string) => {
   const schoolId = getSchoolId();
-  const url = `${API_BASE_URL}/api/classes/archived-results?classId=${classId}&term=${term}&academicYear=${academicYear}${schoolId ? `&schoolId=${schoolId}` : ''}`;
+
+  let url = `${API_BASE_URL}/api/classes/archived-results?schoolId=${schoolId}`;
+
+  // Only add filters if provided
+  if (classId && classId !== '') {
+    url += `&classId=${classId}&term=${term}&academicYear=${academicYear}`;
+  }
 
   try {
     const res = await fetch(url, {
@@ -798,19 +834,15 @@ export const fetchArchivedResults = async (classId: string, term: string, academ
       throw new Error('Failed to fetch archived results');
     }
 
-    // Check if response has content
     const text = await res.text();
     if (!text) return [];
 
-    // Parse JSON
     const data = JSON.parse(text);
-
-    // Always return an array
     return Array.isArray(data) ? data : (data ? [data] : []);
 
   } catch (error) {
     console.error('Error fetching archived results:', error);
-    return []; // Return empty array on error
+    return [];
   }
 };
 
@@ -974,11 +1006,28 @@ export const sendReportWhatsApp = async (archiveId: string) => {
   return res.json();
 };
 
-export const fetchStudentReportArchives = async (classId?: string, term?: string) => {
+// export const fetchStudentReportArchives = async (classId?: string, term?: string) => {
+//   const schoolId = getSchoolId();
+//   let url = `${API_BASE_URL}/api/classes/student-report-archives?schoolId=${schoolId}`;  // ✅ FIXED
+//   if (classId) url += `&classId=${classId}`;
+//   if (term) url += `&term=${term}`;
+
+//   const res = await fetch(url, {
+//     headers: authHeaders()
+//   });
+
+//   if (!res.ok) {
+//     if (res.status === 404) return [];
+//     throw new Error('Failed to fetch student report archives');
+//   }
+//   return res.json();
+// };
+export const fetchStudentReportArchives = async (classId?: string, term?: string, academicYear?: string) => {
   const schoolId = getSchoolId();
-  let url = `${API_BASE_URL}/api/classes/student-report-archives?schoolId=${schoolId}`;  // ✅ FIXED
-  if (classId) url += `&classId=${classId}`;
-  if (term) url += `&term=${term}`;
+  let url = `${API_BASE_URL}/api/classes/student-report-archives?schoolId=${schoolId}`;
+  if (classId && classId !== '') url += `&classId=${classId}`;
+  if (term && term !== '') url += `&term=${term}`;
+  if (academicYear && academicYear !== '') url += `&academicYear=${academicYear}`;
 
   const res = await fetch(url, {
     headers: authHeaders()

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Download, Mail, MessageSquare, Eye, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
+import { X, Download, Mail, MessageSquare, Eye, ChevronLeft, ChevronRight, Share2, Filter } from 'lucide-react';
 import ReportCard from '@/components/app/searchResults/ReportCard';
 import QAAssessment from '@/components/app/searchResults/QAAssessment';
 import jsPDF from 'jspdf';
@@ -31,6 +31,10 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
     const [selectedReportType, setSelectedReportType] = useState<'qa1' | 'qa2' | 'endOfTerm' | 'overall'>('overall');
     const reportCardRef = useRef<HTMLDivElement>(null);
     const qaAssessmentRef = useRef<HTMLDivElement>(null);
+    const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all');
+    const [selectedTermFilter, setSelectedTermFilter] = useState<string>('all');
+    const [selectedYearFilter, setSelectedYearFilter] = useState<string>('all');
+    const [searchStudent, setSearchStudent] = useState<string>('');
 
     if (!isOpen) return null;
 
@@ -99,7 +103,25 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
     //     if (score >= 50) return 'D';
     //     return 'F';
     // };
+    const hasValidScore = (subject: any, type: string): boolean => {
+        // For overall report, check if student has ANY valid score (qa1, qa2, or endOfTerm)
+        if (type === 'overall') {
+            const hasQa1 = subject.qa1 !== null && subject.qa1 !== undefined && typeof subject.qa1 === 'number';
+            const hasQa2 = subject.qa2 !== null && subject.qa2 !== undefined && typeof subject.qa2 === 'number';
+            const hasEndOfTerm = subject.endOfTerm !== null && subject.endOfTerm !== undefined && typeof subject.endOfTerm === 'number';
+            return hasQa1 || hasQa2 || hasEndOfTerm;
+        }
 
+        // For QA reports
+        const score = subject[type];
+        const isAbsent = type === 'qa1' ? subject.qa1_absent :
+            type === 'qa2' ? subject.qa2_absent :
+                subject.endOfTerm_absent;
+
+        if (isAbsent) return true;
+        if (score === null || score === undefined) return false;
+        return typeof score === 'number' && !isNaN(score);
+    };
     const getGrade = (score: number, passMark: number = 50, className?: string): string => {
         const isForm3Or4 = className && (
             className.includes('Form 3') ||
@@ -196,7 +218,7 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
         doc.setFontSize(10);
 
         if (type === 'overall') {
-            doc.text(`Class Position: ${studentData?.classRank || 'N/A'}/${studentData?.totalStudents || 'N/A'}`, 14, y + 8);
+            doc.text(`Class Position: ${studentData?.classRank || 'N/A'}`, 14, y + 8);
 
             const overallStatus = studentData ? (studentData.classRank > 0 ? 'PASSED' : 'N/A') : 'N/A';
             doc.text(`Overall Status: `, 120, y + 8);
@@ -235,7 +257,8 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
             ) || [];
 
             doc.text(`Assessment Type: ${title}`, 14, y + 8);
-            doc.text(`Subjects Assessed: ${subjectsWithScores.length}/${studentData?.subjects?.length || 0}`, 120, y + 8);
+            doc.text(`Subjects Assessed: ${subjectsWithScores.length}`, 120, y + 8);
+
 
             const scores = subjectsWithScores.map((s: any) => s[type]).filter((s: any) => typeof s === 'number');
             const avgScore = scores.length > 0 ? (scores.reduce((a: number, b: number) => a + b, 0) / scores.length).toFixed(1) : 'N/A';
@@ -243,7 +266,7 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
             doc.text(`Average Score: ${avgScore}%`, 14, y + 14);
             doc.text(`Class Position: ${studentData?.assessmentStats?.[type]?.classRank || 'N/A'}`, 120, y + 14);
 
-            const passMark = 50;
+            const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
             const status = avgScore !== 'N/A' ? (parseFloat(avgScore) >= passMark ? 'PASSED' : 'FAILED') : 'N/A';
             const grade = avgScore !== 'N/A' ?
                 (parseFloat(avgScore) >= 80 ? 'A' :
@@ -455,6 +478,17 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
 
         const weakSubjects = studentData?.subjects
             ?.filter((s: any) => {
+                const score = type === 'overall' ?
+                    (s.finalScore || ((s.qa1 || 0) + (s.qa2 || 0) + (s.endOfTerm || 0)) / 3) :
+                    s[type];
+
+                // For overall report, ONLY include subjects that have a valid score (not 0 or null)
+                if (type === 'overall') {
+                    // Check if the student actually has a valid score for this subject
+                    const hasValidScore = s.finalScore !== null && s.finalScore !== undefined && s.finalScore !== 0;
+                    if (!hasValidScore) return false;
+                }
+
                 const isAbsent = type !== 'overall' && (
                     (type === 'qa1' && s.qa1_absent) ||
                     (type === 'qa2' && s.qa2_absent) ||
@@ -462,13 +496,14 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                 );
                 if (isAbsent) return false;
 
-                const score = type === 'overall' ?
-                    (s.finalScore || ((s.qa1 || 0) + (s.qa2 || 0) + (s.endOfTerm || 0)) / 3) :
-                    s[type];
                 if (typeof score !== 'number') return false;
-                // const grade = getGrade(score, studentData?.class);
                 const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
                 const grade = getGrade(score, passMark, studentData?.class);
+
+                // For points system (Form 3/4)
+                if (grade >= '1' && grade <= '9') {
+                    return grade === '7' || grade === '8' || grade === '9';
+                }
                 return ['D', 'F'].includes(grade);
             }) || [];
 
@@ -499,24 +534,43 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
         y += 38;
 
         // ===== Performance Stats Grid =====
-        const subjectsPassed = studentData?.subjects
-            ?.filter((s: any) => {
-                const isAbsent = type !== 'overall' && (
-                    (type === 'qa1' && s.qa1_absent) ||
-                    (type === 'qa2' && s.qa2_absent) ||
-                    (type === 'endOfTerm' && s.endOfTerm_absent)
-                );
-                if (isAbsent) return false;
+        // const subjectsPassed = studentData?.subjects
+        //     ?.filter((s: any) => {
+        //         const isAbsent = type !== 'overall' && (
+        //             (type === 'qa1' && s.qa1_absent) ||
+        //             (type === 'qa2' && s.qa2_absent) ||
+        //             (type === 'endOfTerm' && s.endOfTerm_absent)
+        //         );
+        //         if (isAbsent) return false;
 
+        //         const score = type === 'overall' ?
+        //             (s.finalScore || ((s.qa1 || 0) + (s.qa2 || 0) + (s.endOfTerm || 0)) / 3) :
+        //             s[type];
+        //         if (typeof score !== 'number') return false;
+
+        //         // const grade = getGrade(score, studentData?.class);
+        //         const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
+        //         const grade = getGrade(score, passMark, studentData?.class);
+        //         return grade !== 'F';
+        //     }).length || 0;
+
+
+
+        // ===== Performance Stats Grid =====
+        // Define subjects with valid scores for the current assessment type
+        const subjectsWithValidScores = studentData?.subjects?.filter((s: any) =>
+            hasValidScore(s, type)
+        ) || [];
+
+        const subjectsPassed = subjectsWithValidScores
+            ?.filter((s: any) => {
                 const score = type === 'overall' ?
                     (s.finalScore || ((s.qa1 || 0) + (s.qa2 || 0) + (s.endOfTerm || 0)) / 3) :
                     s[type];
                 if (typeof score !== 'number') return false;
-
-                // const grade = getGrade(score, studentData?.class);
                 const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
                 const grade = getGrade(score, passMark, studentData?.class);
-                return grade !== 'F';
+                return grade !== 'F' && grade !== '9';
             }).length || 0;
 
         const abGrades = studentData?.subjects
@@ -559,19 +613,26 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                 return grade === 'C' || grade === 'D';
             }).length || 0;
 
-        const passMark = 50;
+
+        const passMark = studentData?.gradeConfiguration?.pass_mark || 50;
         const belowPass = studentData?.subjects
             ?.filter((s: any) => {
-                const isAbsent = type !== 'overall' && (
-                    (type === 'qa1' && s.qa1_absent) ||
+                // For overall report, ONLY include subjects that have a valid final score
+                if (type === 'overall') {
+                    const hasValidScore = s.finalScore !== null && s.finalScore !== undefined && s.finalScore !== 0;
+                    if (!hasValidScore) return false;
+
+                    const score = s.finalScore || ((s.qa1 || 0) + (s.qa2 || 0) + (s.endOfTerm || 0)) / 3;
+                    return typeof score === 'number' && score < passMark;
+                }
+
+                // For QA reports
+                const isAbsent = (type === 'qa1' && s.qa1_absent) ||
                     (type === 'qa2' && s.qa2_absent) ||
-                    (type === 'endOfTerm' && s.endOfTerm_absent)
-                );
+                    (type === 'endOfTerm' && s.endOfTerm_absent);
                 if (isAbsent) return false;
 
-                const score = type === 'overall' ?
-                    (s.finalScore || ((s.qa1 || 0) + (s.qa2 || 0) + (s.endOfTerm || 0)) / 3) :
-                    s[type];
+                const score = s[type];
                 return typeof score === 'number' && score < passMark;
             }).length || 0;
 
@@ -587,8 +648,8 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
         doc.text('Subjects Passed', 10 + ((pageWidth - 30) / 8), y + 2, { align: 'center' });
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text(`${subjectsPassed}/${studentData?.subjects?.length || 0}`, 10 + ((pageWidth - 30) / 8), y + 12, { align: 'center' });
-
+        // doc.text(`${subjectsPassed}/${subjectsWithScores.length}`, 10 + ((pageWidth - 30) / 8), y + 12, { align: 'center' });
+        doc.text(`${subjectsPassed}/${subjectsWithValidScores.length}`, 10 + ((pageWidth - 30) / 8), y + 12, { align: 'center' });
         // Stat 2: A & B Grades
         doc.setFillColor(239, 246, 255);
         doc.rect(10 + ((pageWidth - 30) / 4) + 2, y - 2, (pageWidth - 30) / 4, 20, 'F');
@@ -667,49 +728,54 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
         y += remarkLines.length * 5 + 12;
 
         // ===== ATTENDANCE with colored card =====
-        if (studentData?.attendance) {
-            doc.setFillColor(254, 243, 199); // Amber-50
-            doc.rect(10, y - 2, pageWidth - 20, 36, 'F');
-            doc.setDrawColor(245, 158, 11); // Amber-500
-            doc.setLineWidth(0.5);
-            doc.line(10, y - 2, 10, y + 34);
+        // if (studentData?.attendance) {
+        //     doc.setFillColor(254, 243, 199); // Amber-50
+        //     doc.rect(10, y - 2, pageWidth - 20, 36, 'F');
+        //     doc.setDrawColor(245, 158, 11); // Amber-500
+        //     doc.setLineWidth(0.5);
+        //     doc.line(10, y - 2, 10, y + 34);
 
-            doc.setTextColor(180, 83, 9); // Amber-800
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.text('ATTENDANCE', 14, y + 4);
+        //     doc.setTextColor(180, 83, 9); // Amber-800
+        //     doc.setFontSize(12);
+        //     doc.setFont('helvetica', 'bold');
+        //     doc.text('ATTENDANCE', 14, y + 4);
 
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
+        //     doc.setTextColor(0, 0, 0);
+        //     doc.setFontSize(10);
+        //     doc.setFont('helvetica', 'normal');
 
-            const totalDays = studentData.attendance.present + studentData.attendance.absent;
-            const attendanceRate = totalDays > 0 ? Math.round((studentData.attendance.present / totalDays) * 100) : 0;
+        //     const totalDays = studentData.attendance.present + studentData.attendance.absent;
+        //     const attendanceRate = totalDays > 0 ? Math.round((studentData.attendance.present / totalDays) * 100) : 0;
 
-            doc.text(`Total School Days: ${totalDays}`, 14, y + 12);
-            doc.text(`Attendance Rate: ${attendanceRate}%`, 120, y + 12);
-            doc.text(`Days Present: ${studentData.attendance.present}`, 14, y + 18);
-            doc.text(`Days Absent: ${studentData.attendance.absent}`, 120, y + 18);
-            doc.text(`Days Late: ${studentData.attendance.late}`, 14, y + 24);
+        //     doc.text(`Total School Days: ${totalDays}`, 14, y + 12);
+        //     doc.text(`Attendance Rate: ${attendanceRate}%`, 120, y + 12);
+        //     doc.text(`Days Present: ${studentData.attendance.present}`, 14, y + 18);
+        //     doc.text(`Days Absent: ${studentData.attendance.absent}`, 120, y + 18);
+        //     doc.text(`Days Late: ${studentData.attendance.late}`, 14, y + 24);
 
-            let attendanceComment = '';
-            if (attendanceRate >= 95) attendanceComment = '✓ Excellent attendance! Keep it up.';
-            else if (attendanceRate >= 80) attendanceComment = '✓ Good attendance record.';
-            else attendanceComment = '⚠ Needs improvement in attendance.';
+        //     let attendanceComment = '';
+        //     if (attendanceRate >= 95) attendanceComment = '✓ Excellent attendance! Keep it up.';
+        //     else if (attendanceRate >= 80) attendanceComment = '✓ Good attendance record.';
+        //     else attendanceComment = '⚠ Needs improvement in attendance.';
 
-            doc.setFontSize(9);
-            if (attendanceRate >= 95) doc.setTextColor(5, 150, 105);
-            else if (attendanceRate >= 80) doc.setTextColor(37, 99, 235);
-            else doc.setTextColor(245, 158, 11);
+        //     doc.setFontSize(9);
+        //     if (attendanceRate >= 95) doc.setTextColor(5, 150, 105);
+        //     else if (attendanceRate >= 80) doc.setTextColor(37, 99, 235);
+        //     else doc.setTextColor(245, 158, 11);
 
-            doc.text(attendanceComment, 14, y + 30);
+        //     doc.text(attendanceComment, 14, y + 30);
 
-            y += 40;
-        }
+        //     y += 40;
+        // }
 
         // ===== FOOTER with gradient =====
+        // y += 15;
+        // doc.setFillColor(31, 41, 55); // Slate-800
+        // doc.rect(0, y, pageWidth, 40, 'F');
+        // ===== FOOTER with gradient =====
+        y += 15;
         doc.setFillColor(31, 41, 55); // Slate-800
-        doc.rect(0, y, pageWidth, 40, 'F');
+        doc.rect(10, y, pageWidth - 20, 40, 'F');  // Changed from (0, y, pageWidth, 40) to match other boxes
 
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(12);
@@ -755,121 +821,154 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
 
                 <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                     {!showDetail ? (
-                        // GRID VIEW - Show all archives
-                        archives.length === 0 ? (
-                            <div className="text-center py-12">
-                                <p className="text-slate-500">No student report archives found</p>
-                            </div>
-                        ) : (
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                {archives.map((archive) => {
-                                    const studentData = archive.reportCardData;
-                                    const type = archive.assessmentType === 'qa1' ? 'QA1' :
-                                        archive.assessmentType === 'qa2' ? 'QA2' :
-                                            archive.assessmentType === 'endOfTerm' ? 'End Term' : 'Overall';
+                        (() => {
+                            // Group archives by student
+                            const groupedByStudent = archives.reduce((acc, archive) => {
+                                const studentId = archive.studentId;
+                                if (!acc[studentId]) {
+                                    acc[studentId] = {
+                                        studentId: studentId,
+                                        studentName: archive.reportCardData?.name || archive.studentName,
+                                        examNumber: archive.reportCardData?.examNumber || archive.examNumber,
+                                        class: archive.reportCardData?.class,
+                                        term: archive.reportCardData?.term || archive.term,
+                                        academicYear: archive.reportCardData?.academicYear,
+                                        parentEmail: archive.parentEmail,
+                                        whatsappNumber: archive.whatsappNumber,
+                                        archives: [archive]
+                                    };
+                                } else {
+                                    acc[studentId].archives.push(archive);
+                                }
+                                return acc;
+                            }, {});
 
-                                    return (
-                                        <div key={archive.id} className="border border-slate-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
-                                            <div className="mb-3">
-                                                <h3 className="font-semibold text-slate-800">{studentData?.name || archive.studentName}</h3>
-                                                <p className="text-xs text-slate-500">{studentData?.examNumber || archive.examNumber}</p>
-                                            </div>
+                            const groupedList = Object.values(groupedByStudent);
 
-                                            <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-                                                <div className="bg-slate-50 p-2 rounded">
-                                                    <p className="text-xs text-slate-500">Term</p>
-                                                    <p className="font-semibold">{studentData?.term || archive.term}</p>
-                                                </div>
-                                                <div className="bg-slate-50 p-2 rounded">
-                                                    <p className="text-xs text-slate-500">Type</p>
-                                                    <p className="font-semibold uppercase">{type}</p>
-                                                </div>
-                                            </div>
+                            if (groupedList.length === 0) {
+                                return <div className="text-center py-12"><p className="text-slate-500">No student report archives found</p></div>;
+                            }
 
-                                            <div className="flex gap-2 mb-2">
-                                                {/* View Button */}
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedArchive(archive);
-                                                        setSelectedReportType(archive.assessmentType === 'overall' ? 'overall' :
-                                                            archive.assessmentType as 'qa1' | 'qa2' | 'endOfTerm');
-                                                        setShowDetail(true);
-                                                    }}
-                                                    className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors flex items-center justify-center gap-1"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                    View
-                                                </button>
-
-                                                {/* Download Button */}
-                                                <button
-                                                    onClick={() => handleDownloadPDF(archive, archive.assessmentType)}
-                                                    disabled={downloadingId === archive.id}
-                                                    className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-sm rounded-lg transition-colors flex items-center justify-center gap-1"
-                                                >
-                                                    {downloadingId === archive.id ? (
-                                                        <>
-                                                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                            ...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Download className="w-4 h-4" />
-                                                            PDF
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </div>
-
-                                            {/* Sharing Buttons Section */}
-                                            <div className="border-t border-slate-100 pt-3 mt-1">
-                                                <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                                                    <Share2 className="w-3 h-3" /> Share
-                                                </p>
-                                                <div className="flex gap-2">
-                                                    {archive.parentEmail && (
-                                                        <button
-                                                            onClick={() => handleSendEmail(archive.id)}
-                                                            disabled={sendingId === archive.id}
-                                                            className="flex-1 px-2 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white text-xs rounded-lg transition-colors flex items-center justify-center gap-1"
-                                                            title="Send via Email"
-                                                        >
-                                                            <Mail className="w-3 h-3" />
-                                                            Email
-                                                        </button>
-                                                    )}
-
-                                                    {archive.whatsappNumber && (
-                                                        <button
-                                                            onClick={() => handleSendWhatsApp(archive.id)}
-                                                            disabled={sendingId === archive.id}
-                                                            className="flex-1 px-2 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white text-xs rounded-lg transition-colors flex items-center justify-center gap-1"
-                                                            title="Send via WhatsApp"
-                                                        >
-                                                            <MessageSquare className="w-3 h-3" />
-                                                            WhatsApp
-                                                        </button>
-                                                    )}
-
-                                                    {/* Built-in Messaging Button */}
-                                                    {archive.whatsappNumber && (
-                                                        <button
-                                                            onClick={() => handleSendSMS(archive.id)}
-                                                            disabled={sendingId === archive.id}
-                                                            className="flex-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-400 text-white text-xs rounded-lg transition-colors flex items-center justify-center gap-1"
-                                                            title="Send via SMS"
-                                                        >
-                                                            <MessageSquare className="w-3 h-3" />
-                                                            SMS
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
+                            return (
+                                <>
+                                    {/* Filters */}
+                                    <div className="mb-4 flex flex-wrap gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div className="flex items-center gap-2">
+                                            <Filter className="w-4 h-4 text-indigo-600" />
+                                            <span className="text-sm font-medium text-slate-700">Filters:</span>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )
+
+                                        <input
+                                            type="text"
+                                            placeholder="Search student..."
+                                            value={searchStudent}
+                                            onChange={(e) => setSearchStudent(e.target.value)}
+                                            className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
+                                        />
+
+                                        <select
+                                            value={selectedClassFilter}
+                                            onChange={(e) => setSelectedClassFilter(e.target.value)}
+                                            className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        >
+                                            <option value="all">All Classes</option>
+                                            {Array.from(new Set(archives.map(a => a.reportCardData?.class).filter(Boolean))).sort().map(cls => (
+                                                <option key={cls} value={cls}>{cls}</option>
+                                            ))}
+                                        </select>
+
+                                        <select
+                                            value={selectedTermFilter}
+                                            onChange={(e) => setSelectedTermFilter(e.target.value)}
+                                            className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        >
+                                            <option value="all">All Terms</option>
+                                            {Array.from(new Set(archives.map(a => a.reportCardData?.term || a.term).filter(Boolean))).sort().map(term => (
+                                                <option key={term} value={term}>{term}</option>
+                                            ))}
+                                        </select>
+
+                                        <select
+                                            value={selectedYearFilter}
+                                            onChange={(e) => setSelectedYearFilter(e.target.value)}
+                                            className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        >
+                                            <option value="all">All Years</option>
+                                            {Array.from(new Set(archives.map(a => a.reportCardData?.academicYear).filter(Boolean))).sort().reverse().map(year => (
+                                                <option key={year} value={year}>{year}</option>
+                                            ))}
+                                        </select>
+
+                                        {(selectedClassFilter !== 'all' || selectedTermFilter !== 'all' || selectedYearFilter !== 'all' || searchStudent) && (
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedClassFilter('all');
+                                                    setSelectedTermFilter('all');
+                                                    setSelectedYearFilter('all');
+                                                    setSearchStudent('');
+                                                }}
+                                                className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+                                            >
+                                                Clear all filters
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        {groupedList
+                                            .filter((student: any) => {
+                                                if (searchStudent && !student.studentName.toLowerCase().includes(searchStudent.toLowerCase())) return false;
+                                                if (selectedClassFilter !== 'all' && student.class !== selectedClassFilter) return false;
+                                                if (selectedTermFilter !== 'all' && student.term !== selectedTermFilter) return false;
+                                                if (selectedYearFilter !== 'all' && student.academicYear !== selectedYearFilter) return false;
+                                                return true;
+                                            })
+                                            .map((student: any) => {
+                                                return (
+                                                    <div key={student.studentId} className="border border-slate-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
+                                                        <div className="mb-3">
+                                                            <h3 className="font-semibold text-slate-800">{student.studentName}</h3>
+                                                            <p className="text-xs text-slate-500">{student.examNumber}</p>
+                                                            {student.class && (
+                                                                <p className="text-xs text-indigo-600 mt-1 font-medium">{student.class}</p>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+                                                            <div className="bg-slate-50 p-2 rounded">
+                                                                <p className="text-xs text-slate-500">Term</p>
+                                                                <p className="font-semibold">{student.term}</p>
+                                                            </div>
+                                                            <div className="bg-slate-50 p-2 rounded">
+                                                                <p className="text-xs text-slate-500">Academic Year</p>
+                                                                <p className="font-semibold">{student.academicYear || 'N/A'}</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedArchive(student.archives[0]);
+                                                                    setShowDetail(true);
+                                                                }}
+                                                                className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg flex items-center justify-center gap-1"
+                                                            >
+                                                                <Eye className="w-4 h-4" /> View
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDownloadPDF(student.archives[0], 'overall')}
+                                                                className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg flex items-center justify-center gap-1"
+                                                            >
+                                                                <Download className="w-4 h-4" /> PDF
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                </>
+                            );
+                        })()
                     ) : (
                         // DETAIL VIEW - Show full report with PDF-only view
                         <div>
