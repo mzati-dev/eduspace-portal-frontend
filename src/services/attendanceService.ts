@@ -601,7 +601,8 @@ export const fetchStudentAttendanceHistoryByDateRange = async (
  * Fetch current term
  */
 export const fetchCurrentTerm = async (): Promise<{ id: string; name: string; startDate: string; endDate: string } | null> => {
-    const url = `${API_BASE_URL}/attendance/current-term`;
+    const schoolId = getSchoolId();  // ← ADD THIS LINE
+    const url = `${API_BASE_URL}/attendance/current-term?schoolId=${schoolId}`;  // ← ADD schoolId to URL
 
     const res = await fetch(url, {
         headers: authHeaders()
@@ -625,7 +626,8 @@ export const fetchCurrentTerm = async (): Promise<{ id: string; name: string; st
  * Fetch all available terms
  */
 export const fetchTerms = async (): Promise<Array<{ id: string; name: string; startDate: string; endDate: string }>> => {
-    const url = `${API_BASE_URL}/attendance/terms`;
+    const schoolId = getSchoolId();  // ← ADD THIS LINE
+    const url = `${API_BASE_URL}/attendance/terms?schoolId=${schoolId}`;  // ← ADD schoolId to URL
 
     const res = await fetch(url, {
         headers: authHeaders()
@@ -809,12 +811,11 @@ export const fetchSchoolHolidays = async (): Promise<{ date: string; reason: str
 /**
  * Fetch attendance analytics for a class
  */
-export const fetchAttendanceAnalytics = async (
-    classId: string,
-    startDate: string,
-    endDate: string
-): Promise<any> => {
-    const url = `${API_BASE_URL}/attendance/analytics/class/${classId}?startDate=${startDate}&endDate=${endDate}`;
+/**
+ * Fetch attendance analytics for a class
+ */
+export const fetchAttendanceAnalytics = async (classId: string): Promise<any> => {
+    const url = `${API_BASE_URL}/attendance/analytics/class/${classId}`;
 
     const res = await fetch(url, {
         headers: authHeaders()

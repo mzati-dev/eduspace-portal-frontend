@@ -35,6 +35,7 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
     const [selectedTermFilter, setSelectedTermFilter] = useState<string>('all');
     const [selectedYearFilter, setSelectedYearFilter] = useState<string>('all');
     const [searchStudent, setSearchStudent] = useState<string>('');
+    const [expandedClass, setExpandedClass] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
@@ -822,28 +823,43 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                 <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                     {!showDetail ? (
                         (() => {
-                            // Group archives by student
-                            const groupedByStudent = archives.reduce((acc, archive) => {
+                            // Group archives by CLASS first
+                            const groupedByClass = archives.reduce((acc, archive) => {
+                                const className = archive.reportCardData?.class || archive.className || 'Unknown Class';
+                                const term = archive.term;
+                                const academicYear = archive.academicYear;
+                                const classKey = `${className}-${term}-${academicYear}`;
+
+                                if (!acc[classKey]) {
+                                    acc[classKey] = {
+                                        className: className,
+                                        term: term,
+                                        academicYear: academicYear,
+                                        students: []
+                                    };
+                                }
+
+                                // Add student to this class group
                                 const studentId = archive.studentId;
-                                if (!acc[studentId]) {
-                                    acc[studentId] = {
+                                const existingStudent = acc[classKey].students.find((s: any) => s.studentId === studentId);
+
+                                if (existingStudent) {
+                                    existingStudent.archives.push(archive);
+                                } else {
+                                    acc[classKey].students.push({
                                         studentId: studentId,
                                         studentName: archive.reportCardData?.name || archive.studentName,
                                         examNumber: archive.reportCardData?.examNumber || archive.examNumber,
-                                        class: archive.reportCardData?.class,
-                                        term: archive.reportCardData?.term || archive.term,
-                                        academicYear: archive.reportCardData?.academicYear,
                                         parentEmail: archive.parentEmail,
                                         whatsappNumber: archive.whatsappNumber,
                                         archives: [archive]
-                                    };
-                                } else {
-                                    acc[studentId].archives.push(archive);
+                                    });
                                 }
+
                                 return acc;
                             }, {});
 
-                            const groupedList = Object.values(groupedByStudent);
+                            const groupedList = Object.values(groupedByClass);
 
                             if (groupedList.length === 0) {
                                 return <div className="text-center py-12"><p className="text-slate-500">No student report archives found</p></div>;
@@ -872,7 +888,7 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                                             className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         >
                                             <option value="all">All Classes</option>
-                                            {Array.from(new Set(archives.map(a => a.reportCardData?.class).filter(Boolean))).sort().map(cls => (
+                                            {Array.from(new Set(archives.map(a => a.reportCardData?.class || a.className).filter(Boolean))).sort().map(cls => (
                                                 <option key={cls} value={cls}>{cls}</option>
                                             ))}
                                         </select>
@@ -883,7 +899,7 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                                             className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         >
                                             <option value="all">All Terms</option>
-                                            {Array.from(new Set(archives.map(a => a.reportCardData?.term || a.term).filter(Boolean))).sort().map(term => (
+                                            {Array.from(new Set(archives.map(a => a.term).filter(Boolean))).sort().map(term => (
                                                 <option key={term} value={term}>{term}</option>
                                             ))}
                                         </select>
@@ -894,7 +910,7 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                                             className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         >
                                             <option value="all">All Years</option>
-                                            {Array.from(new Set(archives.map(a => a.reportCardData?.academicYear).filter(Boolean))).sort().reverse().map(year => (
+                                            {Array.from(new Set(archives.map(a => a.academicYear).filter(Boolean))).sort().reverse().map(year => (
                                                 <option key={year} value={year}>{year}</option>
                                             ))}
                                         </select>
@@ -914,58 +930,85 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                                         )}
                                     </div>
 
-                                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                        {groupedList
-                                            .filter((student: any) => {
-                                                if (searchStudent && !student.studentName.toLowerCase().includes(searchStudent.toLowerCase())) return false;
-                                                if (selectedClassFilter !== 'all' && student.class !== selectedClassFilter) return false;
-                                                if (selectedTermFilter !== 'all' && student.term !== selectedTermFilter) return false;
-                                                if (selectedYearFilter !== 'all' && student.academicYear !== selectedYearFilter) return false;
-                                                return true;
-                                            })
-                                            .map((student: any) => {
-                                                return (
-                                                    <div key={student.studentId} className="border border-slate-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
-                                                        <div className="mb-3">
-                                                            <h3 className="font-semibold text-slate-800">{student.studentName}</h3>
-                                                            <p className="text-xs text-slate-500">{student.examNumber}</p>
-                                                            {student.class && (
-                                                                <p className="text-xs text-indigo-600 mt-1 font-medium">{student.class}</p>
-                                                            )}
-                                                        </div>
+                                    {/* Class Groups */}
+                                    {/* Class Groups - Collapsible */}
+                                    {groupedList
+                                        .filter((group: any) => {
+                                            if (selectedClassFilter !== 'all' && group.className !== selectedClassFilter) return false;
+                                            if (selectedTermFilter !== 'all' && group.term !== selectedTermFilter) return false;
+                                            if (selectedYearFilter !== 'all' && group.academicYear !== selectedYearFilter) return false;
 
-                                                        <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-                                                            <div className="bg-slate-50 p-2 rounded">
-                                                                <p className="text-xs text-slate-500">Term</p>
-                                                                <p className="font-semibold">{student.term}</p>
-                                                            </div>
-                                                            <div className="bg-slate-50 p-2 rounded">
-                                                                <p className="text-xs text-slate-500">Academic Year</p>
-                                                                <p className="font-semibold">{student.academicYear || 'N/A'}</p>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedArchive(student.archives[0]);
-                                                                    setShowDetail(true);
-                                                                }}
-                                                                className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg flex items-center justify-center gap-1"
-                                                            >
-                                                                <Eye className="w-4 h-4" /> View
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDownloadPDF(student.archives[0], 'overall')}
-                                                                className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg flex items-center justify-center gap-1"
-                                                            >
-                                                                <Download className="w-4 h-4" /> PDF
-                                                            </button>
-                                                        </div>
-                                                    </div>
+                                            if (searchStudent) {
+                                                group.students = group.students.filter((s: any) =>
+                                                    s.studentName.toLowerCase().includes(searchStudent.toLowerCase())
                                                 );
-                                            })}
-                                    </div>
+                                            }
+
+                                            return group.students.length > 0;
+                                        })
+                                        .map((group: any, groupIdx: number) => {
+                                            const isExpanded = expandedClass === `${group.className}-${group.term}-${group.academicYear}`;
+
+                                            return (
+                                                <div key={groupIdx} className="mb-4 border border-slate-200 rounded-lg overflow-hidden">
+                                                    {/* Class Header - Clickable to expand/collapse */}
+                                                    <button
+                                                        onClick={() => setExpandedClass(isExpanded ? null : `${group.className}-${group.term}-${group.academicYear}`)}
+                                                        className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-3 hover:from-indigo-600 hover:to-indigo-700 transition-colors"
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="text-left">
+                                                                <h3 className="text-lg font-bold text-white">
+                                                                    📚 {group.className}
+                                                                </h3>
+                                                                <div className="flex gap-4 mt-1">
+                                                                    <span className="text-xs text-indigo-100">📅 Term: {group.term}</span>
+                                                                    <span className="text-xs text-indigo-100">🎓 Academic Year: {group.academicYear}</span>
+                                                                    <span className="text-xs text-indigo-100">👨‍🎓 Students: {group.students.length}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-white">
+                                                                {isExpanded ? '▲' : '▼'}
+                                                            </div>
+                                                        </div>
+                                                    </button>
+
+                                                    {/* Students Grid - Only show when expanded */}
+                                                    {isExpanded && (
+                                                        <div className="p-4 bg-slate-50">
+                                                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                                                {group.students.map((student: any) => (
+                                                                    <div key={student.studentId} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                                        <div className="mb-3">
+                                                                            <h4 className="font-semibold text-slate-800">{student.studentName}</h4>
+                                                                            <p className="text-xs text-slate-500">{student.examNumber}</p>
+                                                                        </div>
+
+                                                                        <div className="flex gap-2">
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setSelectedArchive(student.archives[0]);
+                                                                                    setShowDetail(true);
+                                                                                }}
+                                                                                className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg flex items-center justify-center gap-1"
+                                                                            >
+                                                                                <Eye className="w-4 h-4" /> View
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleDownloadPDF(student.archives[0], 'overall')}
+                                                                                className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg flex items-center justify-center gap-1"
+                                                                            >
+                                                                                <Download className="w-4 h-4" /> PDF
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                 </>
                             );
                         })()

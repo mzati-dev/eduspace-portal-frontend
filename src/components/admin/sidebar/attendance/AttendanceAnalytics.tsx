@@ -21,9 +21,10 @@ interface AnalyticsProps {
     students: any[];
     showMessage: (msg: string, isError?: boolean) => void;
     allClasses?: any[];
+    onClassChange?: (classId: string) => void;
 }
 
-const AttendanceAnalytics: React.FC<AnalyticsProps> = ({ classId, className, students, showMessage, allClasses = [] }) => {
+const AttendanceAnalytics: React.FC<AnalyticsProps> = ({ classId, className, students, showMessage, allClasses = [], onClassChange }) => {
 
     const [analytics, setAnalytics] = useState<any>(null);
     const [classComparisons, setClassComparisons] = useState<any[]>([]);
@@ -37,13 +38,10 @@ const AttendanceAnalytics: React.FC<AnalyticsProps> = ({ classId, className, stu
 
     const fetchAnalytics = async () => {
         try {
-            const endDate = new Date().toISOString().split('T')[0];
-            let startDate = new Date();
-            startDate.setDate(startDate.getDate() - 30);
-            const startDateStr = startDate.toISOString().split('T')[0];
+            // Don't pass date range - let backend use class term dates
+            const data = await fetchAttendanceAnalytics(classId);
 
-            const data = await fetchAttendanceAnalytics(classId, startDateStr, endDate);
-            if (data) {
+            if (data && data.trends) {
                 setAnalytics(data);
             } else {
                 setAnalytics(null);
@@ -77,8 +75,8 @@ const AttendanceAnalytics: React.FC<AnalyticsProps> = ({ classId, className, stu
             criticalRisk: 0
         },
         trends: {
-            weekly: [0, 0, 0, 0, 0],
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'This Week']
+            weekly: [],
+            labels: []
         },
         topPerformers: [],
         bottomPerformers: [],
@@ -97,6 +95,10 @@ const AttendanceAnalytics: React.FC<AnalyticsProps> = ({ classId, className, stu
 
     const displayAnalytics = analytics || defaultAnalytics;
 
+    const weekLabels = displayAnalytics.trends.labels && displayAnalytics.trends.labels.length > 0
+        ? displayAnalytics.trends.labels
+        : [];
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -110,6 +112,30 @@ const AttendanceAnalytics: React.FC<AnalyticsProps> = ({ classId, className, stu
                     Export
                 </button>
             </div>
+
+            {/* Class Filter - ADD THIS */}
+            {allClasses && allClasses.length > 0 && (
+                <div className="bg-white rounded-xl p-4 border border-slate-200">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Select Class</label>
+                    <select
+                        value={classId}
+                        onChange={(e) => {
+                            if (onClassChange) {
+                                onClassChange(e.target.value);
+                            }
+                        }}
+                        className="w-full md:w-64 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+
+                        <option value="all">All Classes</option>
+                        {allClasses.map((cls) => (
+                            <option key={cls.id} value={cls.id}>
+                                {cls.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             {/* Row 1: 4 Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -222,29 +248,44 @@ const AttendanceAnalytics: React.FC<AnalyticsProps> = ({ classId, className, stu
             </div>
 
             {/* Weekly Trend */}
+            {/* Weekly Trend */}
             <div className="bg-white rounded-xl p-6 border border-slate-200">
                 <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                     <Activity className="w-5 h-5 text-indigo-600" />
                     Attendance Trend
                 </h3>
-                <div className="space-y-3">
-                    {displayAnalytics.trends.weekly.map((rate: number, idx: number) => (
-                        <div key={idx}>
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-slate-600">{displayAnalytics.trends.labels[idx]}</span>
-                                <span className={`font-medium ${rate >= 75 ? 'text-emerald-600' : rate >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
-                                    {rate}%
-                                </span>
+
+                {(!classId || classId === 'all') ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+                        <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                        <h3 className="text-lg font-semibold text-amber-800 mb-2">No Class Selected</h3>
+                        <p className="text-amber-700">
+                            Please select a specific class from the dropdown above to view attendance trend.
+                        </p>
+                        <p className="text-sm text-amber-600 mt-2">
+                            Analytics are calculated per class based on each class's term dates and attendance records.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {displayAnalytics.trends.weekly.map((rate: number, idx: number) => (
+                            <div key={idx}>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-slate-600">{weekLabels[idx]}</span>
+                                    <span className={`font-medium ${rate >= 75 ? 'text-emerald-600' : rate >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
+                                        {rate}%
+                                    </span>
+                                </div>
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full ${rate >= 75 ? 'bg-emerald-500' : rate >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                        style={{ width: `${rate}%` }}
+                                    />
+                                </div>
                             </div>
-                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full ${rate >= 75 ? 'bg-emerald-500' : rate >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                    style={{ width: `${rate}%` }}
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Day Analysis */}
