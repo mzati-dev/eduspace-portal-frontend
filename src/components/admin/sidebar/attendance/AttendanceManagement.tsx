@@ -500,6 +500,33 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
         }
     };
 
+    // const handleSaveAttendance = async () => {
+    //     if (selectedClass === 'all') {
+    //         showMessage('Please select a specific class', true);
+    //         return;
+    //     }
+    //     setSaving(true);
+    //     try {
+    //         const records = attendanceData
+    //             .filter(s => s.status !== 'unmarked')
+    //             .map(s => ({
+    //                 studentId: s.id,
+    //                 classId: selectedClass,
+    //                 date: selectedDate,
+    //                 status: s.status as 'present' | 'absent' | 'late' | 'excused',
+    //                 checkInTime: s.checkInTime
+    //             }));
+
+    //         await saveAttendance(records);
+    //         showMessage('Attendance saved successfully');
+    //         await loadAttendanceData();
+    //     } catch (error) {
+    //         showMessage('Failed to save attendance', true);
+    //     } finally {
+    //         setSaving(false);
+    //     }
+    // };
+
     const handleSaveAttendance = async () => {
         if (selectedClass === 'all') {
             showMessage('Please select a specific class', true);
@@ -519,7 +546,6 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
 
             await saveAttendance(records);
             showMessage('Attendance saved successfully');
-            await loadAttendanceData();
         } catch (error) {
             showMessage('Failed to save attendance', true);
         } finally {
