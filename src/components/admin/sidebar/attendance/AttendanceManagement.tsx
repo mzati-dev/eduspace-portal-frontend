@@ -144,16 +144,44 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
         }
     };
 
+    // const fetchRecordedDaysCountHandler = async () => {
+    //     if (selectedClass === 'all') return;
+    //     try {
+    //         const count = await fetchRecordedDaysCount(selectedClass);
+    //         setRecordedDays(count);
+    //     } catch (error) {
+    //         console.error('Failed to fetch recorded days:', error);
+    //         setRecordedDays(0);
+    //     }
+    // };
     const fetchRecordedDaysCountHandler = async () => {
-        if (selectedClass === 'all') return;
+        // Recorded days should be based on TERM, not class
+        // Count how many school days have passed in the current term up to today
         try {
-            const count = await fetchRecordedDaysCount(selectedClass);
+            const today = new Date().toISOString().split('T')[0];
+            const start = new Date(termInfo.startDate);
+            const end = new Date(today);
+
+            let count = 0;
+            let current = new Date(start);
+
+            while (current <= end) {
+                const dayOfWeek = current.getDay();
+                const dateStr = current.toISOString().split('T')[0];
+
+                if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
+                    count++;
+                }
+                current.setDate(current.getDate() + 1);
+            }
+
             setRecordedDays(count);
         } catch (error) {
-            console.error('Failed to fetch recorded days:', error);
+            console.error('Failed to calculate recorded days:', error);
             setRecordedDays(0);
         }
     };
+
 
     const getFormattedDate = (date: string): string => {
         const d = new Date(date);
@@ -224,11 +252,17 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
         fetchSchoolHolidaysList();
     }, []);
 
+    // useEffect(() => {
+    //     if (selectedClass !== 'all' && selectedDate) {
+    //         fetchRecordedDaysCountHandler();
+    //     }
+    // }, [selectedClass, selectedDate]);
+
     useEffect(() => {
-        if (selectedClass !== 'all' && selectedDate) {
+        if (termInfo.startDate && termInfo.endDate) {
             fetchRecordedDaysCountHandler();
         }
-    }, [selectedClass, selectedDate]);
+    }, [termInfo.startDate, termInfo.endDate, allHolidays]);
 
     useEffect(() => {
         loadTerms();
@@ -707,7 +741,7 @@ const AttendanceManagement: React.FC<Props & { monthlyStats?: any[]; termStats?:
                         </div>
                         <div className="text-center border-l border-r border-indigo-200">
                             <p className="text-2xl font-bold text-emerald-700">{recordedDays}</p>
-                            <p className="text-xs text-indigo-600">Recorded</p>
+                            <p className="text-xs text-indigo-600">Days Passed</p>
                         </div>
                         <div className="text-center">
                             <p className="text-2xl font-bold text-amber-700">{remainingDays}</p>

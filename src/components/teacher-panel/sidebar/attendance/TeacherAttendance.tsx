@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, BarChart3, Bell, Calendar, CheckCircle, Clock3, UserCheck, UserX } from 'lucide-react';
+import { AlertCircle, BarChart3, Bell, Calendar, CheckCircle, Clock3, CloudRain, UserCheck, UserX } from 'lucide-react';
 import {
 
     fetchAttendanceByClassAndDate,
@@ -19,7 +19,10 @@ import {
     ClassAttendanceSummary,
     fetchCurrentTerm,
     fetchTerms,
-    fetchStudentAttendanceHistoryByDateRange
+    fetchStudentAttendanceHistoryByDateRange,
+    fetchRecordedDaysCount,
+    fetchPublicHolidays,
+    fetchSchoolHolidays
 } from '@/services/attendanceService';
 import DailyTrackingTab from './DailyTrackingTab';
 import OverviewTab from './OverviewTab';
@@ -94,6 +97,23 @@ const TeacherAttendance: React.FC<Props> = ({
 
     const [loadingHistory, setLoadingHistory] = useState(false);
 
+
+    // Term info state (for the shared header)
+    const [termInfo, setTermInfo] = useState({
+        name: 'Loading term...',
+        startDate: '',
+        endDate: ''
+    });
+    const [publicHolidays, setPublicHolidays] = useState<Set<string>>(new Set());
+    const [schoolHolidays, setSchoolHolidays] = useState<Set<string>>(new Set());
+    const [recordedDays, setRecordedDays] = useState(0);
+    const [currentWeekNumber, setCurrentWeekNumber] = useState<number>(0);
+    const [totalWeeks, setTotalWeeks] = useState<number>(0);
+    const [weeksRemaining, setWeeksRemaining] = useState<number>(0);
+    const [loadingHolidays, setLoadingHolidays] = useState(false);
+
+    const allHolidays = new Set([...publicHolidays, ...schoolHolidays]);
+
     // Load attendance data when class or date changes
     useEffect(() => {
         if (selectedClass) {
@@ -122,6 +142,51 @@ const TeacherAttendance: React.FC<Props> = ({
     useEffect(() => {
         loadCurrentTerm();  // changed from fetchCurrentTerm()
     }, []);
+
+
+
+    // Update week information
+    useEffect(() => {
+        if (termInfo.startDate && selectedDate) {
+            const weekNum = getWeekNumberOfTerm(selectedDate, termInfo.startDate);
+            setCurrentWeekNumber(weekNum);
+            const totalWeeksInTerm = calculateTotalWeeksInTerm();
+            setTotalWeeks(totalWeeksInTerm);
+            setWeeksRemaining(Math.max(0, totalWeeksInTerm - weekNum));
+        }
+    }, [selectedDate, termInfo.startDate, termInfo.endDate]);
+
+    // useEffect(() => {
+    //     fetchTermInfo();
+    //     fetchPublicHolidaysList();
+    //     fetchSchoolHolidaysList();
+    // }, []);
+
+    // useEffect(() => {
+    //     if (selectedClass && selectedDate) {
+    //         fetchRecordedDaysCountHandler();
+    //     }
+    // }, [selectedClass, selectedDate]);
+
+    // DELETE this useEffect:
+    // useEffect(() => {
+    //     if (selectedClass && selectedDate) {
+    //         fetchRecordedDaysCountHandler();
+    //     }
+    // }, [selectedClass, selectedDate]);
+
+    useEffect(() => {
+        fetchTermInfo();
+        fetchPublicHolidaysList();
+        fetchSchoolHolidaysList();
+    }, []);
+
+    // ADD THIS RIGHT HERE ↓↓↓
+    useEffect(() => {
+        if (termInfo.startDate && termInfo.endDate) {
+            fetchRecordedDaysCountHandler();
+        }
+    }, [termInfo.startDate, termInfo.endDate, allHolidays]);
 
     // Change this function name from fetchCurrentTerm to loadCurrentTerm
     const loadCurrentTerm = async () => {
@@ -376,12 +441,152 @@ const TeacherAttendance: React.FC<Props> = ({
 
     const stats = calculateStats();
 
+    const fetchTermInfo = async () => {
+        try {
+            const term = await fetchCurrentTerm();
+            if (term) {
+                setTermInfo({
+                    name: term.name,
+                    startDate: term.startDate,
+                    endDate: term.endDate
+                });
+                setCurrentTerm(term);
+            }
+        } catch (error) {
+            console.error('Failed to fetch term info:', error);
+            setTermInfo({ name: 'Setting up term...', startDate: '', endDate: '' });
+        }
+    };
+
+    const fetchPublicHolidaysList = async () => {
+        setLoadingHolidays(true);
+        try {
+            const holidays = await fetchPublicHolidays();
+            const holidaySet = new Set<string>();
+            holidays.forEach((holiday: { date: string }) => {
+                holidaySet.add(holiday.date);
+            });
+            setPublicHolidays(holidaySet);
+        } catch (error) {
+            console.error('Failed to fetch public holidays:', error);
+            setPublicHolidays(new Set());
+        } finally {
+            setLoadingHolidays(false);
+        }
+    };
+
+    const fetchSchoolHolidaysList = async () => {
+        try {
+            const holidays = await fetchSchoolHolidays();
+            const holidaySet = new Set<string>();
+            holidays.forEach((holiday: { date: string }) => {
+                holidaySet.add(holiday.date);
+            });
+            setSchoolHolidays(holidaySet);
+        } catch (error) {
+            console.error('Failed to fetch school holidays:', error);
+            setSchoolHolidays(new Set());
+        }
+    };
+
+    // const fetchRecordedDaysCountHandler = async () => {
+    //     if (!selectedClass) return;
+    //     try {
+    //         const count = await fetchRecordedDaysCount(selectedClass);
+    //         setRecordedDays(count);
+    //     } catch (error) {
+    //         console.error('Failed to fetch recorded days:', error);
+    //         setRecordedDays(0);
+    //     }
+    // };
+
+    const fetchRecordedDaysCountHandler = async () => {
+        // Recorded days should be based on TERM, not class
+        // Count how many school days have passed in the current term up to today
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const start = new Date(termInfo.startDate);
+            const end = new Date(today);
+
+            let count = 0;
+            let current = new Date(start);
+
+            while (current <= end) {
+                const dayOfWeek = current.getDay();
+                const dateStr = current.toISOString().split('T')[0];
+
+                if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
+                    count++;
+                }
+                current.setDate(current.getDate() + 1);
+            }
+
+            setRecordedDays(count);
+        } catch (error) {
+            console.error('Failed to calculate recorded days:', error);
+            setRecordedDays(0);
+        }
+    };
+
+    const getFormattedDate = (date: string): string => {
+        const d = new Date(date);
+        return d.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    };
+
+    // Calculate week number WITHIN THE TERM (not calendar year)
+    const getWeekNumberOfTerm = (date: string, termStart: string): number => {
+        const d = new Date(date);
+        const start = new Date(termStart);
+        const diffTime = Math.abs(d.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.ceil((diffDays + 1) / 7);
+    };
+
+    // Calculate total weeks in term (based on term start and end dates)
+    const calculateTotalWeeksInTerm = (): number => {
+        if (!termInfo.startDate || !termInfo.endDate) return 0;
+        const start = new Date(termInfo.startDate);
+        const end = new Date(termInfo.endDate);
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.ceil(diffDays / 7);
+    };
+
+    const calculateTotalDays = () => {
+        if (!termInfo.startDate || !termInfo.endDate) return 0;
+
+        const start = new Date(termInfo.startDate);
+        const end = new Date(termInfo.endDate);
+        let total = 0;
+        let current = new Date(start);
+
+        while (current <= end) {
+            const dayOfWeek = current.getDay();
+            const dateStr = current.toISOString().split('T')[0];
+
+            if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
+                total++;
+            }
+            current.setDate(current.getDate() + 1);
+        }
+        return total;
+    };
+
+    // ADD THESE TWO LINES HERE:
+    const totalDays = calculateTotalDays();
+    const remainingDays = totalDays - recordedDays;
+
     return (
         <div className="space-y-6">
             {/* Header */}
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-slate-800">Attendance Management</h2>
                         <p className="text-slate-500">Track and manage student attendance</p>
@@ -397,14 +602,86 @@ const TeacherAttendance: React.FC<Props> = ({
                         </button>
                     </div>
                 </div>
+
                 {/* Term and Academic Year - BIG AND CLEAR */}
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                    <div className="flex items-center gap-3 bg-indigo-50 rounded-xl p-4">
-                        <Calendar className="w-8 h-8 text-indigo-600" />
+                <div className="flex items-center gap-3 bg-indigo-50 rounded-xl p-4 mb-4">
+                    <Calendar className="w-8 h-8 text-indigo-600" />
+                    <div>
+                        <p className="text-xs text-indigo-600 font-medium">CURRENT ACADEMIC PERIOD</p>
+                        <p className="text-2xl font-bold text-indigo-800">
+                            {termInfo.name || 'Loading term...'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Shared Term Info Card - Visible across all tabs */}
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-5">
+                    <div className="flex justify-between items-start mb-4">
                         <div>
-                            <p className="text-xs text-indigo-600 font-medium">CURRENT ACADEMIC PERIOD</p>
-                            <p className="text-2xl font-bold text-indigo-800">
-                                {currentTerm?.name || 'Loading term...'}
+                            <h3 className="text-lg font-bold text-indigo-900">Term Overview</h3>
+                            <p className="text-sm text-indigo-600">
+                                {termInfo.startDate || 'Loading...'} to {termInfo.endDate || 'Loading...'} | Monday-Friday only
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            {loadingHolidays && (
+                                <div className="text-xs text-amber-600 flex items-center gap-1">
+                                    <CloudRain className="w-3 h-3" />
+                                    Loading holidays...
+                                </div>
+                            )}
+                            {!loadingHolidays && publicHolidays.size > 0 && (
+                                <div className="text-xs text-green-600">
+                                    {publicHolidays.size} public holidays
+                                </div>
+                            )}
+                            {schoolHolidays.size > 0 && (
+                                <div className="text-xs text-purple-600">
+                                    +{schoolHolidays.size} school holidays
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-4 mb-4">
+                        <div className="text-center">
+                            <p className="text-2xl font-bold text-indigo-800">{totalDays}</p>
+                            <p className="text-xs text-indigo-600">Total School Days</p>
+                        </div>
+                        <div className="text-center border-l border-r border-indigo-200">
+                            <p className="text-2xl font-bold text-emerald-700">{recordedDays}</p>
+                            <p className="text-xs text-indigo-600">Days Passed</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-2xl font-bold text-amber-700">{remainingDays}</p>
+                            <p className="text-xs text-indigo-600">Remaining Days</p>
+                        </div>
+                        <div className="text-center border-l border-indigo-200">
+                            <p className="text-2xl font-bold text-purple-700">{currentWeekNumber}</p>
+                            <p className="text-xs text-indigo-600">Current Week</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-indigo-200">
+                        <div className="text-center">
+                            <p className="text-xl font-bold text-indigo-800">{totalWeeks}</p>
+                            <p className="text-xs text-indigo-600">Total Weeks in Term</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xl font-bold text-emerald-700">{weeksRemaining}</p>
+                            <p className="text-xs text-indigo-600">Weeks Remaining</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Date Information */}
+                <div className="mt-4 bg-white rounded-xl border border-slate-200 p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-100 rounded-lg">
+                            <Calendar className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-medium text-slate-500">Date</h4>
+                            <p className="text-lg font-semibold text-slate-800">
+                                {getFormattedDate(selectedDate)}
                             </p>
                         </div>
                     </div>
@@ -543,6 +820,8 @@ const TeacherAttendance: React.FC<Props> = ({
                     className={classes.find(c => c.id === selectedClass)?.name || ''}
                     students={students.filter(s => s.class?.id === selectedClass)}
                     showMessage={showMessage}
+                    allClasses={classes}
+                    onClassChange={(newClassId) => setSelectedClass(newClassId)}
                 />
             )}
 

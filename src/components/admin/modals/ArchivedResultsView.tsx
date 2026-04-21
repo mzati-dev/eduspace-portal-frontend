@@ -66,6 +66,31 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
     const [selectedArchiveFilter, setSelectedArchiveFilter] = useState<string>('all');
     const [selectedTermFilter, setSelectedTermFilter] = useState<string>('all');
     const [selectedYearFilter, setSelectedYearFilter] = useState<string>('all');
+    const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
+    const [expandedTerms, setExpandedTerms] = useState<Set<string>>(new Set());
+    const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
+
+
+
+    const toggleYear = (academicYear: string) => {
+        const newSet = new Set(expandedYears);
+        if (newSet.has(academicYear)) {
+            newSet.delete(academicYear);
+        } else {
+            newSet.add(academicYear);
+        }
+        setExpandedYears(newSet);
+    };
+
+    const toggleTerm = (termKey: string) => {
+        const newSet = new Set(expandedTerms);
+        if (newSet.has(termKey)) {
+            newSet.delete(termKey);
+        } else {
+            newSet.add(termKey);
+        }
+        setExpandedTerms(newSet);
+    };
 
     const getCurrentResults = (archive: any) => {
         if (!archive || !archive.results) return [];
@@ -163,6 +188,36 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
     }, [selectedArchive, activeView, propSchoolName]);
 
     if (!isOpen) return null;
+
+    // Group archives by Academic Year → Term → Class
+    const groupedArchives = archivedResults.reduce((acc, archive) => {
+        const academicYear = archive.academicYear || 'Unknown Year';
+        const term = archive.term || 'Unknown Term';
+        const className = archive.className || 'Unknown Class';
+        const archiveKey = `${className}-${term}`;
+
+        if (!acc[academicYear]) {
+            acc[academicYear] = { academicYear, terms: {} };
+        }
+        if (!acc[academicYear].terms[term]) {
+            acc[academicYear].terms[term] = { term, classes: {} };
+        }
+        if (!acc[academicYear].terms[term].classes[archiveKey]) {
+            acc[academicYear].terms[term].classes[archiveKey] = {
+                className: className,
+                term: term,
+                academicYear: academicYear,
+                archives: []
+            };
+        }
+        acc[academicYear].terms[term].classes[archiveKey].archives.push(archive);
+        return acc;
+    }, {});
+
+    const groupedList = Object.values(groupedArchives).map((year: any) => ({
+        academicYear: year.academicYear,
+        terms: Object.values(year.terms)
+    }));
 
     // Filter results by selected class
     const getFilteredResults = () => {
@@ -515,7 +570,7 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
                                         </div>
 
                                         {/* Class Filter */}
-                                        <select
+                                        {/* <select
                                             value={selectedArchiveFilter}
                                             onChange={(e) => setSelectedArchiveFilter(e.target.value)}
                                             className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -524,7 +579,7 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
                                             {Array.from(new Set(archivedResults.map(a => a.className).filter(Boolean))).sort().map(cls => (
                                                 <option key={cls} value={cls}>{cls}</option>
                                             ))}
-                                        </select>
+                                        </select> */}
 
                                         {/* Term Filter */}
                                         <select
@@ -551,10 +606,21 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
                                         </select>
 
                                         {/* Clear all filters button */}
-                                        {(selectedArchiveFilter !== 'all' || selectedTermFilter !== 'all' || selectedYearFilter !== 'all') && (
+                                        {/* {(selectedArchiveFilter !== 'all' || selectedTermFilter !== 'all' || selectedYearFilter !== 'all') && (
                                             <button
                                                 onClick={() => {
                                                     setSelectedArchiveFilter('all');
+                                                    setSelectedTermFilter('all');
+                                                    setSelectedYearFilter('all');
+                                                }}
+                                                className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+                                            >
+                                                Clear all filters
+                                            </button>
+                                        )} */}
+                                        {(selectedTermFilter !== 'all' || selectedYearFilter !== 'all') && (
+                                            <button
+                                                onClick={() => {
                                                     setSelectedTermFilter('all');
                                                     setSelectedYearFilter('all');
                                                 }}
@@ -566,98 +632,135 @@ const ArchivedResultsView: React.FC<ArchivedResultsViewProps> = ({
                                     </div>
                                 )}
 
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    {archivedResults
-                                        .filter(archive => {
-                                            if (selectedArchiveFilter !== 'all' && archive.className !== selectedArchiveFilter) return false;
-                                            if (selectedTermFilter !== 'all' && archive.term !== selectedTermFilter) return false;
-                                            if (selectedYearFilter !== 'all' && archive.academicYear !== selectedYearFilter) return false;
-                                            return true;
-                                        })
-                                        .map((archive, index) => {
-                                            const hasMultipleTypes = archive.results?.overall ? true : false;
-                                            const displayResults = hasMultipleTypes
-                                                ? archive.results.overall
-                                                : archive.results;
-
-                                            return (
-                                                <div key={index} className="border border-slate-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
-                                                    <div className="flex justify-between items-start mb-3">
-                                                        <div>
-                                                            {/* Add class name here */}
-                                                            <h3 className="font-semibold text-slate-800">
-                                                                {archive.className && (
-                                                                    <span className="inline-block bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded mr-2">
-                                                                        {archive.className}
-                                                                    </span>
-                                                                )}
-                                                                {archive.term} - {archive.academicYear}
-                                                            </h3>
-                                                            <p className="text-xs text-slate-500 mt-1">
-                                                                Archived: {new Date(archive.archivedAt).toLocaleDateString()}
-                                                            </p>
-                                                        </div>
+                                {groupedList.map((yearGroup: any, yearIdx: number) => {
+                                    const isYearExpanded = expandedYears.has(yearGroup.academicYear);
+                                    return (
+                                        <div key={yearIdx} className="mb-4 border border-slate-200 rounded-lg overflow-hidden">
+                                            {/* Academic Year Header */}
+                                            <button
+                                                onClick={() => toggleYear(yearGroup.academicYear)}
+                                                className="w-full bg-gradient-to-r from-indigo-700 to-indigo-800 px-4 py-3 hover:from-indigo-800 hover:to-indigo-900 transition-colors"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-2xl">{isYearExpanded ? '📂' : '📁'}</span>
+                                                        <h2 className="text-xl font-bold text-white">{yearGroup.academicYear}</h2>
+                                                        <span className="text-xs bg-indigo-500 text-white px-2 py-0.5 rounded-full">{yearGroup.terms.length} terms</span>
                                                     </div>
-
-                                                    <div className="grid grid-cols-3 gap-2 text-sm mb-4">
-                                                        <div className="bg-slate-50 p-2 rounded">
-                                                            <p className="text-xs text-slate-500">Students</p>
-                                                            <p className="font-semibold">{displayResults?.length || 0}</p>
-                                                        </div>
-                                                        {/* <div className="bg-slate-50 p-2 rounded">
-                                                            <p className="text-xs text-slate-500">Pass Rate</p>
-                                                            <p className="font-semibold">
-                                                                {displayResults ?
-                                                                    Math.round((displayResults.filter((r: any) => r.overallGrade !== 'F').length / displayResults.length) * 100) : 0}%
-                                                            </p>
-                                                        </div> */}
-                                                        <div className="bg-slate-50 p-2 rounded">
-                                                            <p className="text-xs text-slate-500">Pass Rate</p>
-                                                            <p className="font-semibold">
-                                                                {archive.results?.overall ?
-                                                                    Math.round((archive.results.overall.filter((r: any) => r.overallGrade !== 'F').length / archive.results.overall.length) * 100) : 0}%
-                                                            </p>
-                                                        </div>
-                                                        {/* <div className="bg-slate-50 p-2 rounded">
-                                                            <p className="text-xs text-slate-500">Class Avg</p>
-                                                            <p className="font-semibold">
-                                                                {displayResults ?
-                                                                    (displayResults.reduce((acc: number, r: any) => acc + (r.average || 0), 0) / displayResults.length).toFixed(1) : 0}%
-                                                            </p>
-                                                        </div> */}
-                                                        <div className="bg-slate-50 p-2 rounded">
-                                                            <p className="text-xs text-slate-500">Class Avg</p>
-                                                            <p className="font-semibold">
-                                                                {archive.results?.overall ?
-                                                                    (archive.results.overall.reduce((acc: number, r: any) => acc + (r.average || 0), 0) / archive.results.overall.length).toFixed(1) : 0}%
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedArchive(archive);
-                                                                setShowDetail(true);
-                                                            }}
-                                                            className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors flex items-center justify-center gap-1"
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                            View
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDownloadPDF(archive)}
-                                                            disabled={downloading}
-                                                            className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg transition-colors flex items-center justify-center gap-1"
-                                                        >
-                                                            <Download className="w-4 h-4" />
-                                                            PDF
-                                                        </button>
-                                                    </div>
+                                                    <div className="text-white text-xl">{isYearExpanded ? '▼' : '▶'}</div>
                                                 </div>
-                                            );
-                                        })}
-                                </div>
+                                            </button>
+
+                                            {isYearExpanded && (
+                                                <div className="p-4 bg-slate-100">
+                                                    {yearGroup.terms.map((termGroup: any, termIdx: number) => {
+                                                        const termKey = `${yearGroup.academicYear}-${termGroup.term}`;
+                                                        const isTermExpanded = expandedTerms.has(termKey);
+                                                        return (
+                                                            <div key={termIdx} className="mb-3 border border-slate-200 rounded-lg overflow-hidden">
+                                                                {/* Term Header */}
+                                                                <button
+                                                                    onClick={() => toggleTerm(termKey)}
+                                                                    className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2 hover:from-indigo-600 hover:to-indigo-700 transition-colors"
+                                                                >
+                                                                    <div className="flex items-center justify-between">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-xl">{isTermExpanded ? '📂' : '📁'}</span>
+                                                                            <h3 className="text-lg font-semibold text-white">📖 {termGroup.term}</h3>
+                                                                            <span className="text-xs bg-indigo-400 text-white px-2 py-0.5 rounded-full">{Object.keys(termGroup.classes).length} classes</span>
+                                                                        </div>
+                                                                        <div className="text-white">{isTermExpanded ? '▲' : '▼'}</div>
+                                                                    </div>
+                                                                </button>
+
+                                                                {isTermExpanded && (
+                                                                    <div className="p-3 bg-white">
+                                                                        {Object.values(termGroup.classes).map((classGroup: any, classIdx: number) => {
+                                                                            const isExpanded = expandedArchive === `${classGroup.className}-${classGroup.term}-${classGroup.academicYear}`;
+                                                                            return (
+                                                                                <div key={classIdx} className="mb-3 border border-slate-200 rounded-lg overflow-hidden">
+                                                                                    {/* Class Header */}
+                                                                                    <button
+                                                                                        onClick={() => setExpandedArchive(isExpanded ? null : `${classGroup.className}-${classGroup.term}-${classGroup.academicYear}`)}
+                                                                                        className="w-full bg-gradient-to-r from-indigo-400 to-indigo-500 px-4 py-2 hover:from-indigo-500 hover:to-indigo-600 transition-colors"
+                                                                                    >
+                                                                                        <div className="flex items-center justify-between">
+                                                                                            <div className="text-left">
+                                                                                                <h4 className="font-bold text-white">📚 {classGroup.className}</h4>
+                                                                                                <span className="text-xs text-indigo-100">📊 {classGroup.archives.length} archive(s)</span>
+                                                                                            </div>
+                                                                                            <div className="text-white">{isExpanded ? '▲' : '▼'}</div>
+                                                                                        </div>
+                                                                                    </button>
+
+                                                                                    {/* Archive Cards */}
+                                                                                    {isExpanded && (
+                                                                                        <div className="p-3 bg-slate-50">
+                                                                                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                                                                                {classGroup.archives.map((archive: any, archIdx: number) => {
+                                                                                                    const hasMultipleTypes = archive.results?.overall ? true : false;
+                                                                                                    const displayResults = hasMultipleTypes ? archive.results.overall : archive.results;
+                                                                                                    return (
+                                                                                                        <div key={archIdx} className="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                                                                                            <div className="mb-2">
+                                                                                                                <h5 className="font-semibold text-slate-800">{archive.term}</h5>
+                                                                                                                <p className="text-xs text-slate-500">{archive.academicYear}</p>
+                                                                                                                <p className="text-xs text-slate-400 mt-1">Archived: {new Date(archive.archivedAt).toLocaleDateString()}</p>
+                                                                                                            </div>
+                                                                                                            <div className="grid grid-cols-2 gap-1 text-xs mb-2">
+                                                                                                                <div className="bg-slate-50 p-1 rounded text-center">
+                                                                                                                    <p className="text-slate-500">Students</p>
+                                                                                                                    <p className="font-semibold">{displayResults?.length || 0}</p>
+                                                                                                                </div>
+                                                                                                                <div className="bg-slate-50 p-1 rounded text-center">
+                                                                                                                    <p className="text-slate-500">Pass Rate</p>
+                                                                                                                    <p className="font-semibold">
+                                                                                                                        {archive.results?.overall ?
+                                                                                                                            Math.round((archive.results.overall.filter((r: any) => r.overallGrade !== 'F').length / archive.results.overall.length) * 100) : 0}%
+                                                                                                                    </p>
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                            <div className="flex gap-2">
+                                                                                                                <button
+                                                                                                                    onClick={() => {
+                                                                                                                        setSelectedArchive(archive);
+                                                                                                                        setShowDetail(true);
+                                                                                                                    }}
+                                                                                                                    className="flex-1 px-2 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded-lg flex items-center justify-center gap-1"
+                                                                                                                >
+                                                                                                                    <Eye className="w-3 h-3" /> View
+                                                                                                                </button>
+                                                                                                                <button
+                                                                                                                    onClick={() => handleDownloadPDF(archive)}
+                                                                                                                    disabled={downloading}
+                                                                                                                    className="flex-1 px-2 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg flex items-center justify-center gap-1"
+                                                                                                                >
+                                                                                                                    <Download className="w-3 h-3" /> PDF
+                                                                                                                </button>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+
+
+
+
                             </>
                         )
                     ) : (

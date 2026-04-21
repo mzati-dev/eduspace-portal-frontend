@@ -36,8 +36,30 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
     const [selectedYearFilter, setSelectedYearFilter] = useState<string>('all');
     const [searchStudent, setSearchStudent] = useState<string>('');
     const [expandedClass, setExpandedClass] = useState<string | null>(null);
-
+    const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
+    const [expandedTerms, setExpandedTerms] = useState<Set<string>>(new Set());
     if (!isOpen) return null;
+
+
+    const toggleYear = (academicYear: string) => {
+        const newSet = new Set(expandedYears);
+        if (newSet.has(academicYear)) {
+            newSet.delete(academicYear);
+        } else {
+            newSet.add(academicYear);
+        }
+        setExpandedYears(newSet);
+    };
+
+    const toggleTerm = (termKey: string) => {
+        const newSet = new Set(expandedTerms);
+        if (newSet.has(termKey)) {
+            newSet.delete(termKey);
+        } else {
+            newSet.add(termKey);
+        }
+        setExpandedTerms(newSet);
+    };
 
     const handleSendEmail = async (archiveId: string) => {
         setSendingId(archiveId);
@@ -824,14 +846,69 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                     {!showDetail ? (
                         (() => {
                             // Group archives by CLASS first
-                            const groupedByClass = archives.reduce((acc, archive) => {
-                                const className = archive.reportCardData?.class || archive.className || 'Unknown Class';
-                                const term = archive.term;
-                                const academicYear = archive.academicYear;
-                                const classKey = `${className}-${term}-${academicYear}`;
+                            // const groupedByClass = archives.reduce((acc, archive) => {
+                            //     const className = archive.reportCardData?.class || archive.className || 'Unknown Class';
+                            //     const term = archive.term;
+                            //     const academicYear = archive.academicYear;
+                            //     const classKey = `${className}-${term}-${academicYear}`;
 
-                                if (!acc[classKey]) {
-                                    acc[classKey] = {
+                            //     if (!acc[classKey]) {
+                            //         acc[classKey] = {
+                            //             className: className,
+                            //             term: term,
+                            //             academicYear: academicYear,
+                            //             students: []
+                            //         };
+                            //     }
+
+                            //     // Add student to this class group
+                            //     const studentId = archive.studentId;
+                            //     const existingStudent = acc[classKey].students.find((s: any) => s.studentId === studentId);
+
+                            //     if (existingStudent) {
+                            //         existingStudent.archives.push(archive);
+                            //     } else {
+                            //         acc[classKey].students.push({
+                            //             studentId: studentId,
+                            //             studentName: archive.reportCardData?.name || archive.studentName,
+                            //             examNumber: archive.reportCardData?.examNumber || archive.examNumber,
+                            //             parentEmail: archive.parentEmail,
+                            //             whatsappNumber: archive.whatsappNumber,
+                            //             archives: [archive]
+                            //         });
+                            //     }
+
+                            //     return acc;
+                            // }, {});
+                            //  const groupedList = Object.values(groupedByClass);
+
+
+                            // Group archives by ACADEMIC YEAR first, then TERM, then CLASS
+                            const groupedByYear = archives.reduce((acc, archive) => {
+                                const academicYear = archive.academicYear || 'Unknown Year';
+                                const term = archive.term || 'Unknown Term';
+                                const className = archive.reportCardData?.class || archive.className || 'Unknown Class';
+                                const classKey = `${className}-${term}`;
+
+                                // Initialize academic year if not exists
+                                if (!acc[academicYear]) {
+                                    acc[academicYear] = {
+                                        academicYear: academicYear,
+                                        terms: {}
+                                    };
+                                }
+
+                                // Initialize term if not exists under this academic year
+                                if (!acc[academicYear].terms[term]) {
+                                    acc[academicYear].terms[term] = {
+                                        term: term,
+                                        classes: {}
+                                    };
+                                }
+
+                                // Initialize class if not exists under this term
+                                if (!acc[academicYear].terms[term].classes[classKey]) {
+                                    acc[academicYear].terms[term].classes[classKey] = {
                                         className: className,
                                         term: term,
                                         academicYear: academicYear,
@@ -839,14 +916,16 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                                     };
                                 }
 
-                                // Add student to this class group
+                                // Add student to this class
                                 const studentId = archive.studentId;
-                                const existingStudent = acc[classKey].students.find((s: any) => s.studentId === studentId);
+                                const existingStudent = acc[academicYear].terms[term].classes[classKey].students.find(
+                                    (s: any) => s.studentId === studentId
+                                );
 
                                 if (existingStudent) {
                                     existingStudent.archives.push(archive);
                                 } else {
-                                    acc[classKey].students.push({
+                                    acc[academicYear].terms[term].classes[classKey].students.push({
                                         studentId: studentId,
                                         studentName: archive.reportCardData?.name || archive.studentName,
                                         examNumber: archive.reportCardData?.examNumber || archive.examNumber,
@@ -859,7 +938,13 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                                 return acc;
                             }, {});
 
-                            const groupedList = Object.values(groupedByClass);
+                            // Convert to array for rendering
+                            const groupedList = Object.values(groupedByYear).map((year: any) => ({
+                                academicYear: year.academicYear,
+                                terms: Object.values(year.terms)
+                            }));
+
+
 
                             if (groupedList.length === 0) {
                                 return <div className="text-center py-12"><p className="text-slate-500">No student report archives found</p></div>;
@@ -930,85 +1015,140 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
                                         )}
                                     </div>
 
+
+
+
+
+
                                     {/* Class Groups */}
                                     {/* Class Groups - Collapsible */}
-                                    {groupedList
-                                        .filter((group: any) => {
-                                            if (selectedClassFilter !== 'all' && group.className !== selectedClassFilter) return false;
-                                            if (selectedTermFilter !== 'all' && group.term !== selectedTermFilter) return false;
-                                            if (selectedYearFilter !== 'all' && group.academicYear !== selectedYearFilter) return false;
+                                    {groupedList.map((yearGroup: any, yearIdx: number) => {
+                                        const isYearExpanded = expandedYears.has(yearGroup.academicYear);
 
-                                            if (searchStudent) {
-                                                group.students = group.students.filter((s: any) =>
-                                                    s.studentName.toLowerCase().includes(searchStudent.toLowerCase())
-                                                );
-                                            }
+                                        return (
+                                            <div key={yearIdx} className="mb-4 border border-slate-200 rounded-lg overflow-hidden">
+                                                {/* Academic Year Header - Clickable Folder */}
+                                                <button
+                                                    onClick={() => toggleYear(yearGroup.academicYear)}
+                                                    className="w-full bg-gradient-to-r from-indigo-700 to-indigo-800 px-4 py-3 hover:from-indigo-800 hover:to-indigo-900 transition-colors"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-2xl">{isYearExpanded ? '📂' : '📁'}</span>
+                                                            <h2 className="text-xl font-bold text-white">
+                                                                {yearGroup.academicYear}
+                                                            </h2>
+                                                            <span className="text-xs bg-indigo-500 text-white px-2 py-0.5 rounded-full">
+                                                                {yearGroup.terms.length} terms
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-white text-xl">
+                                                            {isYearExpanded ? '▼' : '▶'}
+                                                        </div>
+                                                    </div>
+                                                </button>
 
-                                            return group.students.length > 0;
-                                        })
-                                        .map((group: any, groupIdx: number) => {
-                                            const isExpanded = expandedClass === `${group.className}-${group.term}-${group.academicYear}`;
+                                                {/* Terms - Only show when Academic Year is expanded */}
+                                                {isYearExpanded && (
+                                                    <div className="p-4 bg-slate-100">
+                                                        {yearGroup.terms.map((termGroup: any, termIdx: number) => {
+                                                            const termKey = `${yearGroup.academicYear}-${termGroup.term}`;
+                                                            const isTermExpanded = expandedTerms.has(termKey);
 
-                                            return (
-                                                <div key={groupIdx} className="mb-4 border border-slate-200 rounded-lg overflow-hidden">
-                                                    {/* Class Header - Clickable to expand/collapse */}
-                                                    <button
-                                                        onClick={() => setExpandedClass(isExpanded ? null : `${group.className}-${group.term}-${group.academicYear}`)}
-                                                        className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-3 hover:from-indigo-600 hover:to-indigo-700 transition-colors"
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="text-left">
-                                                                <h3 className="text-lg font-bold text-white">
-                                                                    📚 {group.className}
-                                                                </h3>
-                                                                <div className="flex gap-4 mt-1">
-                                                                    <span className="text-xs text-indigo-100">📅 Term: {group.term}</span>
-                                                                    <span className="text-xs text-indigo-100">🎓 Academic Year: {group.academicYear}</span>
-                                                                    <span className="text-xs text-indigo-100">👨‍🎓 Students: {group.students.length}</span>
+                                                            return (
+                                                                <div key={termIdx} className="mb-3 border border-slate-200 rounded-lg overflow-hidden">
+                                                                    {/* Term Header - Clickable Folder */}
+                                                                    <button
+                                                                        onClick={() => toggleTerm(termKey)}
+                                                                        className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2 hover:from-indigo-600 hover:to-indigo-700 transition-colors"
+                                                                    >
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-xl">{isTermExpanded ? '📂' : '📁'}</span>
+                                                                                <h3 className="text-lg font-semibold text-white">
+                                                                                    📖 {termGroup.term}
+                                                                                </h3>
+                                                                                <span className="text-xs bg-indigo-400 text-white px-2 py-0.5 rounded-full">
+                                                                                    {Object.keys(termGroup.classes).length} classes
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="text-white">
+                                                                                {isTermExpanded ? '▲' : '▼'}
+                                                                            </div>
+                                                                        </div>
+                                                                    </button>
+
+                                                                    {/* Classes - Only show when Term is expanded */}
+                                                                    {isTermExpanded && (
+                                                                        <div className="p-3 bg-white">
+                                                                            {Object.values(termGroup.classes).map((classGroup: any, classIdx: number) => {
+                                                                                const isExpanded = expandedClass === `${classGroup.className}-${classGroup.term}-${classGroup.academicYear}`;
+
+                                                                                return (
+                                                                                    <div key={classIdx} className="mb-3 border border-slate-200 rounded-lg overflow-hidden">
+                                                                                        {/* Class Header - Collapsible */}
+                                                                                        <button
+                                                                                            onClick={() => setExpandedClass(isExpanded ? null : `${classGroup.className}-${classGroup.term}-${classGroup.academicYear}`)}
+                                                                                            className="w-full bg-gradient-to-r from-indigo-400 to-indigo-500 px-4 py-2 hover:from-indigo-500 hover:to-indigo-600 transition-colors"
+                                                                                        >
+                                                                                            <div className="flex items-center justify-between">
+                                                                                                <div className="text-left">
+                                                                                                    <h4 className="font-bold text-white">
+                                                                                                        📚 {classGroup.className}
+                                                                                                    </h4>
+                                                                                                    <span className="text-xs text-indigo-100">👨‍🎓 {classGroup.students.length} students</span>
+                                                                                                </div>
+                                                                                                <div className="text-white">
+                                                                                                    {isExpanded ? '▲' : '▼'}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </button>
+
+                                                                                        {/* Students Grid - Expandable */}
+                                                                                        {isExpanded && (
+                                                                                            <div className="p-3 bg-slate-50">
+                                                                                                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                                                                                    {classGroup.students.map((student: any) => (
+                                                                                                        <div key={student.studentId} className="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                                                                                                            <div className="mb-2">
+                                                                                                                <h5 className="font-semibold text-slate-800">{student.studentName}</h5>
+                                                                                                                <p className="text-xs text-slate-500">{student.examNumber}</p>
+                                                                                                            </div>
+                                                                                                            <div className="flex gap-2">
+                                                                                                                <button
+                                                                                                                    onClick={() => {
+                                                                                                                        setSelectedArchive(student.archives[0]);
+                                                                                                                        setShowDetail(true);
+                                                                                                                    }}
+                                                                                                                    className="flex-1 px-2 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded-lg flex items-center justify-center gap-1"
+                                                                                                                >
+                                                                                                                    <Eye className="w-3 h-3" /> View
+                                                                                                                </button>
+                                                                                                                <button
+                                                                                                                    onClick={() => handleDownloadPDF(student.archives[0], 'overall')}
+                                                                                                                    className="flex-1 px-2 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg flex items-center justify-center gap-1"
+                                                                                                                >
+                                                                                                                    <Download className="w-3 h-3" /> PDF
+                                                                                                                </button>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            </div>
-                                                            <div className="text-white">
-                                                                {isExpanded ? '▲' : '▼'}
-                                                            </div>
-                                                        </div>
-                                                    </button>
-
-                                                    {/* Students Grid - Only show when expanded */}
-                                                    {isExpanded && (
-                                                        <div className="p-4 bg-slate-50">
-                                                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                                                {group.students.map((student: any) => (
-                                                                    <div key={student.studentId} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                                                        <div className="mb-3">
-                                                                            <h4 className="font-semibold text-slate-800">{student.studentName}</h4>
-                                                                            <p className="text-xs text-slate-500">{student.examNumber}</p>
-                                                                        </div>
-
-                                                                        <div className="flex gap-2">
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    setSelectedArchive(student.archives[0]);
-                                                                                    setShowDetail(true);
-                                                                                }}
-                                                                                className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg flex items-center justify-center gap-1"
-                                                                            >
-                                                                                <Eye className="w-4 h-4" /> View
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => handleDownloadPDF(student.archives[0], 'overall')}
-                                                                                className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg flex items-center justify-center gap-1"
-                                                                            >
-                                                                                <Download className="w-4 h-4" /> PDF
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </>
                             );
                         })()

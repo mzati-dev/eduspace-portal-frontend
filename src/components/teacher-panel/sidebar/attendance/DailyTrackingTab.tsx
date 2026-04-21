@@ -14,7 +14,8 @@ import {
     Plus,
     Lock,
     Info,
-    Save
+    Save,
+    ShieldCheck
 } from 'lucide-react';
 import { StudentAttendance, AttendanceStats } from './TeacherAttendance';
 import { addSchoolHoliday, API_BASE_URL, fetchAttendanceByClassAndDate, fetchClassTerm, fetchPublicHolidays, fetchRecordedDaysCount, fetchSchoolHolidaysByClass, removeSchoolHoliday } from '@/services/attendanceService';
@@ -70,6 +71,7 @@ const DailyTrackingTab: React.FC<Props> = ({
     const [loadingHolidays, setLoadingHolidays] = useState(false);
     const [hasAttendanceRecorded, setHasAttendanceRecorded] = useState<boolean>(false);
     const [recordedDays, setRecordedDays] = useState(0);
+    const [totalDays, setTotalDays] = useState(0);
 
     // Auto-save feedback states
     const [autoSaveStatus, setAutoSaveStatus] = useState<{ show: boolean; message: string; success: boolean }>({ show: false, message: '', success: false });
@@ -208,28 +210,7 @@ const DailyTrackingTab: React.FC<Props> = ({
         return checkDate >= start && checkDate <= end;
     };
 
-    const calculateTotalDays = () => {
-        if (!termInfo.startDate || !termInfo.endDate) return 0;
 
-        const start = new Date(termInfo.startDate);
-        const end = new Date(termInfo.endDate);
-        let total = 0;
-        let current = new Date(start);
-
-        while (current <= end) {
-            const dayOfWeek = current.getDay();
-            const dateStr = current.toISOString().split('T')[0];
-
-            if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
-                total++;
-            }
-            current.setDate(current.getDate() + 1);
-        }
-        return total;
-    };
-
-    const totalDays = calculateTotalDays();
-    const remainingDays = totalDays - recordedDays;
 
     const isDateInTerm = isWithinTerm(selectedDate);
     const isPublicHoliday = publicHolidays.has(selectedDate);
@@ -346,6 +327,26 @@ const DailyTrackingTab: React.FC<Props> = ({
         }
     };
 
+    const calculateTotalDays = () => {
+        if (!termInfo.startDate || !termInfo.endDate) return 0;
+
+        const start = new Date(termInfo.startDate);
+        const end = new Date(termInfo.endDate);
+        let total = 0;
+        let current = new Date(start);
+
+        while (current <= end) {
+            const dayOfWeek = current.getDay();
+            const dateStr = current.toISOString().split('T')[0];
+
+            if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
+                total++;
+            }
+            current.setDate(current.getDate() + 1);
+        }
+        return total;
+    };
+
     // Load data when class changes
     useEffect(() => {
         if (selectedClass) {
@@ -354,6 +355,14 @@ const DailyTrackingTab: React.FC<Props> = ({
             fetchRecordedDaysCountHandler(); // ✅ Correct name
         }
     }, [selectedClass]);
+
+    // Add this new useEffect
+    useEffect(() => {
+        if (termInfo.startDate && termInfo.endDate) {
+            const total = calculateTotalDays();
+            setTotalDays(total);
+        }
+    }, [termInfo.startDate, termInfo.endDate, allHolidays]);
 
     // Load public holidays once
     useEffect(() => {
@@ -388,84 +397,9 @@ const DailyTrackingTab: React.FC<Props> = ({
                 </div>
             )}
 
-            {/* Date Info Card */}
-            {selectedClass && (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-100 rounded-lg">
-                                <Calendar className="w-5 h-5 text-indigo-600" />
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-medium text-slate-500">Date Information</h4>
-                                <div className="flex flex-wrap gap-3 mt-1">
-                                    <span className="text-sm font-semibold text-slate-800">
-                                        {getMonthName(selectedDate)}
-                                    </span>
-                                    <span className="text-sm text-slate-400">•</span>
-                                    <span className="text-sm font-semibold text-slate-800">
-                                        Week {getWeekNumber(selectedDate)}
-                                    </span>
-                                    <span className="text-sm text-slate-400">•</span>
-                                    <span className="text-sm font-semibold text-slate-800">
-                                        {getDayOfWeek(selectedDate)}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className={`flex items-center gap-2 ${attendanceStatusColor()}`}>
-                            <Info className="w-4 h-4" />
-                            <span className="text-sm font-medium">{getAttendanceStatusDisplay()}</span>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Term Stats Card */}
-            {selectedClass && (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-5 mb-6">
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <h3 className="text-lg font-bold text-indigo-900">{termInfo.name}</h3>
-                            <p className="text-sm text-indigo-600">
-                                {termInfo.startDate || 'Loading...'} to {termInfo.endDate || 'Loading...'} | Monday-Friday only
-                            </p>
-                        </div>
-                        <div className="text-right">
-                            {loadingHolidays && (
-                                <div className="text-xs text-amber-600 flex items-center gap-1">
-                                    <CloudRain className="w-3 h-3" />
-                                    Loading holidays...
-                                </div>
-                            )}
-                            {!loadingHolidays && publicHolidays.size > 0 && (
-                                <div className="text-xs text-green-600">
-                                    {publicHolidays.size} public holidays
-                                </div>
-                            )}
-                            {schoolHolidays.size > 0 && (
-                                <div className="text-xs text-purple-600">
-                                    +{schoolHolidays.size} school holidays
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center">
-                            <p className="text-2xl font-bold text-indigo-800">{totalDays}</p>
-                            <p className="text-xs text-indigo-600">Total School Days</p>
-                        </div>
-                        <div className="text-center border-l border-r border-indigo-200">
-                            <p className="text-2xl font-bold text-emerald-700">{recordedDays}</p>
-                            <p className="text-xs text-indigo-600">Recorded</p>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-2xl font-bold text-amber-700">{remainingDays}</p>
-                            <p className="text-xs text-indigo-600">Remaining</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+
+
 
             {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -565,7 +499,7 @@ const DailyTrackingTab: React.FC<Props> = ({
                     )}
 
                     {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    {/* <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -610,6 +544,82 @@ const DailyTrackingTab: React.FC<Props> = ({
                                 </div>
                                 <TrendingUp className="w-8 h-8 text-indigo-600" />
                             </div>
+                        </div>
+                    </div> */}
+
+                    {/* Stats Cards - Row 1: Present | Absent | Late | Excused */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Present</p>
+                                    <p className="text-2xl font-bold text-green-600">{stats.present}</p>
+                                </div>
+                                <UserCheck className="w-8 h-8 text-green-600" />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Absent</p>
+                                    <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
+                                </div>
+                                <UserX className="w-8 h-8 text-red-600" />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Late</p>
+                                    <p className="text-2xl font-bold text-yellow-600">{stats.late}</p>
+                                </div>
+                                <Clock3 className="w-8 h-8 text-yellow-600" />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Excused</p>
+                                    <p className="text-2xl font-bold text-purple-600">{stats.excused}</p>
+                                </div>
+                                <ShieldCheck className="w-8 h-8 text-purple-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Stats Cards - Row 2: Total Students | Attendance Rate | Recorded Days */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Total Students</p>
+                                    <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
+                                </div>
+                                <Users className="w-8 h-8 text-indigo-600" />
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Attendance Rate</p>
+                                    <p className="text-2xl font-bold text-indigo-600">{stats.rate}%</p>
+                                </div>
+                                <TrendingUp className="w-8 h-8 text-indigo-600" />
+                            </div>
+                        </div>
+
+                        {/* Recorded Days Card */}
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-500">Recorded Days</p>
+                                    <p className="text-2xl font-bold text-indigo-600">{recordedDays} / {totalDays}</p>
+                                </div>
+                                <CheckCircle className="w-8 h-8 text-indigo-600" />
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">
+                                {totalDays > 0 ? Math.round((recordedDays / totalDays) * 100) : 0}% of term recorded
+                            </p>
                         </div>
                     </div>
 
