@@ -649,7 +649,7 @@ const TeacherAttendance: React.FC<Props> = ({
                         </div>
                         <div className="text-center border-l border-r border-indigo-200">
                             <p className="text-2xl font-bold text-emerald-700">{recordedDays}</p>
-                            <p className="text-xs text-indigo-600">Days Passed</p>
+                            <p className="text-xs text-indigo-600">Current Day</p>
                         </div>
                         <div className="text-center">
                             <p className="text-2xl font-bold text-amber-700">{remainingDays}</p>
