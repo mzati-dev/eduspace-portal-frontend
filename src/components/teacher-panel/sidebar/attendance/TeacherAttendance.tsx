@@ -388,7 +388,7 @@ const TeacherAttendance: React.FC<Props> = ({
                 }));
             await saveAttendance(records);
             showMessage('Attendance saved successfully');
-            await loadAttendanceData();
+
         } catch (err) {
             showMessage('Failed to save attendance', true);
             console.error('Error saving attendance:', err);
