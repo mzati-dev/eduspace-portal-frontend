@@ -133,18 +133,7 @@ const FeesManagement: React.FC<Props> = ({ classes, students, showMessage }) => 
         }
     };
 
-    // const loadPaymentHistory = async () => {
-    //     try {
-    //         const filters: PaymentFilters = {
-    //             term: selectedTerm,
-    //             classId: selectedClass !== 'all' ? selectedClass : undefined
-    //         };
-    //         const history = await fetchPaymentHistory();
-    //         setPaymentHistory(history);
-    //     } catch (error) {
-    //         showMessage('Failed to load payment history', true);
-    //     }
-    // };
+
     const loadPaymentHistory = async () => {
         try {
             const filters: PaymentFilters = {
