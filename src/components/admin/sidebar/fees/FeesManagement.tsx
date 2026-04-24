@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Wallet,
     CreditCard,
@@ -84,7 +84,7 @@ const FeesManagement: React.FC<Props> = ({ classes, students, showMessage }) => 
     const [paymentMethod, setPaymentMethod] = useState<string>('cash');
     const [paymentReference, setPaymentReference] = useState<string>('');
     const [paymentNotes, setPaymentNotes] = useState<string>('');
-    const isMounted = useRef(true);
+
 
     // Load data on mount and when filters change
     // useEffect(() => {
@@ -112,34 +112,7 @@ const FeesManagement: React.FC<Props> = ({ classes, students, showMessage }) => 
         loadFeesData();
     }, [selectedTerm, selectedClass]);
 
-    // const loadFeesData = async () => {
-    //     setLoadingData(true);
-    //     try {
-    //         const filters: PaymentFilters = {
-    //             term: selectedTerm,
-    //             classId: selectedClass !== 'all' ? selectedClass : undefined
-    //         };
-
-    //         const [feesData, summaryData, structuresData] = await Promise.all([
-    //             fetchStudentFees(filters),
-    //             fetchFeeSummary(selectedTerm, selectedClass !== 'all' ? selectedClass : undefined),
-    //             fetchFeeStructures(selectedTerm)
-    //         ]);
-
-    //         setFeeData(feesData);
-    //         setSummary(summaryData);
-    //         setFeeStructures(structuresData);
-    //     } catch (error) {
-    //         showMessage('Failed to load fees data', true);
-    //     } finally {
-    //         setLoadingData(false);
-    //     }
-    // };
-
     const loadFeesData = async () => {
-        if (!selectedTerm) return;
-        if (loadingData) return;
-
         setLoadingData(true);
         try {
             const filters: PaymentFilters = {
@@ -153,30 +126,15 @@ const FeesManagement: React.FC<Props> = ({ classes, students, showMessage }) => 
                 fetchFeeStructures(selectedTerm)
             ]);
 
-            if (isMounted.current) {
-                // Only update feeData if we actually got data, otherwise keep existing
-                if (feesData && feesData.length > 0) {
-                    setFeeData(feesData);
-                }
-                setSummary(summaryData);
-                setFeeStructures(structuresData);
-            }
+            setFeeData(feesData);
+            setSummary(summaryData);
+            setFeeStructures(structuresData);
         } catch (error) {
-            if (isMounted.current) {
-                showMessage('Failed to load fees data', true);
-            }
+            showMessage('Failed to load fees data', true);
         } finally {
-            if (isMounted.current) {
-                setLoadingData(false);
-            }
+            setLoadingData(false);
         }
     };
-
-    useEffect(() => {
-        return () => {
-            isMounted.current = false;
-        };
-    }, []);
 
 
     const loadPaymentHistory = async () => {
