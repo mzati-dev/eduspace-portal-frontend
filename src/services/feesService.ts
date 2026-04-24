@@ -31,8 +31,24 @@ export interface FeeStructure {
     className?: string;
 }
 
+// export interface Payment {
+//     id: string;
+//     date: string;
+//     amount: number;
+//     method: 'cash' | 'card' | 'bank' | 'mobile';
+//     reference: string;
+//     receiptNumber: string;
+//     status: 'completed' | 'pending' | 'failed';
+//     recordedBy?: string;
+//     notes?: string;
+// }
+
 export interface Payment {
     id: string;
+    studentId: string;
+    studentName: string;
+    examNumber: string;
+    className: string;
     date: string;
     amount: number;
     method: 'cash' | 'card' | 'bank' | 'mobile';
@@ -232,16 +248,31 @@ export const downloadReceipt = async (receiptNumber: string): Promise<Blob> => {
 };
 
 // Get payment history
+// export const fetchPaymentHistory = async (
+//     studentId?: string,
+//     fromDate?: string,
+//     toDate?: string
+// ): Promise<Payment[]> => {
+//     let url = `${API_BASE_URL}/fees/payments/history`;
+//     const params = new URLSearchParams();
+//     if (studentId) params.append('studentId', studentId);
+//     if (fromDate) params.append('fromDate', fromDate);
+//     if (toDate) params.append('toDate', toDate);
+//     if (params.toString()) url += `?${params.toString()}`;
+
+//     const res = await fetch(url, { headers: authHeaders() });
+//     if (!res.ok) throw new Error('Failed to fetch payment history');
+//     const response = await res.json();
+//     return response.data;
+// };
+
 export const fetchPaymentHistory = async (
-    studentId?: string,
-    fromDate?: string,
-    toDate?: string
+    filters?: PaymentFilters
 ): Promise<Payment[]> => {
     let url = `${API_BASE_URL}/fees/payments/history`;
     const params = new URLSearchParams();
-    if (studentId) params.append('studentId', studentId);
-    if (fromDate) params.append('fromDate', fromDate);
-    if (toDate) params.append('toDate', toDate);
+    if (filters?.classId) params.append('classId', filters.classId);
+    if (filters?.term) params.append('term', filters.term);
     if (params.toString()) url += `?${params.toString()}`;
 
     const res = await fetch(url, { headers: authHeaders() });
@@ -344,4 +375,20 @@ export const deleteFeeStructure = async (id: string): Promise<void> => {
         const error = await res.json();
         throw new Error(error.message || 'Failed to delete fee structure');
     }
+};
+// Fetch unique terms
+export const fetchUniqueTerms = async (): Promise<string[]> => {
+    const url = `${API_BASE_URL}/fees/terms`;
+
+    const res = await fetch(url, {
+        headers: authHeaders()
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to fetch terms');
+    }
+
+    const response = await res.json();
+    return response.data;
 };

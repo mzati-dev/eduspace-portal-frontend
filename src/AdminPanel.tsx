@@ -48,7 +48,7 @@ import PreviewModal from './components/admin/modals/PreviewModal';
 import AdminSidebar from './components/admin/sidebar/AdminSidebar';
 // import AttendanceManagement from './components/admin/sidebar/AttendanceManagement';
 // import AnalyticsManagement from './components/admin/sidebar/AnalyticsManagement';
-import FeesManagement from './components/admin/sidebar/FeesManagement';
+import FeesManagement from './components/admin/sidebar/fees/FeesManagement';
 import MessagingManagement from './components/admin/sidebar/MessagingManagement';
 import SettingsManagement from './components/admin/sidebar/SettingsManagement';
 import TimetableManagement from './components/admin/sidebar/TimetableManagement';
