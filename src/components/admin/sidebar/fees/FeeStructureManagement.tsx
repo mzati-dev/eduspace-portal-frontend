@@ -71,12 +71,27 @@ const FeeStructureManagement: React.FC<Props> = ({ classes, showMessage, selecte
         (new Date().getFullYear() + 2).toString()
     ];
 
+    // useEffect(() => {
+    //     const fetchTerms = async () => {
+    //         try {
+    //             const terms = await fetchUniqueTerms();
+    //             setAvailableTerms(terms);
+    //             if (terms.length > 0 && formData.term === 'Term 1') {
+    //                 setFormData(prev => ({ ...prev, term: terms[0] }));
+    //             }
+    //         } catch (error) {
+    //             showMessage('Failed to load terms', true);
+    //         }
+    //     };
+    //     fetchTerms();
+    // }, []);
+
     useEffect(() => {
         const fetchTerms = async () => {
             try {
                 const terms = await fetchUniqueTerms();
                 setAvailableTerms(terms);
-                if (terms.length > 0 && formData.term === 'Term 1') {
+                if (terms.length > 0) {
                     setFormData(prev => ({ ...prev, term: terms[0] }));
                 }
             } catch (error) {
@@ -185,9 +200,28 @@ const FeeStructureManagement: React.FC<Props> = ({ classes, showMessage, selecte
         }
     };
 
+    // const resetForm = () => {
+    //     setFormData({
+    //         term: 'Term 1',
+    //         academicYear: new Date().getFullYear().toString(),
+    //         tuition: 0,
+    //         development: 0,
+    //         sports: 0,
+    //         library: 0,
+    //         transport: 0,
+    //         meal: 0,
+    //         exam: 0,
+    //         customFees: [],
+    //         dueDate: '',
+    //         classId: '',
+    //         className: ''
+    //     });
+    //     setEditingFee(null);
+    // };
+
     const resetForm = () => {
         setFormData({
-            term: 'Term 1',
+            term: availableTerms.length > 0 ? availableTerms[0] : '',
             academicYear: new Date().getFullYear().toString(),
             tuition: 0,
             development: 0,
