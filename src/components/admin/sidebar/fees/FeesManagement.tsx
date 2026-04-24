@@ -770,6 +770,7 @@ const FeesManagement: React.FC<Props> = ({ classes, students, showMessage }) => 
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Receipt No.</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Date</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Student</th>
+                                    <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Class</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Amount</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Payment Method</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Actions</th>
@@ -779,6 +780,7 @@ const FeesManagement: React.FC<Props> = ({ classes, students, showMessage }) => 
                                 {paymentHistory.map(payment => {
                                     return (
                                         <tr key={payment.id} className="hover:bg-slate-50">
+                                            <td className="px-4 py-3 font-mono text-sm text-indigo-600">{payment.receiptNumber}</td>
                                             <td className="px-4 py-3 text-slate-600">{payment.date}</td>
                                             <td className="px-4 py-3">
                                                 <div>
@@ -786,6 +788,7 @@ const FeesManagement: React.FC<Props> = ({ classes, students, showMessage }) => 
                                                     <p className="text-xs text-indigo-600">{payment.examNumber || ''}</p>
                                                 </div>
                                             </td>
+                                            <td className="px-4 py-3 text-slate-600">{payment.className || 'N/A'}</td>  {/* ADD THIS LINE */}
                                             <td className="px-4 py-3 font-medium text-green-600">MK {payment.amount.toLocaleString()}</td>
                                             <td className="px-4 py-3 text-slate-600 capitalize">{payment.method}</td>
                                             <td className="px-4 py-3">
