@@ -64,7 +64,8 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
     onViewExamAnalysis,
     onExportReport,
     classes = [],
-    onFilterByClass
+    onFilterByClass,
+    availableTerms = []
 }) => {
     const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all');
 
@@ -85,8 +86,6 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
             default: return '🟢';
         }
     };
-
-    const terms = ['Term 4, 2025 (Current)', 'Term 3, 2025', 'Term 2, 2025', 'Term 1, 2025', 'All Terms'];
 
     const handleClassFilterChange = (classId: string) => {
         setSelectedClassFilter(classId);
@@ -153,6 +152,7 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                     )}
 
                     {/* Time Period Selector */}
+
                     <div className="flex items-center gap-3">
                         <Calendar className="w-4 h-4 text-slate-400" />
                         <span className="text-sm font-medium text-slate-700">Time Period:</span>
@@ -161,9 +161,13 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                             onChange={(e) => setSelectedTerm(e.target.value)}
                             className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
                         >
-                            {terms.map(term => (
-                                <option key={term} value={term}>{term}</option>
-                            ))}
+                            {availableTerms && availableTerms.length > 0 ? (
+                                availableTerms.map(term => (
+                                    <option key={term.value} value={term.value}>{term.label}</option>
+                                ))
+                            ) : (
+                                <option value="">No terms available</option>
+                            )}
                         </select>
                     </div>
 
