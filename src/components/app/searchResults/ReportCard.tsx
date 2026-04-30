@@ -1164,43 +1164,43 @@ const ReportCard: React.FC<ReportCardProps> = ({
             y += remarkLines.length * 5 + 10;
 
             // ===== ATTENDANCE =====
-            // doc.setFont('helvetica', 'bold');
-            // doc.text('ATTENDANCE', 14, y);
-            // y += 4;
-            // doc.setFont('helvetica', 'normal');
+            doc.setFont('helvetica', 'bold');
+            doc.text('ATTENDANCE', 14, y);
+            y += 4;
+            doc.setFont('helvetica', 'normal');
 
-            // const totalDays = studentData.attendance.present + studentData.attendance.absent;
-            // const attendanceRate = totalDays > 0 ? Math.round((studentData.attendance.present / totalDays) * 100) : 0;
+            const totalDays = studentData.attendance.present + studentData.attendance.absent;
+            const attendanceRate = totalDays > 0 ? Math.round((studentData.attendance.present / totalDays) * 100) : 0;
 
-            // doc.text(`Total School Days: ${totalDays}`, 14, y);
-            // doc.text(`Attendance Rate: ${attendanceRate}%`, 120, y);
+            doc.text(`Total School Days: ${totalDays}`, 14, y);
+            doc.text(`Attendance Rate: ${attendanceRate}%`, 120, y);
 
-            // y += 4;
+            y += 4;
 
-            // doc.text(`Days Present: ${studentData.attendance.present}`, 14, y);
-            // doc.text(`Days Absent: ${studentData.attendance.absent}`, 120, y);
+            doc.text(`Days Present: ${studentData.attendance.present}`, 14, y);
+            doc.text(`Days Absent: ${studentData.attendance.absent}`, 120, y);
 
-            // y += 4;
+            y += 4;
 
-            // doc.text(`Days Late: ${studentData.attendance.late}`, 14, y);
+            doc.text(`Days Late: ${studentData.attendance.late}`, 14, y);
 
-            // y += 6;
+            y += 6;
 
-            // // Attendance comment
-            // let attendanceComment = '';
-            // if (attendanceRate >= 95) {
-            //     attendanceComment = 'Excellent attendance! Keep it up.';
-            // } else if (attendanceRate >= 80) {
-            //     attendanceComment = 'Good attendance record.';
-            // } else {
-            //     attendanceComment = 'Needs improvement in attendance.';
-            // }
+            // Attendance comment
+            let attendanceComment = '';
+            if (attendanceRate >= 95) {
+                attendanceComment = 'Excellent attendance! Keep it up.';
+            } else if (attendanceRate >= 80) {
+                attendanceComment = 'Good attendance record.';
+            } else {
+                attendanceComment = 'Needs improvement in attendance.';
+            }
 
-            // doc.setFont('helvetica', 'normal');
-            // doc.setFontSize(10);
-            // doc.text(attendanceComment, 14, y);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.text(attendanceComment, 14, y);
 
-            // y += 6;
+            y += 6;
 
             // ===== FOOTER =====
             const footerTitle = 'Report Card Generated';
@@ -2248,7 +2248,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                 </div>
             </div>
 
-            {/* <div className="bg-white rounded-xl p-6 border border-slate-200">
+            <div className="bg-white rounded-xl p-6 border border-slate-200">
                 <h5 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-indigo-600" />
                     Attendance Details
@@ -2329,7 +2329,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                                 : '⚠ Needs improvement in attendance.'}
                     </div>
                 </div>
-            </div> */}
+            </div>
 
             <div className="bg-slate-900 text-white rounded-xl p-6">
                 <div className="text-center">

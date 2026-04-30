@@ -861,3 +861,31 @@ export const fetchClassComparisons = async (): Promise<any[]> => {
 
     return [];
 };
+/**
+ * Fetch attendance summary for a student for report card
+ * GET /attendance/student/:studentId/summary?startDate=&endDate=
+ */
+export const fetchStudentAttendanceSummary = async (
+    studentId: string,
+    startDate: string,
+    endDate: string
+): Promise<{ present: number; absent: number; late: number; total: number; attendanceRate: number }> => {
+    const url = `${API_BASE_URL}/attendance/student/${studentId}/summary?startDate=${startDate}&endDate=${endDate}`;
+
+    const res = await fetch(url, {
+        headers: authHeaders()
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to fetch student attendance summary');
+    }
+
+    const response = await res.json();
+
+    if (response.success && response.data) {
+        return response.data;
+    }
+
+    return { present: 0, absent: 0, late: 0, total: 0, attendanceRate: 0 };
+};

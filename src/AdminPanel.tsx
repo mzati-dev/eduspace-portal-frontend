@@ -55,6 +55,7 @@ import TimetableManagement from './components/admin/sidebar/TimetableManagement'
 import AttendanceManagement from './components/admin/sidebar/attendance/AttendanceManagement';
 import AnalyticsManagement from './components/admin/sidebar/analytics/AnalyticsManagement';
 import ExternalResultsManagement from './components/admin/ExternalResultsManagement';
+import { fetchCurrentTerm, fetchStudentAttendanceSummary } from './services/attendanceService';
 
 interface AdminPanelProps {
     onBack: () => void;
@@ -679,6 +680,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 });
             }
 
+            // Get total school days from attendance service
+            const term = await fetchCurrentTerm();
+            let totalSchoolDays = 0;
+            if (term?.startDate && term?.endDate) {
+                const summary = await fetchStudentAttendanceSummary(selectedStudent.id, term.startDate, term.endDate);
+                totalSchoolDays = summary.total;
+            }
+
             // Save report card
             await upsertReportCard({
                 student_id: selectedStudent.id,
@@ -686,6 +695,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 days_present: reportCard.days_present,
                 days_absent: reportCard.days_absent,
                 days_late: reportCard.days_late,
+                total_school_days: totalSchoolDays,
                 teacher_remarks: reportCard.teacher_remarks
             });
 

@@ -5,6 +5,7 @@ import { GradeConfiguration } from '@/services/gradeConfigService';
 import { Student, Assessment, ReportCardData } from '@/types/admin';
 import { calculateAndUpdateRanks } from '@/services/studentService';
 import NationalMockExamEntry from './NationalMockExamEntry';
+import { fetchCurrentTerm, fetchStudentAttendanceSummary } from '@/services/attendanceService';
 
 interface ResultsManagementProps {
     students: Student[];
@@ -79,6 +80,8 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
     const [selectedClassFilter, setSelectedClassFilter] = useState<string>('');
     const [resultType, setResultType] = useState<'internal' | 'external'>('internal');
     const [externalExamType, setExternalExamType] = useState<'PSLCE' | 'JCE' | 'MSCE' | 'MOCK'>('PSLCE');
+    const [loadingAttendance, setLoadingAttendance] = useState(false);
+    const [totalSchoolDays, setTotalSchoolDays] = useState(0);
 
     const filteredStudents = students.filter(student => {
         const matchesSearch = !searchTerm ||
@@ -162,6 +165,38 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
             fetchAllStudentAssessments();
         }
     }, [students, selectedStudent]);
+
+    useEffect(() => {
+        const fetchAttendanceForReportCard = async () => {
+            if (!selectedStudent) return;
+
+            setLoadingAttendance(true);
+            try {
+                const term = await fetchCurrentTerm();
+                if (!term?.startDate || !term?.endDate) return;
+
+                const summary = await fetchStudentAttendanceSummary(
+                    selectedStudent.id,
+                    term.startDate,
+                    term.endDate
+                );
+
+                setReportCard({
+                    ...reportCard,
+                    days_present: summary.present,
+                    days_absent: summary.absent,
+                    days_late: summary.late
+                });
+                setTotalSchoolDays(summary.total);
+            } catch (error) {
+                console.error('Failed to fetch attendance summary:', error);
+            } finally {
+                setLoadingAttendance(false);
+            }
+        };
+
+        fetchAttendanceForReportCard();
+    }, [selectedStudent]);
 
 
     // Force internal assessments only for teachers
@@ -1507,133 +1542,191 @@ const ResultsManagement: React.FC<ResultsManagementProps> = ({
                     })()} */}
 
                     {hasEndOfTermScores() && isClassTeacher && (
+
                         <div className="report-card-section bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
                                 <div className="flex justify-between items-center">
                                     <div>
-                                        <h3 className="font-semibold text-slate-800">Report Card Attendnace Details</h3>
-                                        <p className={`text-sm mt-1 ${isClassTeacher ? 'text-amber-600 font-bold' : 'text-slate-500'}`}>
-                                            {/* {isClassTeacher
-                                                ? 'Report card details are REQUIRED when entering End of Term scores.'
-                                                : 'Only class teacher can edit attendance and remarks.'
-                                            } */}
-                                            {isClassTeacher
-                                                ? 'Leave them blank for now!'
-                                                : 'Only class teacher can edit attendance and remarks.'
-                                            }
+                                        <h3 className="font-semibold text-slate-800">Attendance Summary</h3>
+                                        <p className="text-sm mt-1 text-green-600 font-medium">
+                                            ✓ Auto-populated from attendance records
                                         </p>
                                     </div>
-                                    {!isClassTeacher && (
-                                        <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
-                                            Class Teacher Only
-                                        </span>
-                                    )}
+                                    <span className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                                        Auto-synced
+                                    </span>
                                 </div>
                             </div>
-                            <div className="p-6 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <div className="relative">
-                                    {isClassTeacher && <div className="absolute inset-0 z-10" />}
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        Days Present <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        // required
-                                        readOnly={isClassTeacher}
-                                        value={reportCard.days_present === undefined || reportCard.days_present === null ? '' : reportCard.days_present}
-                                        onChange={(e) => {
-                                            if (!isClassTeacher) return;
-                                            const rawValue = e.target.value;
-                                            const value = rawValue === '' ? undefined : parseInt(rawValue);
-                                            const finalValue = isNaN(value) ? undefined : value;
-                                            setReportCard({ ...reportCard, days_present: finalValue });
-                                            setReportCardErrors(prev => ({
-                                                ...prev,
-                                                days_present: finalValue === undefined
-                                            }));
-                                        }}
-                                        disabled={!isClassTeacher}
-                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${!isClassTeacher ? 'bg-slate-100 cursor-not-allowed' : ''} ${reportCardErrors.days_present
-                                            ? 'border-red-500 bg-red-50'
-                                            : 'border-slate-300'
-                                            }`}
-                                        placeholder={!isClassTeacher ? "Only class teacher can edit" : "Enter number of days"}
-                                    />
-                                    {reportCardErrors.days_present && isClassTeacher && (
-                                        <p className="mt-1 text-sm text-red-600">Enter number of days present</p>
+                            <div className="p-6 grid md:grid-cols-4 gap-6">
+                                <div className="bg-blue-50 rounded-xl p-4 text-center border border-blue-200">
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Total School Days</label>
+                                    {loadingAttendance ? (
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto"></div>
+                                    ) : (
+                                        <p className="text-2xl font-bold text-blue-700">{totalSchoolDays}</p>
+                                    )}
+                                </div>
+                                <div className="bg-green-50 rounded-xl p-4 text-center border border-green-200">
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Days Present</label>
+                                    {loadingAttendance ? (
+                                        <div className="h-10 flex items-center justify-center">
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-2xl font-bold text-green-700">{reportCard.days_present ?? 0}</p>
                                     )}
                                 </div>
 
-                                <div className="relative">
-                                    {isClassTeacher && <div className="absolute inset-0 z-10" />}
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        Days Absent <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        // required
-                                        readOnly={isClassTeacher}
-                                        value={reportCard.days_absent === undefined || reportCard.days_absent === null ? '' : reportCard.days_absent}
-                                        onChange={(e) => {
-                                            if (!isClassTeacher) return;
-                                            const rawValue = e.target.value;
-                                            const value = rawValue === '' ? undefined : parseInt(rawValue);
-                                            const finalValue = isNaN(value) ? undefined : value;
-                                            setReportCard({ ...reportCard, days_absent: finalValue });
-                                            setReportCardErrors(prev => ({
-                                                ...prev,
-                                                days_absent: finalValue === undefined
-                                            }));
-                                        }}
-                                        disabled={!isClassTeacher}
-                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${!isClassTeacher ? 'bg-slate-100 cursor-not-allowed' : ''} ${reportCardErrors.days_absent
-                                            ? 'border-red-500 bg-red-50'
-                                            : 'border-slate-300'
-                                            }`}
-                                        placeholder={!isClassTeacher ? "Only class teacher can edit" : "Enter number (0 for none)"}
-                                    />
-                                    {reportCardErrors.days_absent && isClassTeacher && (
-                                        <p className="mt-1 text-sm text-red-600">Enter number of days absent (0 for none)</p>
+                                <div className="bg-red-50 rounded-xl p-4 text-center border border-red-200">
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Days Absent</label>
+                                    {loadingAttendance ? (
+                                        <div className="h-10 flex items-center justify-center">
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-2xl font-bold text-red-700">{reportCard.days_absent ?? 0}</p>
                                     )}
                                 </div>
 
-                                <div className="relative">
-                                    {isClassTeacher && <div className="absolute inset-0 z-10" />}
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        Days Late <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        // required
-                                        readOnly={isClassTeacher}
-                                        value={reportCard.days_late === undefined || reportCard.days_late === null ? '' : reportCard.days_late}
-                                        onChange={(e) => {
-                                            if (!isClassTeacher) return;
-                                            const rawValue = e.target.value;
-                                            const value = rawValue === '' ? undefined : parseInt(rawValue);
-                                            const finalValue = isNaN(value) ? undefined : value;
-                                            setReportCard({ ...reportCard, days_late: finalValue });
-                                            setReportCardErrors(prev => ({
-                                                ...prev,
-                                                days_late: finalValue === undefined
-                                            }));
-                                        }}
-                                        disabled={!isClassTeacher}
-                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${!isClassTeacher ? 'bg-slate-100 cursor-not-allowed' : ''} ${reportCardErrors.days_late
-                                            ? 'border-red-500 bg-red-50'
-                                            : 'border-slate-300'
-                                            }`}
-                                        placeholder={!isClassTeacher ? "Only class teacher can edit" : "Enter number (0 for none)"}
-                                    />
-                                    {reportCardErrors.days_late && isClassTeacher && (
-                                        <p className="mt-1 text-sm text-red-600">Enter number of days late (0 for none)</p>
+                                <div className="bg-yellow-50 rounded-xl p-4 text-center border border-yellow-200">
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Days Late</label>
+                                    {loadingAttendance ? (
+                                        <div className="h-10 flex items-center justify-center">
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600"></div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-2xl font-bold text-yellow-700">{reportCard.days_late ?? 0}</p>
                                     )}
                                 </div>
                             </div>
                         </div>
+                        // <div className="report-card-section bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        //     <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+                        //         <div className="flex justify-between items-center">
+                        //             <div>
+                        //                 <h3 className="font-semibold text-slate-800">Report Card Attendnace Details</h3>
+                        //                 <p className={`text-sm mt-1 ${isClassTeacher ? 'text-amber-600 font-bold' : 'text-slate-500'}`}>
+                        //                     {/* {isClassTeacher
+                        //                         ? 'Report card details are REQUIRED when entering End of Term scores.'
+                        //                         : 'Only class teacher can edit attendance and remarks.'
+                        //                     } */}
+                        //                     {isClassTeacher
+                        //                         ? 'Leave them blank for now!'
+                        //                         : 'Only class teacher can edit attendance and remarks.'
+                        //                     }
+                        //                 </p>
+                        //             </div>
+                        //             {!isClassTeacher && (
+                        //                 <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
+                        //                     Class Teacher Only
+                        //                 </span>
+                        //             )}
+                        //         </div>
+                        //     </div>
+                        //     <div className="p-6 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        //         <div className="relative">
+                        //             {isClassTeacher && <div className="absolute inset-0 z-10" />}
+                        //             <label className="block text-sm font-medium text-slate-700 mb-1">
+                        //                 Days Present <span className="text-red-500">*</span>
+                        //             </label>
+                        //             <input
+                        //                 type="number"
+                        //                 min="0"
+                        //                 // required
+                        //                 readOnly={isClassTeacher}
+                        //                 value={reportCard.days_present === undefined || reportCard.days_present === null ? '' : reportCard.days_present}
+                        //                 onChange={(e) => {
+                        //                     if (!isClassTeacher) return;
+                        //                     const rawValue = e.target.value;
+                        //                     const value = rawValue === '' ? undefined : parseInt(rawValue);
+                        //                     const finalValue = isNaN(value) ? undefined : value;
+                        //                     setReportCard({ ...reportCard, days_present: finalValue });
+                        //                     setReportCardErrors(prev => ({
+                        //                         ...prev,
+                        //                         days_present: finalValue === undefined
+                        //                     }));
+                        //                 }}
+                        //                 disabled={!isClassTeacher}
+                        //                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${!isClassTeacher ? 'bg-slate-100 cursor-not-allowed' : ''} ${reportCardErrors.days_present
+                        //                     ? 'border-red-500 bg-red-50'
+                        //                     : 'border-slate-300'
+                        //                     }`}
+                        //                 placeholder={!isClassTeacher ? "Only class teacher can edit" : "Enter number of days"}
+                        //             />
+                        //             {reportCardErrors.days_present && isClassTeacher && (
+                        //                 <p className="mt-1 text-sm text-red-600">Enter number of days present</p>
+                        //             )}
+                        //         </div>
+
+                        //         <div className="relative">
+                        //             {isClassTeacher && <div className="absolute inset-0 z-10" />}
+                        //             <label className="block text-sm font-medium text-slate-700 mb-1">
+                        //                 Days Absent <span className="text-red-500">*</span>
+                        //             </label>
+                        //             <input
+                        //                 type="number"
+                        //                 min="0"
+                        //                 // required
+                        //                 readOnly={isClassTeacher}
+                        //                 value={reportCard.days_absent === undefined || reportCard.days_absent === null ? '' : reportCard.days_absent}
+                        //                 onChange={(e) => {
+                        //                     if (!isClassTeacher) return;
+                        //                     const rawValue = e.target.value;
+                        //                     const value = rawValue === '' ? undefined : parseInt(rawValue);
+                        //                     const finalValue = isNaN(value) ? undefined : value;
+                        //                     setReportCard({ ...reportCard, days_absent: finalValue });
+                        //                     setReportCardErrors(prev => ({
+                        //                         ...prev,
+                        //                         days_absent: finalValue === undefined
+                        //                     }));
+                        //                 }}
+                        //                 disabled={!isClassTeacher}
+                        //                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${!isClassTeacher ? 'bg-slate-100 cursor-not-allowed' : ''} ${reportCardErrors.days_absent
+                        //                     ? 'border-red-500 bg-red-50'
+                        //                     : 'border-slate-300'
+                        //                     }`}
+                        //                 placeholder={!isClassTeacher ? "Only class teacher can edit" : "Enter number (0 for none)"}
+                        //             />
+                        //             {reportCardErrors.days_absent && isClassTeacher && (
+                        //                 <p className="mt-1 text-sm text-red-600">Enter number of days absent (0 for none)</p>
+                        //             )}
+                        //         </div>
+
+                        //         <div className="relative">
+                        //             {isClassTeacher && <div className="absolute inset-0 z-10" />}
+                        //             <label className="block text-sm font-medium text-slate-700 mb-1">
+                        //                 Days Late <span className="text-red-500">*</span>
+                        //             </label>
+                        //             <input
+                        //                 type="number"
+                        //                 min="0"
+                        //                 // required
+                        //                 readOnly={isClassTeacher}
+                        //                 value={reportCard.days_late === undefined || reportCard.days_late === null ? '' : reportCard.days_late}
+                        //                 onChange={(e) => {
+                        //                     if (!isClassTeacher) return;
+                        //                     const rawValue = e.target.value;
+                        //                     const value = rawValue === '' ? undefined : parseInt(rawValue);
+                        //                     const finalValue = isNaN(value) ? undefined : value;
+                        //                     setReportCard({ ...reportCard, days_late: finalValue });
+                        //                     setReportCardErrors(prev => ({
+                        //                         ...prev,
+                        //                         days_late: finalValue === undefined
+                        //                     }));
+                        //                 }}
+                        //                 disabled={!isClassTeacher}
+                        //                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${!isClassTeacher ? 'bg-slate-100 cursor-not-allowed' : ''} ${reportCardErrors.days_late
+                        //                     ? 'border-red-500 bg-red-50'
+                        //                     : 'border-slate-300'
+                        //                     }`}
+                        //                 placeholder={!isClassTeacher ? "Only class teacher can edit" : "Enter number (0 for none)"}
+                        //             />
+                        //             {reportCardErrors.days_late && isClassTeacher && (
+                        //                 <p className="mt-1 text-sm text-red-600">Enter number of days late (0 for none)</p>
+                        //             )}
+                        //         </div>
+                        //     </div>
+                        // </div>
                     )}
                 </>
             )}

@@ -603,8 +603,8 @@ const FeesManagement: React.FC<Props> = ({ classes, students, showMessage }) => 
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Date</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Student</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Class</th>  {/* ADD THIS */}
-                                    <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Receipt No.</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Amount</th>
+                                    <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Receipt No.</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Method</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Reference</th>
                                     <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Status</th>
@@ -623,8 +623,8 @@ const FeesManagement: React.FC<Props> = ({ classes, students, showMessage }) => 
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-slate-600">{payment.className || 'N/A'}</td>  {/* ADD THIS LINE */}
-                                            <td className="px-4 py-3 font-mono text-sm text-indigo-600">{payment.receiptNumber}</td>
                                             <td className="px-4 py-3 font-medium text-green-600">MK {payment.amount.toLocaleString()}</td>
+                                            <td className="px-4 py-3 font-mono text-sm text-indigo-600">{payment.receiptNumber}</td>
                                             <td className="px-4 py-3 text-slate-600 capitalize">{payment.method}</td>
                                             <td className="px-4 py-3 text-slate-600">{payment.reference}</td>
                                             {/* <td className="px-4 py-3">
