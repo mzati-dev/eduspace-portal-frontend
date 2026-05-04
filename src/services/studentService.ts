@@ -1,3 +1,5 @@
+import { fetchCurrentTerm } from "./attendanceService";
+
 // const API_BASE_URL = 'http://localhost:3000';
 const API_BASE_URL = 'https://eduspace-portal-backend.onrender.com';
 
@@ -1133,4 +1135,69 @@ export const importSelectedStudents = async (classId: string, selectedStudents: 
     throw new Error(error.message || 'Failed to import students');
   }
   return res.json();
+};
+// Add this function to your studentService.ts
+export const fetchCurrentTermPassRates = async () => {
+  try {
+    const schoolId = getSchoolId();
+    const term = await fetchCurrentTerm();
+
+    // Fetch all classes
+    const classesRes = await fetch(`${API_BASE_URL}/api/classes?schoolId=${schoolId}`, {
+      headers: authHeaders()
+    });
+    const classes = await classesRes.json();
+
+    const passRatesData = [];
+
+    for (const cls of classes) {
+      // Fetch results for each class
+      const resultsRes = await fetch(`${API_BASE_URL}/api/students/class/${cls.id}/results?schoolId=${schoolId}&term=${term?.name}`, {
+        headers: authHeaders()
+      });
+
+      let qa1PassCount = 0;
+      let qa2PassCount = 0;
+      let endOfTermPassCount = 0;
+      let totalSubjectEntries = 0;
+
+      if (resultsRes.ok) {
+        const classResults = await resultsRes.json();
+
+        classResults.forEach((student: any) => {
+          student.subjects?.forEach((subject: any) => {
+            totalSubjectEntries++;
+
+            // QA1
+            if (!subject.qa1_absent && subject.qa1 !== null && subject.qa1 >= 0) {
+              const grade = calculateGrade(subject.qa1, 50, false, cls.name);
+              if (grade !== 'F' && grade !== '9') qa1PassCount++;
+            }
+            // QA2
+            if (!subject.qa2_absent && subject.qa2 !== null && subject.qa2 >= 0) {
+              const grade = calculateGrade(subject.qa2, 50, false, cls.name);
+              if (grade !== 'F' && grade !== '9') qa2PassCount++;
+            }
+            // End of Term
+            if (!subject.endOfTerm_absent && subject.endOfTerm !== null && subject.endOfTerm >= 0) {
+              const grade = calculateGrade(subject.endOfTerm, 50, false, cls.name);
+              if (grade !== 'F' && grade !== '9') endOfTermPassCount++;
+            }
+          });
+        });
+      }
+
+      passRatesData.push({
+        className: cls.name,
+        qa1PassRate: totalSubjectEntries > 0 ? Math.round((qa1PassCount / totalSubjectEntries) * 100) : 0,
+        qa2PassRate: totalSubjectEntries > 0 ? Math.round((qa2PassCount / totalSubjectEntries) * 100) : 0,
+        endOfTermPassRate: totalSubjectEntries > 0 ? Math.round((endOfTermPassCount / totalSubjectEntries) * 100) : 0,
+      });
+    }
+
+    return passRatesData;
+  } catch (error) {
+    console.error('Error fetching pass rates:', error);
+    return [];
+  }
 };

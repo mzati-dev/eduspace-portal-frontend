@@ -17,7 +17,8 @@ import {
     sendReportWhatsApp,
     fetchStudentReportArchives,
     generateReportCards,
-    addStudentsToClass
+    addStudentsToClass,
+    fetchCurrentTermPassRates
 } from '@/services/studentService';
 import {
     getActiveGradeConfig, getAllGradeConfigs, createGradeConfig,
@@ -56,13 +57,18 @@ import AttendanceManagement from './components/admin/sidebar/attendance/Attendan
 import AnalyticsManagement from './components/admin/sidebar/analytics/AnalyticsManagement';
 import ExternalResultsManagement from './components/admin/ExternalResultsManagement';
 import { fetchCurrentTerm, fetchStudentAttendanceSummary } from './services/attendanceService';
+import HomeOverview from './components/admin/HomeOverview';
+import RemindersManagement from './components/admin/sidebar/RemindersManagement';
+import ProgramsManagement from './components/admin/ProgramsManagement';
+import ActivitiesManagement from './components/admin/ActivitiesManagement';
+import TransferLetter from './components/admin/sidebar/TransferLetter';
 
 interface AdminPanelProps {
     onBack: () => void;
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
-    const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults' | 'externalResults'>('classes');
+    const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'teachers' | 'subjects' | 'results' | 'gradeConfig' | 'classResults' | 'externalResults'>('results');
     const [students, setStudents] = useState<Student[]>([]);
     const [subjects, setSubjects] = useState<SubjectRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -72,6 +78,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+
+    // Term data for HomeOverview
+    const [termInfo, setTermInfo] = useState({ name: 'Loading...', startDate: '', endDate: '' });
+    const [totalDays, setTotalDays] = useState(0);
+    const [recordedDays, setRecordedDays] = useState(0);
+    const [remainingDays, setRemainingDays] = useState(0);
+    const [currentWeekNumber, setCurrentWeekNumber] = useState(0);
+    const [totalWeeks, setTotalWeeks] = useState(0);
+    const [weeksRemaining, setWeeksRemaining] = useState(0);
 
     // Add with other state declarations
     const [selectedClassForPublish, setSelectedClassForPublish] = useState<string>('');
@@ -168,7 +183,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     const [activeAssessmentType, setActiveAssessmentType] = useState<'qa1' | 'qa2' | 'endOfTerm' | 'overall'>('overall');
     const [resultsLoading, setResultsLoading] = useState(false);
     // Add this with your other state declarations
-    const [activeMainMenu, setActiveMainMenu] = useState<string>('dashboard');
+    const [activeMainMenu, setActiveMainMenu] = useState<string>('home');
     // Add this with your other state declarations
     const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
@@ -176,6 +191,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     const [sidebarMobileOpen, setSidebarMobileOpen] = useState<boolean>(false);
     const [monthlyStats, setMonthlyStats] = useState<any[]>([]);
     const [termStats, setTermStats] = useState<any>({ averageRate: 0, highestRate: 0, lowestRate: 0, totalDays: 0, termName: 'Term 1 2024' });
+    const [currentPassRates, setCurrentPassRates] = useState([]);
+
+    const [schoolAddress, setSchoolAddress] = useState<string>('');
+    const [schoolPhone, setSchoolPhone] = useState<string>('');
+    const [schoolEmail, setSchoolEmail] = useState<string>('');
+    const [schoolDistrict, setSchoolDistrict] = useState<string>('');
+    const [schoolZone, setSchoolZone] = useState<string>('');
+    const [schoolEmis, setSchoolEmis] = useState<string>('');
 
     // Auto-generate exam number effect
     // useEffect(() => {
@@ -192,6 +215,102 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     //         }
     //     }
     // }, [studentForm.class_id, classes, students]);
+
+    // Fetch current term pass rates for dashboard
+    useEffect(() => {
+        const loadPassRates = async () => {
+            const rates = await fetchCurrentTermPassRates();
+            setCurrentPassRates(rates);
+        };
+        loadPassRates();
+    }, []);
+
+    // Fetch term data for HomeOverview
+    useEffect(() => {
+        const fetchTermData = async () => {
+            try {
+                const term = await fetchCurrentTerm();
+                if (term) {
+                    setTermInfo({
+                        name: term.name,
+                        startDate: term.startDate,
+                        endDate: term.endDate
+                    });
+
+                    // Fetch holidays
+                    const { fetchPublicHolidays, fetchSchoolHolidays } = await import('@/services/attendanceService');
+                    const publicHolidays = await fetchPublicHolidays();
+                    const schoolHolidays = await fetchSchoolHolidays();
+
+                    const holidaySet = new Set<string>();
+                    publicHolidays.forEach((holiday: { date: string }) => holidaySet.add(holiday.date));
+                    schoolHolidays.forEach((holiday: { date: string }) => holidaySet.add(holiday.date));
+
+                    // Calculate total days (excluding weekends and holidays)
+                    const start = new Date(term.startDate);
+                    const end = new Date(term.endDate);
+                    let total = 0;
+                    let current = new Date(start);
+
+                    while (current <= end) {
+                        const dayOfWeek = current.getDay();
+                        const dateStr = current.toISOString().split('T')[0];
+                        if (dayOfWeek >= 1 && dayOfWeek <= 5 && !holidaySet.has(dateStr)) {
+                            total++;
+                        }
+                        current.setDate(current.getDate() + 1);
+                    }
+                    setTotalDays(total);
+                    setTotalWeeks(Math.ceil(total / 5));
+
+                    // Calculate recorded days (days passed up to today, excluding weekends and holidays)
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    let recorded = 0;
+                    let currentDay = new Date(start);
+
+                    while (currentDay <= today) {
+                        const dayOfWeek = currentDay.getDay();
+                        const dateStr = currentDay.toISOString().split('T')[0];
+                        if (dayOfWeek >= 1 && dayOfWeek <= 5 && !holidaySet.has(dateStr)) {
+                            recorded++;
+                        }
+                        currentDay.setDate(currentDay.getDate() + 1);
+                    }
+                    setRecordedDays(recorded);
+                    setRemainingDays(total - recorded);
+
+                    // Calculate current week number
+                    const diffTime = Math.abs(today.getTime() - start.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    let weekNum = Math.ceil((diffDays + 1) / 7);
+
+                    // Adjust week number to only count school weeks
+                    let schoolDaysCount = 0;
+                    let weekCounter = 1;
+                    let tempDate = new Date(start);
+                    while (tempDate <= today) {
+                        const dayOfWeek = tempDate.getDay();
+                        const dateStr = tempDate.toISOString().split('T')[0];
+                        if (dayOfWeek >= 1 && dayOfWeek <= 5 && !holidaySet.has(dateStr)) {
+                            schoolDaysCount++;
+                            if (schoolDaysCount > 5) {
+                                schoolDaysCount = 1;
+                                weekCounter++;
+                            }
+                        }
+                        tempDate.setDate(tempDate.getDate() + 1);
+                    }
+                    const finalWeekNum = Math.min(weekCounter, Math.ceil(total / 5));
+                    setCurrentWeekNumber(finalWeekNum);
+                    setWeeksRemaining(Math.max(0, Math.ceil(total / 5) - finalWeekNum));
+                }
+            } catch (error) {
+                console.error('Failed to fetch term:', error);
+            }
+        };
+        fetchTermData();
+    }, []);
 
 
     // Auto-generate exam number effect
@@ -276,6 +395,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 if (response.ok) {
                     const schoolData = await response.json();
                     setSchoolName(schoolData.name || 'School');
+                    setSchoolAddress(schoolData.address || '');
+                    setSchoolPhone(schoolData.phone || '');
+                    setSchoolEmail(schoolData.email || '');
+                    setSchoolDistrict(schoolData.district || '');
+                    setSchoolZone(schoolData.zone || '');
+                    setSchoolEmis(schoolData.emis || '');
                 } else {
                     setSchoolName(user.schoolName || 'School');
                 }
@@ -324,6 +449,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     // Add this handler
     const handleMenuChange = (menu: string) => {
         setActiveMainMenu(menu);
+
+        // Reset active tab when clicking on Results
+        if (menu === 'results') {
+            setActiveTab('results');
+        }
         // NEW (mobile): close the drawer after selecting a menu item
         setSidebarMobileOpen(false);
     };
@@ -1023,7 +1153,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             {/* <div className="flex-1 ml-64"> */}
             {/* <div className="flex-1 pl-64"> */}
             {/* NEW (mobile): no left padding on small screens to keep content inside viewport */}
-            <div className={`flex-1 transition-all duration-300 pl-0 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'} min-w-0`}>
+            <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'} min-w-0`}>
                 <AdminHeader
                     onBack={onBack}
                     schoolName={schoolName}
@@ -1050,278 +1180,85 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     </div>
                 )}
 
-                {activeMainMenu === 'dashboard' ? (
+                {activeMainMenu === 'home' ? (
+                    <HomeOverview
+                        students={students}
+                        teachers={teachers}
+                        classes={classes}
+                        termInfo={termInfo}
+                        totalDays={totalDays}
+                        recordedDays={recordedDays}
+                        remainingDays={remainingDays}
+                        currentWeekNumber={currentWeekNumber}
+                        totalWeeks={totalWeeks}
+                        currentPassRates={currentPassRates}
+                        weeksRemaining={weeksRemaining}
+                    />
+                ) : activeMainMenu === 'classes' ? (
+                    <ClassesManagement
+                        classes={classes}
+                        students={students}
+                        showClassForm={showClassForm}
+                        classForm={classForm}
+                        classLoading={classLoading}
+                        setShowClassForm={setShowClassForm}
+                        setClassForm={setClassForm}
+                        handleCreateClass={handleCreateClass}
+                        handleDeleteClass={handleDeleteClass}
+                        handleDeleteStudent={handleDeleteStudent}
+                        showMessage={showMessage}
+                        handleAddStudentsToClass={handleAddStudentsToClass}
+                    />
+                ) : activeMainMenu === 'students' ? (
+                    <StudentsManagement
+                        students={students}
+                        classes={classes}
+                        showStudentForm={showStudentForm}
+                        editingStudent={editingStudent}
+                        studentForm={studentForm}
+                        setShowStudentForm={setShowStudentForm}
+                        setEditingStudent={setEditingStudent}
+                        setStudentForm={setStudentForm}
+                        handleCreateStudent={handleCreateStudent}
+                        handleUpdateStudent={handleUpdateStudent}
+                        handleDeleteStudent={handleDeleteStudent}
+                        startEditStudent={startEditStudent}
+                        onRefresh={loadData}
+                    />
+                ) : activeMainMenu === 'teachers' ? (
+                    <TeachersManagement
+                        teachers={teachers}
+                        showTeacherForm={showTeacherForm}
+                        teacherForm={teacherForm}
+                        setShowTeacherForm={setShowTeacherForm}
+                        setTeacherForm={setTeacherForm}
+                        handleCreateTeacher={handleCreateTeacher}
+                        handleDeleteTeacher={handleDeleteTeacher}
+                        classes={classes}
+                        subjects={subjects}
+                    />
+                ) : activeMainMenu === 'subjects' ? (
+                    <SubjectsManagement
+                        subjects={subjects}
+                        showSubjectForm={showSubjectForm}
+                        newSubjectName={newSubjectName}
+                        addingSubject={addingSubject}
+                        setShowSubjectForm={setShowSubjectForm}
+                        setNewSubjectName={setNewSubjectName}
+                        handleAddSubject={handleAddSubject}
+                        handleDeleteSubject={handleDeleteSubject}
+                    />
+                ) : activeMainMenu === 'results' ? (
                     <>
-
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
                             <AdminTabs activeTab={activeTab} onTabChange={handleTabChange} />
-
-                            {/* Calculate Ranks Button */}
-
                         </div>
-
-                        {/* Custom Confirm Modal */}
-                        <CustomConfirmModal
-                            isOpen={showConfirmModal}
-                            title="Calculate Final Ranks"
-                            message="This will recalculate rankings for all classes based on all entered scores. Are you sure you want to continue?"
-                            onConfirm={async () => {
-                                setShowConfirmModal(false);
-                                setSavingResults(true);
-                                try {
-                                    const classData = JSON.parse(localStorage.getItem('selectedClassForRank') || '{}');
-
-                                    if (classData.id) {
-                                        await calculateAndUpdateRanks(classData.id, classData.term);
-                                        setSuccessMessage(`Ranks calculated for ${classData.name} successfully!`);
-                                        localStorage.removeItem('selectedClassForRank');
-                                    } else {
-                                        setErrorMessage('No class selected');
-                                    }
-
-                                    setShowSuccessModal(true);
-                                    await loadData();
-                                } catch (error) {
-                                    setErrorMessage('Error calculating ranks');
-                                    setShowSuccessModal(true);
-                                } finally {
-                                    setSavingResults(false);
-                                }
-                            }}
-                            onCancel={() => setShowConfirmModal(false)}
-                        />
-
-                        {/* Success/Error Modal */}
-                        <CustomAlertModal
-                            isOpen={showSuccessModal}
-                            title={errorMessage ? 'Error' : 'Success'}
-                            message={errorMessage || successMessage}
-                            type={errorMessage ? 'error' : 'success'}
-                            onClose={() => {
-                                setShowSuccessModal(false);
-                                setErrorMessage('');
-                                setSuccessMessage('');
-                            }}
-                        />
-
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                             {loading ? (
-                                <LoadingSpinner message="Loading admin data..." />
-                            ) : activeTab === 'classes' ? (
-                                <ClassesManagement
-                                    classes={classes}
-                                    students={students}
-                                    showClassForm={showClassForm}
-                                    classForm={classForm}
-                                    classLoading={classLoading}
-                                    setShowClassForm={setShowClassForm}
-                                    setClassForm={setClassForm}
-                                    handleCreateClass={handleCreateClass}
-                                    handleDeleteClass={handleDeleteClass}
-                                    handleDeleteStudent={handleDeleteStudent}
-                                    showMessage={showMessage}
-                                    handleAddStudentsToClass={handleAddStudentsToClass}
-                                />
-                            ) : activeTab === 'students' ? (
-                                <StudentsManagement
-                                    students={students}
-                                    classes={classes}
-                                    showStudentForm={showStudentForm}
-                                    editingStudent={editingStudent}
-                                    studentForm={studentForm}
-                                    setShowStudentForm={setShowStudentForm}
-                                    setEditingStudent={setEditingStudent}
-                                    setStudentForm={setStudentForm}
-                                    handleCreateStudent={handleCreateStudent}
-                                    handleUpdateStudent={handleUpdateStudent}
-                                    handleDeleteStudent={handleDeleteStudent}
-                                    startEditStudent={startEditStudent}
-                                    onRefresh={loadData}
-                                />
-                            )
-
-
-                                : activeTab === 'teachers' ? (  // ADD THIS CONDITION
-                                    <TeachersManagement
-                                        teachers={teachers}
-                                        showTeacherForm={showTeacherForm}
-                                        teacherForm={teacherForm}
-                                        setShowTeacherForm={setShowTeacherForm}
-                                        setTeacherForm={setTeacherForm}
-                                        handleCreateTeacher={handleCreateTeacher}
-                                        handleDeleteTeacher={handleDeleteTeacher}
-                                        // ===== ADD THESE TWO PROPS =====
-                                        classes={classes}
-                                        subjects={subjects}
-                                    // ===== END ADD PROPS =====
-                                    />
-                                )
-
-                                    : activeTab === 'subjects' ? (
-                                        <SubjectsManagement
-                                            subjects={subjects}
-                                            showSubjectForm={showSubjectForm}
-                                            newSubjectName={newSubjectName}
-                                            addingSubject={addingSubject}
-                                            setShowSubjectForm={setShowSubjectForm}
-                                            setNewSubjectName={setNewSubjectName}
-                                            handleAddSubject={handleAddSubject}
-                                            handleDeleteSubject={handleDeleteSubject}
-                                        />
-                                    ) : activeTab === 'gradeConfig' ? (
-                                        <GradeConfigManagement
-                                            gradeConfigs={gradeConfigs}
-                                            activeConfig={activeConfig}
-                                            showConfigForm={showConfigForm}
-                                            editingConfig={editingConfig}
-                                            configForm={configForm}
-                                            setShowConfigForm={setShowConfigForm}
-                                            setEditingConfig={setEditingConfig}
-                                            setConfigForm={setConfigForm}
-                                            handleSaveConfig={handleSaveConfig}
-                                            handleActivateConfig={handleActivateConfig}
-                                            startEditConfig={startEditConfig}
-                                            loadData={loadData}
-                                        />
-                                    ) : activeTab === 'externalResults' ? (
-                                        <ExternalResultsManagement
-                                            classes={classes}
-                                            students={students}
-                                            subjects={subjects}
-                                            schoolLevel={determineSchoolLevel()}
-                                            showMessage={showMessage}
-                                        />
-
-                                    ) : activeTab === 'classResults' ? (
-                                        <>
-                                            {/* Add buttons above ClassResultsManagement */}
-                                            {/* NEW (mobile): use grid so all actions stay visible */}
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                                                <button
-                                                    onClick={() => {
-                                                        const selectedClass = classes.find(c => c.id === selectedClassForResults);
-                                                        if (selectedClass) {
-                                                            setShowLockModal(true);  // ✅ Opens modal
-                                                        } else {
-                                                            showMessage('Please select a class first', true);
-                                                        }
-                                                    }}
-                                                    className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
-                                                >
-                                                    <span>🔒</span> Lock Results
-                                                </button>
-
-                                                <button
-                                                    onClick={() => {
-                                                        const selectedClass = classes.find(c => c.id === selectedClassForResults);
-                                                        if (selectedClass) {
-                                                            loadLockedAssessments(selectedClassForResults, selectedClass.term);
-                                                        } else {
-                                                            showMessage('Please select a class first', true);
-                                                        }
-                                                    }}
-                                                    className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
-                                                >
-                                                    <span>🔍</span> View Locked
-                                                </button>
-
-
-                                                <button
-                                                    onClick={() => setShowPublishModal(true)}
-                                                    className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
-                                                >
-                                                    <span>📢</span> Publish Results
-                                                </button>
-                                                <button
-                                                    onClick={() => setShowArchiveModal(true)}
-                                                    className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
-                                                >
-                                                    <span>📦</span> Archive Term
-                                                </button>
-                                                {/* <button
-                                                    onClick={() => {
-                                                        const selectedClass = classes.find(c => c.id === selectedClassForResults);
-                                                        if (selectedClass) {
-                                                            loadArchivedResults(
-                                                                selectedClassForResults,
-                                                                selectedClass.term,
-                                                                selectedClass.academic_year
-                                                            );
-                                                        } else {
-                                                            showMessage('Please select a class first', true);
-                                                        }
-                                                    }}
-                                                    className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
-                                                >
-                                                    <span>📚</span> View Archives
-                                                </button> */}
-
-                                                <button
-                                                    onClick={() => loadArchivedResults('', '', '')}
-                                                    className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
-                                                >
-                                                    <span>📚</span> View Archives
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const selectedClass = classes.find(c => c.id === selectedClassForResults);
-                                                        if (selectedClass) {
-                                                            generateReportCards(selectedClassForResults, selectedClass.term, 'endOfTerm')
-                                                                .then(data => {
-                                                                    // You need state for this
-                                                                    setPreviewData(data);
-                                                                    setShowPreviewModal(true);
-                                                                })
-                                                                .catch(err => showMessage(err.message, true));
-                                                        } else {
-                                                            showMessage('Please select a class first', true);
-                                                        }
-                                                    }}
-                                                    className="w-full px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
-                                                >
-                                                    <span>📋</span> Archive Student Reports
-                                                </button>
-
-                                                {/* <button
-                                                    onClick={() => {
-                                                        const selectedClass = classes.find(c => c.id === selectedClassForResults);
-                                                        if (selectedClass) {
-                                                            loadStudentReportArchives(selectedClassForResults, selectedClass.term);
-                                                        } else {
-                                                            showMessage('Please select a class first', true);
-                                                        }
-                                                    }}
-                                                    className="w-full px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
-                                                >
-                                                    <span>📄</span> Student Reports
-                                                </button> */}
-                                                <button
-                                                    onClick={() => loadStudentReportArchives('', '', '')}
-                                                    className="w-full px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm"
-                                                >
-                                                    <span>📄</span> Student Reports
-                                                </button>
-
-                                            </div>
-                                            <ClassResultsManagement
-                                                classes={classes}
-                                                subjects={subjects}
-                                                classResults={classResults}
-                                                students={students}
-                                                selectedClassForResults={selectedClassForResults}
-                                                activeAssessmentType={activeAssessmentType}
-                                                resultsLoading={resultsLoading}
-                                                activeConfig={activeConfig}
-                                                setSelectedClassForResults={setSelectedClassForResults}
-                                                setActiveAssessmentType={setActiveAssessmentType}
-                                                loadClassResults={loadClassResults}
-                                                calculateGrade={calculateGrade}
-                                            />
-                                        </>
-
-                                    ) : (
-
-
+                                <LoadingSpinner message="Loading..." />
+                            ) : (
+                                <>
+                                    {activeTab === 'results' && (
                                         <ResultsManagement
                                             students={students}
                                             classes={classes}
@@ -1339,259 +1276,291 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                                             updateAssessmentScore={updateAssessmentScore}
                                             calculateGrade={calculateGrade}
                                             calculateFinalScore={calculateFinalScore}
-                                            // ADD THESE THREE PROPS
                                             setShowConfirmModal={setShowConfirmModal}
                                             setSuccessMessage={setSuccessMessage}
                                             setShowSuccessModal={setShowSuccessModal}
                                             setErrorMessage={setErrorMessage}
                                             schoolLevel={determineSchoolLevel()}
                                         />
-
                                     )}
+
+                                    {activeTab === 'classResults' && (
+                                        <>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                                                <button onClick={() => {
+                                                    const selectedClass = classes.find(c => c.id === selectedClassForResults);
+                                                    if (selectedClass) {
+                                                        setShowLockModal(true);
+                                                    } else {
+                                                        showMessage('Please select a class first', true);
+                                                    }
+                                                }} className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                                    <span>🔒</span> Lock Results
+                                                </button>
+                                                <button onClick={() => {
+                                                    const selectedClass = classes.find(c => c.id === selectedClassForResults);
+                                                    if (selectedClass) {
+                                                        loadLockedAssessments(selectedClassForResults, selectedClass.term);
+                                                    } else {
+                                                        showMessage('Please select a class first', true);
+                                                    }
+                                                }} className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                                    <span>🔍</span> View Locked
+                                                </button>
+                                                <button onClick={() => setShowPublishModal(true)} className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                                    <span>📢</span> Publish Results
+                                                </button>
+                                                <button onClick={() => setShowArchiveModal(true)} className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                                    <span>📦</span> Archive Term
+                                                </button>
+                                                <button onClick={() => loadArchivedResults('', '', '')} className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                                    <span>📚</span> View Archives
+                                                </button>
+                                                <button onClick={() => {
+                                                    const selectedClass = classes.find(c => c.id === selectedClassForResults);
+                                                    if (selectedClass) {
+                                                        generateReportCards(selectedClassForResults, selectedClass.term, 'endOfTerm')
+                                                            .then(data => {
+                                                                setPreviewData(data);
+                                                                setShowPreviewModal(true);
+                                                            })
+                                                            .catch(err => showMessage(err.message, true));
+                                                    } else {
+                                                        showMessage('Please select a class first', true);
+                                                    }
+                                                }} className="w-full px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                                    <span>📋</span> Archive Student Reports
+                                                </button>
+                                                <button onClick={() => loadStudentReportArchives('', '', '')} className="w-full px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                                    <span>📄</span> Student Reports
+                                                </button>
+                                            </div>
+                                            <ClassResultsManagement
+                                                classes={classes}
+                                                subjects={subjects}
+                                                classResults={classResults}
+                                                students={students}
+                                                selectedClassForResults={selectedClassForResults}
+                                                activeAssessmentType={activeAssessmentType}
+                                                resultsLoading={resultsLoading}
+                                                activeConfig={activeConfig}
+                                                setSelectedClassForResults={setSelectedClassForResults}
+                                                setActiveAssessmentType={setActiveAssessmentType}
+                                                loadClassResults={loadClassResults}
+                                                calculateGrade={calculateGrade}
+                                            />
+                                            <PublishModal
+                                                isOpen={showPublishModal}
+                                                onClose={() => setShowPublishModal(false)}
+                                                onPublish={handlePublishAssessment}
+                                                term={classes.find(c => c.id === selectedClassForResults)?.term}
+                                                className={classes.find(c => c.id === selectedClassForResults)?.name}
+                                                totalClasses={classes.length}
+                                            />
+                                            <ArchiveModal
+                                                isOpen={showArchiveModal}
+                                                onClose={() => setShowArchiveModal(false)}
+                                                onArchive={async (term, academicYear) => {
+                                                    if (selectedClassForResults) {
+                                                        await handleArchiveResults(selectedClassForResults, term, academicYear);
+                                                    }
+                                                }}
+                                                defaultTerm={classes.find(c => c.id === selectedClassForResults)?.term}
+                                                defaultAcademicYear={classes.find(c => c.id === selectedClassForResults)?.academic_year}
+                                            />
+                                            <ArchivedResultsView
+                                                isOpen={showArchivedModal}
+                                                onClose={() => {
+                                                    setShowArchivedModal(false);
+                                                    setArchivedResults([]);
+                                                }}
+                                                archivedResults={archivedResults}
+                                                subjects={subjects}
+                                                activeConfig={activeConfig}
+                                                calculateGrade={calculateGrade}
+                                                className={classes.find(c => c.id === selectedClassForResults)?.name}
+                                            />
+                                            <LockedAssessmentsModal
+                                                isOpen={showLockedModal}
+                                                onClose={() => setShowLockedModal(false)}
+                                                assessments={lockedAssessments}
+                                                onUnlock={async (assessmentId, assessmentType, lockReason) => {
+                                                    const selectedClass = classes.find(c => c.id === selectedClassForResults);
+                                                    if (selectedClass) {
+                                                        const assessmentObj = lockedAssessments.find(a => a && a.id === assessmentId);
+                                                        const studentId = assessmentObj?.student?.id;
+                                                        if (studentId) {
+                                                            await handleLockResults(selectedClassForResults, selectedClass.term, assessmentType as 'qa1' | 'qa2' | 'endOfTerm', false, lockReason, [studentId]);
+                                                        }
+                                                        loadLockedAssessments(selectedClassForResults, selectedClass.term);
+                                                    }
+                                                }}
+                                                className={classes.find(c => c.id === selectedClassForResults)?.name}
+                                            />
+                                            <StudentReportArchiveModal
+                                                isOpen={showStudentReportModal}
+                                                onClose={() => setShowStudentReportModal(false)}
+                                                archives={studentReportArchives}
+                                                schoolName={schoolName}
+                                                onSendEmail={handleSendReportEmail}
+                                                onSendWhatsApp={handleSendReportWhatsApp}
+                                            />
+                                            <LockModal
+                                                isOpen={showLockModal}
+                                                onClose={() => setShowLockModal(false)}
+                                                onLock={async (assessmentType, lock, lockReason, studentIds) => {
+                                                    const selectedClass = classes.find(c => c.id === selectedClassForResults);
+                                                    if (assessmentType === 'all') {
+                                                        for (const type of ['qa1', 'qa2', 'endOfTerm'] as const) {
+                                                            await lockResults(selectedClassForResults, selectedClass?.term || '', type, lock, lockReason, studentIds);
+                                                        }
+                                                        showMessage(`Successfully ${lock ? 'locked' : 'unlocked'} ALL assessments for ${selectedClass?.name}`);
+                                                        if (selectedClassForResults) {
+                                                            loadClassResults(selectedClassForResults);
+                                                        }
+                                                    } else {
+                                                        if (selectedClass) {
+                                                            try {
+                                                                await lockResults(selectedClassForResults, selectedClass.term, assessmentType, lock, lockReason, studentIds);
+                                                                showMessage(`Results ${lock ? 'locked' : 'unlocked'} successfully!`);
+                                                                if (selectedClassForResults) {
+                                                                    loadClassResults(selectedClassForResults);
+                                                                }
+                                                            } catch (error: any) {
+                                                                showMessage(error.message || 'Failed to lock/unlock results', true);
+                                                            }
+                                                        }
+                                                    }
+                                                }}
+                                                term={classes.find(c => c.id === selectedClassForResults)?.term}
+                                                classId={selectedClassForResults}
+                                                className={classes.find(c => c.id === selectedClassForResults)?.name}
+                                                students={students.filter(s => s.class?.id === selectedClassForResults)}
+                                            />
+                                            <PreviewModal
+                                                isOpen={showPreviewModal}
+                                                onClose={() => setShowPreviewModal(false)}
+                                                data={previewData}
+                                                onArchive={async (type) => {
+                                                    const selectedClass = classes.find(c => c.id === selectedClassForResults);
+                                                    if (selectedClass) {
+                                                        await handleArchiveStudentReports(selectedClassForResults, selectedClass.term, type);
+                                                    }
+                                                }}
+                                                classId={selectedClassForResults}
+                                                term={classes.find(c => c.id === selectedClassForResults)?.term}
+                                            />
+                                        </>
+                                    )}
+
+                                    {activeTab === 'externalResults' && (
+                                        <ExternalResultsManagement
+                                            classes={classes}
+                                            students={students}
+                                            subjects={subjects}
+                                            schoolLevel={determineSchoolLevel()}
+                                            showMessage={showMessage}
+                                        />
+                                    )}
+
+                                    {activeTab === 'gradeConfig' && (
+                                        <GradeConfigManagement
+                                            gradeConfigs={gradeConfigs}
+                                            activeConfig={activeConfig}
+                                            showConfigForm={showConfigForm}
+                                            editingConfig={editingConfig}
+                                            configForm={configForm}
+                                            setShowConfigForm={setShowConfigForm}
+                                            setEditingConfig={setEditingConfig}
+                                            setConfigForm={setConfigForm}
+                                            handleSaveConfig={handleSaveConfig}
+                                            handleActivateConfig={handleActivateConfig}
+                                            startEditConfig={startEditConfig}
+                                            loadData={loadData}
+                                        />
+                                    )}
+                                </>
+                            )}
                         </div>
-
-
-                        <PublishModal
-                            isOpen={showPublishModal}
-                            onClose={() => setShowPublishModal(false)}
-                            onPublish={handlePublishAssessment}  // This now matches the new signature
-                            term={classes.find(c => c.id === selectedClassForResults)?.term}
-                            className={classes.find(c => c.id === selectedClassForResults)?.name}
-                            totalClasses={classes.length}  // Add this line
-                        />
-
-                        {/* Archive Modal */}
-                        <ArchiveModal
-                            isOpen={showArchiveModal}
-                            onClose={() => setShowArchiveModal(false)}
-                            onArchive={async (term, academicYear) => {
-                                if (selectedClassForResults) {
-                                    await handleArchiveResults(selectedClassForResults, term, academicYear);
-                                }
-                            }}
-                            defaultTerm={classes.find(c => c.id === selectedClassForResults)?.term}
-                            defaultAcademicYear={classes.find(c => c.id === selectedClassForResults)?.academic_year}
-                        />
-
-                        <ArchivedResultsView
-                            isOpen={showArchivedModal}
-                            onClose={() => {
-                                setShowArchivedModal(false);
-                                setArchivedResults([]);
-                            }}
-                            archivedResults={archivedResults}
-                            subjects={subjects}  // Add this
-                            activeConfig={activeConfig}  // Add this
-                            calculateGrade={calculateGrade}  // Add this
-                            className={classes.find(c => c.id === selectedClassForResults)?.name} // ← ADD THIS LINE
-                        />
-
-                        <LockedAssessmentsModal
-                            isOpen={showLockedModal}
-                            onClose={() => setShowLockedModal(false)}
-                            assessments={lockedAssessments}
-                            onUnlock={async (assessmentId, assessmentType, lockReason) => {
-                                const selectedClass = classes.find(c => c.id === selectedClassForResults);
-                                if (selectedClass) {
-                                    // Find the assessment object from the array
-                                    const assessmentObj = lockedAssessments.find(a => a && a.id === assessmentId);
-
-                                    // Get student ID from the assessment object
-                                    const studentId = assessmentObj?.student?.id;
-
-                                    if (studentId) {
-                                        await handleLockResults(
-                                            selectedClassForResults,
-                                            selectedClass.term,
-                                            assessmentType as 'qa1' | 'qa2' | 'endOfTerm',
-                                            false,
-                                            lockReason,
-                                            [studentId]  // ← Pass student ID
-                                        );
-                                    }
-                                    loadLockedAssessments(selectedClassForResults, selectedClass.term);
-                                }
-                            }}
-                            className={classes.find(c => c.id === selectedClassForResults)?.name} // 👈 ADD THIS LINE
-                        />
-
-                        <StudentReportArchiveModal
-                            isOpen={showStudentReportModal}
-                            onClose={() => setShowStudentReportModal(false)}
-                            archives={studentReportArchives}
-                            schoolName={schoolName} // You'll need to get this
-                            onSendEmail={handleSendReportEmail}
-                            onSendWhatsApp={handleSendReportWhatsApp}
-                        />
-
-                        {/* <LockModal
-                            isOpen={showLockModal}
-                            onClose={() => setShowLockModal(false)}
-                            onLock={async (assessmentType, lock, lockReason, studentIds) => {
-                                const selectedClass = classes.find(c => c.id === selectedClassForResults);
-                                if (selectedClass) {
-                                    try {
-                                        await lockResults(
-                                            selectedClassForResults,
-                                            selectedClass.term,
-                                            assessmentType,
-                                            lock,
-                                            lockReason,
-                                            studentIds
-                                        );
-                                        showMessage(`Results ${lock ? 'locked' : 'unlocked'} successfully!`);
-                                        if (selectedClassForResults) {
-                                            loadClassResults(selectedClassForResults);
-                                        }
-                                    } catch (error: any) {
-                                        showMessage(error.message || 'Failed to lock/unlock results', true);
-                                    }
-                                }
-                            }}
-                            term={classes.find(c => c.id === selectedClassForResults)?.term}
-                            classId={selectedClassForResults}
-                            className={classes.find(c => c.id === selectedClassForResults)?.name} // 👈 Add this
-                            // Filter students to only those in the selected class
-                            students={students.filter(s => s.class?.id === selectedClassForResults)}
-                        /> */}
-
-                        <LockModal
-                            isOpen={showLockModal}
-                            onClose={() => setShowLockModal(false)}
-                            onLock={async (assessmentType, lock, lockReason, studentIds) => {
-                                const selectedClass = classes.find(c => c.id === selectedClassForResults);
-
-                                if (assessmentType === 'all') {
-                                    // Lock all three assessment types for the selected class
-                                    for (const type of ['qa1', 'qa2', 'endOfTerm'] as const) {
-                                        await lockResults(
-                                            selectedClassForResults,
-                                            selectedClass?.term || '',
-                                            type,
-                                            lock,
-                                            lockReason,
-                                            studentIds
-                                        );
-                                    }
-                                    showMessage(`Successfully ${lock ? 'locked' : 'unlocked'} ALL assessments for ${selectedClass?.name}`);
-                                    if (selectedClassForResults) {
-                                        loadClassResults(selectedClassForResults);
-                                    }
-                                } else {
-                                    // Single assessment type
-                                    if (selectedClass) {
-                                        try {
-                                            await lockResults(
-                                                selectedClassForResults,
-                                                selectedClass.term,
-                                                assessmentType,
-                                                lock,
-                                                lockReason,
-                                                studentIds
-                                            );
-                                            showMessage(`Results ${lock ? 'locked' : 'unlocked'} successfully!`);
-                                            if (selectedClassForResults) {
-                                                loadClassResults(selectedClassForResults);
-                                            }
-                                        } catch (error: any) {
-                                            showMessage(error.message || 'Failed to lock/unlock results', true);
-                                        }
-                                    }
-                                }
-                            }}
-                            term={classes.find(c => c.id === selectedClassForResults)?.term}
-                            classId={selectedClassForResults}
-                            className={classes.find(c => c.id === selectedClassForResults)?.name}
-                            students={students.filter(s => s.class?.id === selectedClassForResults)}
-                        />
-                        <PreviewModal
-                            isOpen={showPreviewModal}
-                            onClose={() => setShowPreviewModal(false)}
-                            data={previewData}
-                            onArchive={async (type) => {
-                                const selectedClass = classes.find(c => c.id === selectedClassForResults);
-                                if (selectedClass) {
-                                    await handleArchiveStudentReports(selectedClassForResults, selectedClass.term, type);
-                                }
-                            }}
-                            classId={selectedClassForResults}
-                            term={classes.find(c => c.id === selectedClassForResults)?.term}
-                        />
-
                     </>
                 ) : activeMainMenu === 'attendance' ? (
-                    <div className="px-4 sm:px-6 lg:px-8 py-6">
-                        {/* <div className="bg-white rounded-xl p-8 text-center">
-                            <h2 className="text-2xl font-bold text-slate-800">Attendance Module</h2>
-                            <p className="text-slate-500 mt-2">Coming soon...</p>
-                        </div> */}
-                        <AttendanceManagement
-                            classes={classes}
-                            students={students}
-                            showMessage={showMessage}
-                            monthlyStats={monthlyStats}
-                            termStats={termStats}
-                        />
-                    </div>
+                    <AttendanceManagement
+                        classes={classes}
+                        students={students}
+                        showMessage={showMessage}
+                        monthlyStats={monthlyStats}
+                        termStats={termStats}
+                    />
                 ) : activeMainMenu === 'analytics' ? (
-                    <div className="px-4 sm:px-6 lg:px-8 py-6">
-                        {/* <div className="bg-white rounded-xl p-8 text-center">
-                            <h2 className="text-2xl font-bold text-slate-800">Analytics Module</h2>
-                            <p className="text-slate-500 mt-2">Coming soon...</p>
-                        </div> */}
-                        <AnalyticsManagement
-                            classes={classes}
-                            students={students}
-                            subjects={subjects}
-                            showMessage={showMessage}
-                            schoolLevel={determineSchoolLevel()}
-                        />
-                    </div>
-                ) : activeMainMenu === 'fees' ? (
-                    <div className="px-4 sm:px-6 lg:px-8 py-6">
-                        {/* <div className="bg-white rounded-xl p-8 text-center">
-                            <h2 className="text-2xl font-bold text-slate-800">Fees Management</h2>
-                            <p className="text-slate-500 mt-2">Coming soon...</p>
-                        </div> */}
-                        <FeesManagement
-                            classes={classes}
-                            students={students}
-                            showMessage={showMessage}
-                        />
-                    </div>
-                ) : activeMainMenu === 'messages' ? (
-                    <div className="px-4 sm:px-6 lg:px-8 py-6">
-                        {/* <div className="bg-white rounded-xl p-8 text-center">
-                            <h2 className="text-2xl font-bold text-slate-800">Messaging System</h2>
-                            <p className="text-slate-500 mt-2">Coming soon...</p>
-                        </div> */}
-                        <MessagingManagement
-                            classes={classes}
-                            students={students}
-                            teachers={teachers}
-                            showMessage={showMessage}
-                        />
-                    </div>
-                ) : activeMainMenu === 'settings' ? (
-                    <div className="px-4 sm:px-6 lg:px-8 py-6">
-                        {/* <div className="bg-white rounded-xl p-8 text-center">
-                            <h2 className="text-2xl font-bold text-slate-800">Settings</h2>
-                            <p className="text-slate-500 mt-2">Coming soon...</p>
-                        </div> */}
-                        <SettingsManagement
-                            classes={classes} showMessage={showMessage}
-                        />
-                    </div>
+                    <AnalyticsManagement
+                        classes={classes}
+                        students={students}
+                        subjects={subjects}
+                        showMessage={showMessage}
+                        schoolLevel={determineSchoolLevel()}
+                    />
                 ) : activeMainMenu === 'timetable' ? (
-                    <div className="px-4 sm:px-6 lg:px-8 py-6">
-                        <TimetableManagement
-                            classes={classes}
-                            teachers={teachers}
-                            subjects={subjects}
-                            showMessage={showMessage}
+                    <TimetableManagement
+                        classes={classes}
+                        teachers={teachers}
+                        subjects={subjects}
+                        showMessage={showMessage}
+                    />
+
+                ) :
+                    activeMainMenu === 'transfers' ? (
+                        <TransferLetter
+                            schoolName={schoolName}
+                            schoolAddress={schoolAddress}
+                            schoolPhone={schoolPhone}
+                            schoolEmail={schoolEmail}
+                            schoolDistrict={schoolDistrict}
+                            schoolZone={schoolZone}
+                            schoolEmis={schoolEmis}
                         />
-                    </div>
-                ) : null}
+                    ) :
+                        activeMainMenu === 'fees' ? (
+                            <FeesManagement
+                                classes={classes}
+                                students={students}
+                                showMessage={showMessage}
+                            />
+                        ) : activeMainMenu === 'messages' ? (
+                            <MessagingManagement
+                                classes={classes}
+                                students={students}
+                                teachers={teachers}
+                                showMessage={showMessage}
+                            />
+                        ) : activeMainMenu === 'reminders' ? (
+                            <RemindersManagement />
+
+                        ) :
+                            activeMainMenu === 'programs' ? (
+                                <ProgramsManagement />
+                            ) : activeMainMenu === 'activities' ? (
+                                <ActivitiesManagement />
+                            ) : activeMainMenu === 'gradeConfig' ? (
+                                <GradeConfigManagement
+                                    gradeConfigs={gradeConfigs}
+                                    activeConfig={activeConfig}
+                                    showConfigForm={showConfigForm}
+                                    editingConfig={editingConfig}
+                                    configForm={configForm}
+                                    setShowConfigForm={setShowConfigForm}
+                                    setEditingConfig={setEditingConfig}
+                                    setConfigForm={setConfigForm}
+                                    handleSaveConfig={handleSaveConfig}
+                                    handleActivateConfig={handleActivateConfig}
+                                    startEditConfig={startEditConfig}
+                                    loadData={loadData}
+                                />
+                            ) : activeMainMenu === 'settings' ? (
+                                <SettingsManagement
+                                    classes={classes}
+                                    showMessage={showMessage}
+                                />
+                            ) : null}
 
             </div>
 

@@ -3,6 +3,7 @@ export interface Student {
     id: string;
     examNumber: string;
     name: string;
+    gender?: 'Male' | 'Female';
     class?: {
         id: string;
         name: string;

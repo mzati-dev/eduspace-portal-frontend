@@ -8,14 +8,14 @@ interface AdminTabsProps {
 
 const AdminTabs: React.FC<AdminTabsProps> = ({ activeTab, onTabChange }) => {
     const tabs = [
-        { id: 'classes' as const, label: 'Manage Classes', icon: Users },
-        { id: 'students' as const, label: 'Manage Students', icon: Users },
-        { id: 'teachers' as const, label: 'Manage Teachers', icon: Users },
-        { id: 'subjects' as const, label: 'Manage Subjects', icon: BookOpen },
+        // { id: 'classes' as const, label: 'Manage Classes', icon: Users },
+        // { id: 'students' as const, label: 'Manage Students', icon: Users },
+        // { id: 'teachers' as const, label: 'Manage Teachers', icon: Users },
+        // { id: 'subjects' as const, label: 'Manage Subjects', icon: BookOpen },
         { id: 'results' as const, label: 'Enter Results', icon: FileText },
         { id: 'classResults' as const, label: 'Internal Results', icon: Award },
         { id: 'externalResults' as const, label: 'External Results', icon: Globe },
-        { id: 'gradeConfig' as const, label: 'Grade Configuration', icon: Settings },
+        // { id: 'gradeConfig' as const, label: 'Grade Configuration', icon: Settings },
     ];
 
     return (
