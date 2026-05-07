@@ -21,6 +21,7 @@ interface TeacherHomeOverviewProps {
     currentPassRates?: any[];
     announcements?: any[];
     pendingTasks?: any[];
+    overallAttendanceRate?: number;
     onNavigate?: (section: string) => void
 }
 
@@ -40,6 +41,7 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
     currentPassRates = [],
     announcements = [],
     pendingTasks = [],
+    overallAttendanceRate = 0,
     onNavigate
 }) => {
     const formatDate = (dateString: string) => {
@@ -215,7 +217,7 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm text-slate-500">Attendance Rate</p>
-                            <p className="text-3xl font-bold text-indigo-600 mt-1">92%</p>
+                            <p className="text-3xl font-bold text-indigo-600 mt-1">{overallAttendanceRate}%</p>
                         </div>
                         <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
                             <CheckSquare className="w-6 h-6 text-amber-600" />
