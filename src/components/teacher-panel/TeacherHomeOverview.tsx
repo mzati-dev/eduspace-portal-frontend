@@ -20,6 +20,8 @@ interface TeacherHomeOverviewProps {
     reminders?: any[];
     currentPassRates?: any[];
     announcements?: any[];
+    pendingTasks?: any[];
+    onNavigate?: (section: string) => void
 }
 
 const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
@@ -36,7 +38,9 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
     weeksRemaining,
     reminders = [],
     currentPassRates = [],
-    announcements = []
+    announcements = [],
+    pendingTasks = [],
+    onNavigate
 }) => {
     const formatDate = (dateString: string) => {
         if (!dateString) return 'Loading...';
@@ -47,10 +51,10 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
     const totalStudents = students.length;
 
     // Get pending tasks (results not yet entered)
-    const pendingTasks = [
-        { id: 1, task: 'Results to Enter', count: teacherClasses.length * teacherSubjects.length, priority: 'high' },
-        { id: 2, task: 'Attendance to Record', count: totalStudents, priority: 'medium' },
-    ];
+    // const pendingTasks = [
+    //     { id: 1, task: 'Results to Enter', count: teacherClasses.length * teacherSubjects.length, priority: 'high' },
+    //     { id: 2, task: 'Attendance to Record', count: totalStudents, priority: 'medium' },
+    // ];
 
     // Filter pass rates for teacher's classes only
     const teacherPassRates = currentPassRates.filter(rate =>
@@ -100,15 +104,15 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                             <span className="text-xs text-indigo-200">{Math.round((currentWeekNumber / totalWeeks) * 100)}% Complete</span>
                         </div>
                         <div className="flex items-baseline justify-center gap-2 mb-2">
-                            <span className="text-3xl font-bold">Week {currentWeekNumber + 1}</span>
+                            <span className="text-3xl font-bold">Week {currentWeekNumber}</span>
                             <span className="text-indigo-200">/ {totalWeeks}</span>
                         </div>
                         <div className="w-full bg-white/30 rounded-full h-2 mb-3">
                             <div className="bg-white h-2 rounded-full" style={{ width: totalWeeks > 0 ? `${(currentWeekNumber / totalWeeks) * 100}%` : '0%' }}></div>
                         </div>
                         <div className="flex justify-between text-xs">
-                            <span>📖 Week Number: {currentWeekNumber + 1}</span>
-                            <span>🎯 {weeksRemaining - 1} weeks to go</span>
+                            <span>📖 Week Number: {currentWeekNumber}</span>
+                            <span>🎯 {weeksRemaining} weeks to go</span>
                         </div>
                     </div>
                 </div>
@@ -121,7 +125,37 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
             </div>
 
             {/* Quick Actions for Teacher */}
+            {/* Quick Actions for Teacher */}
             <div className="mb-8">
+                <h3 className="text-md font-semibold text-slate-700 mb-3">Quick Actions</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <button
+                        onClick={() => onNavigate?.('results')}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                        <FileText className="w-4 h-4" /> Manage Results
+                    </button>
+                    <button
+                        onClick={() => onNavigate?.('attendance')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                        <CheckSquare className="w-4 h-4" /> Record Attendance
+                    </button>
+                    <button
+                        onClick={() => onNavigate?.('classes')}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                        <Users className="w-4 h-4" /> View My Classes
+                    </button>
+                    <button
+                        onClick={() => onNavigate?.('timetable')}
+                        className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                        <Calendar className="w-4 h-4" /> My Timetable
+                    </button>
+                </div>
+            </div>
+            {/* <div className="mb-8">
                 <h3 className="text-md font-semibold text-slate-700 mb-3">Quick Actions</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2">
@@ -137,7 +171,7 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                         <Calendar className="w-4 h-4" /> My Timetable
                     </button>
                 </div>
-            </div>
+            </div> */}
 
             {/* Stats Cards - Teacher Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -215,10 +249,8 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                                 const total = classStudents.length;
                                 const boys = classStudents.filter(s => s.gender === 'Male').length;
                                 const girls = classStudents.filter(s => s.gender === 'Female').length;
-                                const attendanceRate = 92;
+                                const attendanceRate = cls.attendanceRate || 0;
 
-                                const mostEasySubject = "Mathematics";
-                                const mostHardSubject = "Physics";
 
                                 return (
                                     <tr key={cls.id} className="border-b border-slate-100">
@@ -236,12 +268,12 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                                         </td>
                                         <td className="py-3">
                                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                                                📗 {mostEasySubject}
+                                                📗 {cls.mostEasySubject || '—'}
                                             </span>
                                         </td>
                                         <td className="py-3">
                                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">
-                                                📕 {mostHardSubject}
+                                                📕 {cls.mostHardSubject || '—'}
                                             </span>
                                         </td>
                                     </tr>
@@ -336,17 +368,25 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                     <h3 className="text-lg font-semibold text-slate-800">Pending Tasks</h3>
                 </div>
                 <div className="space-y-3">
-                    {pendingTasks.map((task) => (
-                        <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <div>
-                                <p className="text-sm font-medium text-slate-800">{task.task}</p>
-                                <p className="text-xs text-slate-500">{task.count} items pending</p>
-                            </div>
-                            <span className={`px-2 py-1 text-xs rounded-full ${task.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                {task.priority}
-                            </span>
+                    {pendingTasks.length === 0 ? (
+                        <div className="text-center py-6 text-slate-500">
+                            <CheckSquare className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                            <p>No pending tasks</p>
+                            <p className="text-sm mt-1">All caught up! 🎉</p>
                         </div>
-                    ))}
+                    ) : (
+                        pendingTasks.map((task) => (
+                            <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-800">{task.task}</p>
+                                    <p className="text-xs text-slate-500">{task.count} items pending</p>
+                                </div>
+                                <span className={`px-2 py-1 text-xs rounded-full ${task.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                    {task.priority}
+                                </span>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 

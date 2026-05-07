@@ -35,11 +35,11 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     schoolInitial
 }) => {
     const [expandedSections, setExpandedSections] = useState({
-        academic: true,
-        studentsParents: true,
-        communication: true,
-        schoolLife: true,
-        system: true
+        academic: false,
+        studentsParents: false,
+        communication: false,
+        schoolLife: false,
+        system: false
     });
 
     const toggleSection = (sectionId: string) => {

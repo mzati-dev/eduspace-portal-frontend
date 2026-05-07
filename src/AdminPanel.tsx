@@ -26,15 +26,15 @@ import {
 } from '@/services/gradeConfigService';
 import AdminHeader from './components/admin/AdminHeader';
 import AdminTabs from './components/admin/AdminTabs';
-import ClassesManagement from './components/admin/ClassesManagement';
-import StudentsManagement from './components/admin/StudentsManagement';
-import SubjectsManagement from './components/admin/SubjectsManagement';
-import ResultsManagement from './components/admin/ResultsManagement';
-import GradeConfigManagement from './components/admin/GradeConfigManagement';
-import ClassResultsManagement from './components/admin/ClassResultsManagement';
+import ClassesManagement from './components/admin/sidebar/academic/classes/ClassesManagement';
+import StudentsManagement from './components/admin/sidebar/academic/students/StudentsManagement';
+import SubjectsManagement from './components/admin/sidebar/academic/subjects/SubjectsManagement';
+import ResultsManagement from './components/admin/sidebar/academic/results/ResultsManagement';
+import GradeConfigManagement from './components/admin/sidebar/system/GradeConfigManagement';
+import ClassResultsManagement from './components/admin/sidebar/academic/results/ClassResultsManagement';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import { Student, Assessment, ClassResultStudent } from './types/admin';
-import TeachersManagement from './components/admin/TeachersManagement';
+import TeachersManagement from './components/admin/sidebar/academic/teachers/TeachersManagement';
 import { createTeacher, deleteTeacher, fetchAllTeachers } from './services/teacherService';
 import CustomConfirmModal from './components/common/CustomConfirmModal';
 import CustomAlertModal from './components/common/CustomAlertModal';
@@ -49,19 +49,19 @@ import PreviewModal from './components/admin/modals/PreviewModal';
 import AdminSidebar from './components/admin/sidebar/AdminSidebar';
 // import AttendanceManagement from './components/admin/sidebar/AttendanceManagement';
 // import AnalyticsManagement from './components/admin/sidebar/AnalyticsManagement';
-import FeesManagement from './components/admin/sidebar/fees/FeesManagement';
-import MessagingManagement from './components/admin/sidebar/MessagingManagement';
-import SettingsManagement from './components/admin/sidebar/SettingsManagement';
-import TimetableManagement from './components/admin/sidebar/TimetableManagement';
-import AttendanceManagement from './components/admin/sidebar/attendance/AttendanceManagement';
-import AnalyticsManagement from './components/admin/sidebar/analytics/AnalyticsManagement';
-import ExternalResultsManagement from './components/admin/ExternalResultsManagement';
+import FeesManagement from './components/admin/sidebar/parents/fees/FeesManagement';
+import MessagingManagement from './components/admin/sidebar/communication/messages/MessagingManagement';
+import SettingsManagement from './components/admin/sidebar/system/SettingsManagement';
+import TimetableManagement from './components/admin/sidebar/academic/timetable/TimetableManagement';
+import AttendanceManagement from './components/admin/sidebar/academic/attendance/AttendanceManagement';
+import AnalyticsManagement from './components/admin/sidebar/academic/performance/AnalyticsManagement';
+import ExternalResultsManagement from './components/admin/sidebar/academic/results/ExternalResultsManagement';
 import { fetchCurrentTerm, fetchStudentAttendanceSummary } from './services/attendanceService';
-import HomeOverview from './components/admin/HomeOverview';
-import RemindersManagement from './components/admin/sidebar/RemindersManagement';
-import ProgramsManagement from './components/admin/ProgramsManagement';
-import ActivitiesManagement from './components/admin/ActivitiesManagement';
-import TransferLetter from './components/admin/sidebar/TransferLetter';
+import HomeOverview from './components/admin/sidebar/home/HomeOverview';
+import RemindersManagement from './components/admin/sidebar/communication/reminder/RemindersManagement';
+import ProgramsManagement from './components/admin/sidebar/school-life/ProgramsManagement';
+import ActivitiesManagement from './components/admin/sidebar/school-life/ActivitiesManagement';
+import TransferLetter from './components/admin/sidebar/parents/TransferLetter';
 
 interface AdminPanelProps {
     onBack: () => void;
@@ -1193,6 +1193,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                         totalWeeks={totalWeeks}
                         currentPassRates={currentPassRates}
                         weeksRemaining={weeksRemaining}
+                        onNavigate={(section) => setActiveMainMenu(section)}
                     />
                 ) : activeMainMenu === 'classes' ? (
                     <ClassesManagement

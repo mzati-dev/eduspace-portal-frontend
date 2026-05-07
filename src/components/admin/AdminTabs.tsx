@@ -19,7 +19,7 @@ const AdminTabs: React.FC<AdminTabsProps> = ({ activeTab, onTabChange }) => {
     ];
 
     return (
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 justify-center">
             {tabs.map((tab) => (
                 <button
                     key={tab.id}

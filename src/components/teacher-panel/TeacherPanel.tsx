@@ -14,9 +14,9 @@ import {
 } from '@/services/gradeConfigService';
 import { Assessment, ClassResultStudent, Student } from '@/types/admin';
 import LoadingSpinner from '../common/LoadingSpinner';
-import SubjectsManagement from '../admin/SubjectsManagement';
-import ClassResultsManagement from '../admin/ClassResultsManagement';
-import ResultsManagement from '../admin/ResultsManagement';
+import SubjectsManagement from '../admin/sidebar/academic/subjects/SubjectsManagement';
+import ClassResultsManagement from '../admin/sidebar/academic/results/ClassResultsManagement';
+import ResultsManagement from '../admin/sidebar/academic/results/ResultsManagement';
 import TeacherHeader from './TeacherHeader';
 import TeacherTabs from './TeacherTabs';
 import {
@@ -663,6 +663,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                         weeksRemaining={weeksRemaining}
                         currentPassRates={currentPassRates}
                         reminders={[]}
+                        onNavigate={(section) => handleMenuChange(section)}
                     />
 
                 ) : activeMainMenu === 'results' ? (

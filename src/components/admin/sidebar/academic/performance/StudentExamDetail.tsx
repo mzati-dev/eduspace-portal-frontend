@@ -1,0 +1,234 @@
+// components/admin/analytics/StudentExamDetail.tsx
+import React from 'react';
+import { X, Award, AlertTriangle, GraduationCap } from 'lucide-react';
+
+interface StudentExamDetailProps {
+    student: any;
+    examType: 'PSLCE' | 'JCE' | 'MSCE';
+    onClose: () => void;
+}
+
+interface PSLCESubjects {
+    english: number;
+    math: number;
+    science: number;
+    chichewa: number;
+    social: number;
+}
+
+interface JCESubjects {
+    english: string;
+    math: string;
+    biology: string;
+    chemistry: string;
+    physics: string;
+}
+
+interface MSCESubjects {
+    english: number;
+    math: number;
+    biology: number;
+    chemistry: number;
+    physics: number;
+}
+
+const StudentExamDetail: React.FC<StudentExamDetailProps> = ({ student, examType, onClose }) => {
+    const isMSCE = examType === 'MSCE';
+    const isJCE = examType === 'JCE';
+    const isPSLCE = examType === 'PSLCE';
+
+    const getGradeColor = (grade: string) => {
+        switch (grade) {
+            case 'A': return 'bg-green-100 text-green-700';
+            case 'B': return 'bg-blue-100 text-blue-700';
+            case 'C': return 'bg-yellow-100 text-yellow-700';
+            case 'D': return 'bg-orange-100 text-orange-700';
+            case 'E': return 'bg-red-100 text-red-700';
+            case 'F': return 'bg-red-200 text-red-800';
+            default: return 'bg-slate-100 text-slate-700';
+        }
+    };
+
+    const getPointsColor = (points: number) => {
+        if (points <= 10) return 'text-green-600 font-bold';
+        if (points <= 20) return 'text-blue-600';
+        if (points <= 30) return 'text-yellow-600';
+        return 'text-red-600';
+    };
+
+    const getScoreColor = (score: number) => {
+        if (score >= 80) return 'text-green-600';
+        if (score >= 50) return 'text-blue-600';
+        return 'text-red-600';
+    };
+
+    const getPointsGrade = (points: number) => {
+        if (points <= 10) return 'Excellent';
+        if (points <= 20) return 'Good';
+        if (points <= 30) return 'Average';
+        return 'Needs Improvement';
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-6">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800">{student.name}</h2>
+                            <p className="text-slate-500">
+                                {student.examNumber} • {student.grade}
+                            </p>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                        >
+                            <X className="w-5 h-5 text-slate-500" />
+                        </button>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="mb-6 flex items-center gap-3 flex-wrap">
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${student.passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {student.passed ? 'Passed' : 'Failed'}
+                        </div>
+                        {isMSCE && student.points !== undefined && (
+                            <div className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700">
+                                Total Points: {student.points}
+                            </div>
+                        )}
+                        {isPSLCE && student.selectedTo && (
+                            <div className="px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-700">
+                                Selected: {student.selectedTo}
+                            </div>
+                        )}
+                        {isMSCE && student.selectedTo && (
+                            <div className="px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-700">
+                                {student.selectedTo} - {student.program}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Subject Results */}
+                    <div className="border-t border-slate-200 pt-6">
+                        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                            <GraduationCap className="w-5 h-5 text-indigo-600" />
+                            Subject Results
+                        </h3>
+
+                        {isPSLCE && student.subjects && (
+                            <div className="space-y-3">
+                                {Object.entries(student.subjects as PSLCESubjects).map(([subject, score]) => {
+                                    const numScore = score as number;
+                                    return (
+                                        <div key={subject} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-700 capitalize">{subject}</span>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-indigo-500 rounded-full"
+                                                        style={{ width: `${numScore}%` }}
+                                                    />
+                                                </div>
+                                                <span className={`font-bold w-12 text-right ${getScoreColor(numScore)}`}>
+                                                    {numScore}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                                    <p className="text-sm text-green-700">
+                                        📊 Average Score: {(
+                                            Object.values(student.subjects as PSLCESubjects).reduce((a, b) => a + b, 0) /
+                                            Object.keys(student.subjects).length
+                                        ).toFixed(1)}%
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {isJCE && student.subjects && (
+                            <div className="space-y-3">
+                                {Object.entries(student.subjects as JCESubjects).map(([subject, grade]) => {
+                                    const letterGrade = grade as string;
+                                    return (
+                                        <div key={subject} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-700 capitalize">{subject}</span>
+                                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${getGradeColor(letterGrade)}`}>
+                                                {letterGrade}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                                <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                                    <p className="text-sm text-green-700">
+                                        📊 Best Subject: {Object.entries(student.subjects as JCESubjects).find(([_, g]) => g === 'A')?.[0] || 'None'} (A)
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {isMSCE && student.subjects && (
+                            <div className="space-y-3">
+                                {Object.entries(student.subjects as MSCESubjects).map(([subject, points]) => {
+                                    const numPoints = points as number;
+                                    return (
+                                        <div key={subject} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-700 capitalize">{subject}</span>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-indigo-500 rounded-full"
+                                                        style={{ width: `${100 - (numPoints / 36) * 100}%` }}
+                                                    />
+                                                </div>
+                                                <span className={`font-bold w-12 text-right ${getPointsColor(numPoints)}`}>
+                                                    {numPoints} pts
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                                    <p className="text-sm text-green-700">
+                                        📊 Total Points: {student.points} - {getPointsGrade(student.points)}
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-1">* Lower points = better performance (1 is best, 36 is worst)</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Recommendations */}
+                    <div className="border-t border-slate-200 pt-6 mt-6">
+                        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                            <Award className="w-5 h-5 text-amber-600" />
+                            Recommendations
+                        </h3>
+                        {student.passed ? (
+                            <div className="p-3 bg-green-50 rounded-lg">
+                                <p className="text-green-700">
+                                    ✅ Student has successfully completed {examType === 'PSLCE' ? 'Standard 8' : examType === 'JCE' ? 'Form 2' : 'Form 4'}.
+                                    {isPSLCE && student.selectedTo && ` Selected to ${student.selectedTo} for secondary education.`}
+                                    {isMSCE && student.selectedTo && ` Selected to ${student.selectedTo} for ${student.program}.`}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="p-3 bg-red-50 rounded-lg">
+                                <p className="text-red-700 flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4" />
+                                    ⚠️ Student did not pass. Requires remedial support and re-examination.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default StudentExamDetail;

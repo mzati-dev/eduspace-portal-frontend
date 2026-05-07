@@ -46,10 +46,10 @@ const TeacherSidebar: React.FC<TeacherSidebarProps> = ({
     schoolInitial
 }) => {
     const [expandedSections, setExpandedSections] = useState({
-        main: true,
-        teaching: true,
-        communication: true,
-        system: true
+        main: false,
+        teaching: false,
+        communication: false,
+        system: false
     });
 
     const toggleSection = (sectionId: string) => {
@@ -124,7 +124,7 @@ const TeacherSidebar: React.FC<TeacherSidebarProps> = ({
                             >
                                 <div className="flex items-center gap-3">
                                     <BookOpen className="w-5 h-5 text-slate-400" />
-                                    <span className="font-medium text-slate-600">Teaching</span>
+                                    <span className="font-medium text-slate-600">Academic</span>
                                 </div>
                                 <ChevronDown
                                     className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${expandedSections.teaching ? 'rotate-0' : '-rotate-90'
