@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Student } from '@/types/admin';
 import { Users, BookOpen, GraduationCap, DollarSign, Calendar, Clock, Bell, Plus, FileText, CheckSquare, CreditCard, AlertCircle, BarChart3, Megaphone } from 'lucide-react';
+import { fetchPublicHolidays, fetchSchoolHolidays } from '@/services/attendanceService';
 
 interface HomeOverviewProps {
     students: Student[];
@@ -13,6 +14,7 @@ interface HomeOverviewProps {
         endDate: string;
     };
     totalDays: number;
+    academicYear?: string;
     recordedDays: number;
     remainingDays: number;
     currentWeekNumber: number;
@@ -38,15 +40,140 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
     currentPassRates = [],
     reminders = [],
     announcements = [],
+    academicYear,
     onNavigate
 }) => {
+
+    const [publicHolidays, setPublicHolidays] = useState<Set<string>>(new Set());
+    const [schoolHolidays, setSchoolHolidays] = useState<Set<string>>(new Set());
+    const allHolidays = new Set([...publicHolidays, ...schoolHolidays]);
     const maleStudents = Math.floor(students.length * 0.55);
     const femaleStudents = students.length - maleStudents;
+
+
+
+
+    // Add this useEffect right after your state declarations (around line 45)
+    useEffect(() => {
+        const loadHolidays = async () => {
+            try {
+                const publicHolidaysData = await fetchPublicHolidays();
+                const publicSet = new Set<string>();
+                publicHolidaysData.forEach((holiday: { date: string }) => {
+                    publicSet.add(holiday.date);
+                });
+                setPublicHolidays(publicSet);
+
+                const schoolHolidaysData = await fetchSchoolHolidays();
+                const schoolSet = new Set<string>();
+                schoolHolidaysData.forEach((holiday: { date: string }) => {
+                    schoolSet.add(holiday.date);
+                });
+                setSchoolHolidays(schoolSet);
+            } catch (error) {
+                console.error('Failed to fetch holidays:', error);
+            }
+        };
+
+        loadHolidays();
+    }, []);
 
     const formatDate = (dateString: string) => {
         if (!dateString) return 'Loading...';
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
+
+    // ADD THESE FUNCTIONS HERE ↓↓↓
+    const getWeekNumberOfTerm = (date: string, termStart: string): number => {
+        const d = new Date(date);
+        const start = new Date(termStart);
+        const diffTime = Math.abs(d.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.ceil((diffDays + 1) / 7);
+    };
+
+    const calculateTotalWeeksInTerm = (): number => {
+        if (!termInfo.startDate || !termInfo.endDate) return 0;
+        const start = new Date(termInfo.startDate);
+        const end = new Date(termInfo.endDate);
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.ceil(diffDays / 7);
+    };
+
+    const calculateCorrectWeek = getWeekNumberOfTerm(new Date().toISOString().split('T')[0], termInfo.startDate);
+    const correctTotalWeeks = calculateTotalWeeksInTerm();
+    // ADD THESE FUNCTIONS HERE ↑↑↑
+
+
+    const calculateCorrectRecordedDays = (): number => {
+        if (!termInfo.startDate) return 0;
+
+        const today = new Date().toISOString().split('T')[0];
+        const start = new Date(termInfo.startDate);
+
+        let count = 0;
+        let current = new Date(start);
+
+        while (current <= new Date(today)) {
+            const dayOfWeek = current.getDay();
+            const dateStr = current.toISOString().split('T')[0];
+
+            // ✅ CORRECT - Excludes holidays like AttendanceManagement
+            if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
+                count++;
+            }
+            current.setDate(current.getDate() + 1);
+        }
+        return count;
+    };
+
+    const calculateTotalDays = (): number => {
+        if (!termInfo.startDate || !termInfo.endDate) return 0;
+
+        const start = new Date(termInfo.startDate);
+        const end = new Date(termInfo.endDate);
+        let total = 0;
+        let current = new Date(start);
+
+        while (current <= end) {
+            const dayOfWeek = current.getDay();
+            const dateStr = current.toISOString().split('T')[0];
+
+            if (dayOfWeek >= 1 && dayOfWeek <= 5 && !allHolidays.has(dateStr)) {
+                total++;
+            }
+            current.setDate(current.getDate() + 1);
+        }
+        return total;
+    };
+
+    const correctTotalDays = calculateTotalDays();
+
+    // const calculateCorrectRecordedDays = (): number => {
+    //     if (!termInfo.startDate) return 0;
+
+    //     const today = new Date().toISOString().split('T')[0];
+    //     const start = new Date(termInfo.startDate);
+    //     const end = new Date(today);
+
+    //     let count = 0;
+    //     let current = new Date(start);
+
+    //     while (current <= end) {
+    //         const dayOfWeek = current.getDay();
+    //         // Monday to Friday only (Monday=1, Friday=5)
+    //         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+    //             count++;
+    //         }
+    //         current.setDate(current.getDate() + 1);
+    //     }
+    //     return count;
+    // };
+
+    const correctRecordedDays = calculateCorrectRecordedDays();
+    // const correctRemainingDays = totalDays - correctRecordedDays;
+    const correctRemainingDays = correctTotalDays - correctRecordedDays;
 
     const reminderList = reminders;
 
@@ -64,7 +191,8 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                 {/* Term Name at Top */}
                 <div className="text-center mb-6">
                     <p className="text-indigo-100 text-sm">CURRENT ACADEMIC PERIOD</p>
-                    <h3 className="text-2xl font-bold">{termInfo.name || 'Loading...'}</h3>
+
+                    <h3 className="text-2xl font-bold">{termInfo.name || 'Loading...'}{academicYear && ` • ${academicYear}`}</h3>
                     <p className="text-indigo-100 text-sm mt-1">
                         {formatDate(termInfo.startDate)} - {formatDate(termInfo.endDate)}
                     </p>
@@ -76,18 +204,24 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                     <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-indigo-100 text-sm">📅 School Days</span>
-                            <span className="text-xs text-indigo-200">{Math.round((recordedDays / totalDays) * 100)}% Complete</span>
+                            {/* <span className="text-xs text-indigo-200">{Math.round((recordedDays / totalDays) * 100)}% Complete</span> */}
+                            {/* <span className="text-xs text-indigo-200">{Math.round((correctRecordedDays / totalDays) * 100)}% Complete</span> */}
+                            <span className="text-xs text-indigo-200">{Math.round((correctRecordedDays / correctTotalDays) * 100)}% Complete</span>
                         </div>
                         <div className="flex items-baseline justify-center gap-2 mb-2">
-                            <span className="text-3xl font-bold">{recordedDays + 1}</span>
-                            <span className="text-indigo-200">/ {totalDays}</span>
+                            {/* <span className="text-3xl font-bold">{recordedDays}</span> */}
+                            {/* <span className="text-3xl font-bold">{correctRecordedDays}</span> */}
+                            <span className="text-3xl font-bold">{correctRecordedDays}</span>
+                            <span className="text-indigo-200">/ {correctTotalDays}</span>
+                            {/* <span className="text-indigo-200">/ {totalDays}</span> */}
                         </div>
                         <div className="w-full bg-white/30 rounded-full h-2 mb-3">
-                            <div className="bg-white h-2 rounded-full transition-all" style={{ width: totalDays > 0 ? `${(recordedDays / totalDays) * 100}%` : '0%' }}></div>
+                            {/* <div className="bg-white h-2 rounded-full transition-all" style={{ width: totalDays > 0 ? `${(correctRecordedDays / totalDays) * 100}%` : '0%' }}></div> */}
+                            <div className="bg-white h-2 rounded-full transition-all" style={{ width: correctTotalDays > 0 ? `${(correctRecordedDays / correctTotalDays) * 100}%` : '0%' }}></div>
                         </div>
                         <div className="flex justify-between text-xs">
-                            <span>✅ Day Number: {recordedDays + 1}</span>
-                            <span>⏳ {remainingDays - 1} days left</span>
+                            <span>✅ Day Number: {correctRecordedDays}</span>
+                            <span>⏳ {correctRemainingDays} days left</span>
                         </div>
                     </div>
 
@@ -95,18 +229,23 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                     <div className="bg-white/15 rounded-xl p-4 backdrop-blur-sm">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-indigo-100 text-sm">📆 School Weeks</span>
-                            <span className="text-xs text-indigo-200">{Math.round((currentWeekNumber / totalWeeks) * 100)}% Complete</span>
+                            {/* <span className="text-xs text-indigo-200">{Math.round((currentWeekNumber / totalWeeks) * 100)}% Complete</span> */}
+                            <span className="text-xs text-indigo-200">{Math.round((calculateCorrectWeek / correctTotalWeeks) * 100)}% Complete</span>
                         </div>
                         <div className="flex items-baseline justify-center gap-2 mb-2">
-                            <span className="text-3xl font-bold">Week {currentWeekNumber}</span>
-                            <span className="text-indigo-200">/ {totalWeeks}</span>
+                            {/* <span className="text-3xl font-bold">Week {currentWeekNumber}</span> */}
+                            <span className="text-3xl font-bold">Week {calculateCorrectWeek}</span>
+                            <span className="text-indigo-200">/ {correctTotalWeeks}</span>
+                            {/* <span className="text-indigo-200">/ {totalWeeks}</span> */}
                         </div>
                         <div className="w-full bg-white/30 rounded-full h-2 mb-3">
-                            <div className="bg-white h-2 rounded-full transition-all" style={{ width: totalWeeks > 0 ? `${(currentWeekNumber / totalWeeks) * 100}%` : '0%' }}></div>
+                            <div className="bg-white h-2 rounded-full transition-all" style={{ width: correctTotalWeeks > 0 ? `${(calculateCorrectWeek / correctTotalWeeks) * 100}%` : '0%' }}></div>
                         </div>
                         <div className="flex justify-between text-xs">
-                            <span>📖 Week Number: {currentWeekNumber}</span>
-                            <span>🎯 {weeksRemaining} weeks to go</span>
+                            {/* <span>📖 Week Number: {currentWeekNumber}</span> */}
+                            <span>📖 Week Number: {calculateCorrectWeek}</span>
+                            {/* <span>🎯 {weeksRemaining} weeks to go</span> */}
+                            <span>🎯 {correctTotalWeeks - calculateCorrectWeek} weeks to go</span>
                         </div>
                     </div>
                 </div>

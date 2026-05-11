@@ -78,6 +78,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    const [currentAcademicYear, setCurrentAcademicYear] = useState('');
 
     // Term data for HomeOverview
     const [termInfo, setTermInfo] = useState({ name: 'Loading...', startDate: '', endDate: '' });
@@ -352,6 +353,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     useEffect(() => {
         loadData();
     }, []);
+
+    useEffect(() => {
+        if (classes.length > 0) {
+            setCurrentAcademicYear(classes[0]?.academic_year || '');
+        }
+    }, [classes]);
 
     // NEW (mobile UX): prevent background scrolling while the sidebar drawer is open
     useEffect(() => {
@@ -1193,6 +1200,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                         totalWeeks={totalWeeks}
                         currentPassRates={currentPassRates}
                         weeksRemaining={weeksRemaining}
+                        academicYear={currentAcademicYear}
                         onNavigate={(section) => setActiveMainMenu(section)}
                     />
                 ) : activeMainMenu === 'classes' ? (
