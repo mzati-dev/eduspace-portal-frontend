@@ -51,13 +51,16 @@ const SearchResults: React.FC<SearchResultsProps> = ({
     }
 
     // Otherwise, show QA1 or QA2 if published
-    let activeView: 'qa1' | 'qa2' | null = null;
+    // let activeView: 'qa1' | 'qa2' | null = null;
 
-    if (reportCard?.qa2_published) {
-        activeView = 'qa2';
-    } else if (reportCard?.qa1_published) {
-        activeView = 'qa1';
-    }
+    // if (reportCard?.qa2_published) {
+    //     activeView = 'qa2';
+    // } else if (reportCard?.qa1_published) {
+    //     activeView = 'qa1';
+    // }
+
+    //TEMPORARILY SHOW QA1 OR QA2 IF END OF TERM NOT PUBLISHED (FOR TESTING PURPOSES)
+    let activeView: 'qa1' | 'qa2' | null = 'qa1';
 
     // If nothing published, show message
     if (!activeView) {
