@@ -9,10 +9,10 @@ interface StudentsManagementProps {
     classes: any[];
     showStudentForm: boolean;
     editingStudent: Student | null;
-    studentForm: { exam_number: string; name: string; class_id: string; photo_url: string };
+    studentForm: { exam_number: string; name: string; class_id: string; photo_url: string, gender: string };
     setShowStudentForm: (show: boolean) => void;
     setEditingStudent: (student: Student | null) => void;
-    setStudentForm: (form: { exam_number: string; name: string; class_id: string; photo_url: string }) => void;
+    setStudentForm: (form: { exam_number: string; name: string; class_id: string; photo_url: string, gender: string }) => void;
     handleCreateStudent: (e: React.FormEvent) => Promise<void>;
     handleUpdateStudent: (e: React.FormEvent) => Promise<void>;
     handleDeleteStudent: (student: Student) => Promise<void>;
@@ -96,7 +96,7 @@ const StudentsManagement: React.FC<StudentsManagementProps> = ({
                         Import from File
                     </button>
                     <button
-                        onClick={() => { setShowStudentForm(true); setEditingStudent(null); setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '' }); }}
+                        onClick={() => { setShowStudentForm(true); setEditingStudent(null); setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '', gender: '' }); }}
                         className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
                     >
                         <Plus className="w-4 h-4" />
@@ -219,6 +219,7 @@ const StudentsManagement: React.FC<StudentsManagementProps> = ({
                                         <tr>
                                             <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Exam Number</th>
                                             <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Name</th>
+                                            <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Gender</th>
                                             <th className="text-right px-4 py-3 text-sm font-semibold text-slate-600">Actions</th>
                                         </tr>
                                     </thead>
@@ -227,6 +228,9 @@ const StudentsManagement: React.FC<StudentsManagementProps> = ({
                                             <tr key={student.id} className="hover:bg-slate-50">
                                                 <td className="px-4 py-3 font-mono text-sm text-indigo-600">{student.examNumber}</td>
                                                 <td className="px-4 py-3 font-medium text-slate-800">{student.name}</td>
+                                                <td className="px-4 py-3 text-slate-600">
+                                                    {student.gender ? student.gender : 'Not specified'} {/* 👈 ADD THIS */}
+                                                </td>
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button
@@ -293,6 +297,7 @@ const StudentsManagement: React.FC<StudentsManagementProps> = ({
                                     </h4>
                                     <div className="space-y-2">
                                         <p><span className="font-medium text-slate-600">Name:</span> {detailsModalStudent.name}</p>
+                                        <p><span className="font-medium text-slate-600">Gender:</span> {detailsModalStudent.gender || 'Not specified'}</p>
                                         <p><span className="font-medium text-slate-600">Exam Number:</span> <span className="font-mono text-indigo-600">{detailsModalStudent.examNumber}</span></p>
                                         <p><span className="font-medium text-slate-600">Class:</span> {detailsModalStudent.class?.name || 'N/A'}</p>
                                         <p><span className="font-medium text-slate-600">Term:</span> {detailsModalStudent.term || 'N/A'}</p>

@@ -8,6 +8,7 @@ interface StudentFormProps {
         name: string;
         class_id: string;
         photo_url: string;
+        gender: string;
         // NEW FIELDS - ADD THESE
         emis_code?: string;                                     // <-- ADD THIS
         parent_name?: string;                                    // <-- ADD THIS
@@ -35,6 +36,7 @@ interface StudentFormProps {
             name: string;
             class_id: string;
             photo_url: string;
+            gender: string;
             emis_code?: string;                                      // <-- ADD THIS
             parent_name?: string;                                    // <-- ADD THIS
             parent_phone?: string;                                   // <-- ADD THIS
@@ -117,6 +119,21 @@ const StudentForm: React.FC<StudentFormProps> = ({
                             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             required
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
+                        <select
+                            value={studentForm.gender || ''}
+                            onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            required
+                        >
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
 
                     <div>
