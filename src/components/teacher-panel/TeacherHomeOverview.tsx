@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Users, BookOpen, Calendar, Clock, FileText, CheckSquare, Bell, AlertCircle, BarChart3, GraduationCap, Megaphone } from 'lucide-react';
-import { fetchPublicHolidays, fetchSchoolHolidays } from '@/services/attendanceService';
+import { fetchClassComparisons, fetchPublicHolidays, fetchSchoolHolidays } from '@/services/attendanceService';
 
 interface TeacherHomeOverviewProps {
     teacherName: string;
@@ -49,6 +49,7 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
     const [publicHolidays, setPublicHolidays] = useState<Set<string>>(new Set());
     const [schoolHolidays, setSchoolHolidays] = useState<Set<string>>(new Set());
     const allHolidays = new Set([...publicHolidays, ...schoolHolidays]);
+    const [classAttendance, setClassAttendance] = useState<any[]>([]);
 
 
     useEffect(() => {
@@ -72,6 +73,18 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
             }
         };
         loadHolidays();
+    }, []);
+
+    useEffect(() => {
+        const loadAttendance = async () => {
+            try {
+                const attendance = await fetchClassComparisons();
+                setClassAttendance(attendance);
+            } catch (error) {
+                console.error('Failed to fetch attendance:', error);
+            }
+        };
+        loadAttendance();
     }, []);
 
 
@@ -343,8 +356,6 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                                 <th className="text-left py-3 text-sm font-semibold text-slate-600">Boys</th>
                                 <th className="text-left py-3 text-sm font-semibold text-slate-600">Girls</th>
                                 <th className="text-left py-3 text-sm font-semibold text-slate-600">Attendance Rate</th>
-                                <th className="text-left py-3 text-sm font-semibold text-slate-600">Most Easy Subject</th>
-                                <th className="text-left py-3 text-sm font-semibold text-slate-600">Most Hard Subject</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -353,7 +364,8 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                                 const total = classStudents.length;
                                 const boys = classStudents.filter(s => s.gender === 'Male').length;
                                 const girls = classStudents.filter(s => s.gender === 'Female').length;
-                                const attendanceRate = cls.attendanceRate || 0;
+                                const attendanceData = classAttendance.find(a => a.name === cls.name);
+                                const attendanceRate = attendanceData?.attendanceRate || 0;
 
 
                                 return (
@@ -370,16 +382,7 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                                                 <span className="text-sm font-medium">{attendanceRate}%</span>
                                             </div>
                                         </td>
-                                        <td className="py-3">
-                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                                                📗 {cls.mostEasySubject || '—'}
-                                            </span>
-                                        </td>
-                                        <td className="py-3">
-                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">
-                                                📕 {cls.mostHardSubject || '—'}
-                                            </span>
-                                        </td>
+
                                     </tr>
                                 );
                             })}
