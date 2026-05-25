@@ -18,7 +18,8 @@ import {
     fetchStudentReportArchives,
     generateReportCards,
     addStudentsToClass,
-    fetchCurrentTermPassRates
+    fetchCurrentTermPassRates,
+    fetchSubjectPerformance
 } from '@/services/studentService';
 import {
     getActiveGradeConfig, getAllGradeConfigs, createGradeConfig,
@@ -88,6 +89,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     const [currentWeekNumber, setCurrentWeekNumber] = useState(0);
     const [totalWeeks, setTotalWeeks] = useState(0);
     const [weeksRemaining, setWeeksRemaining] = useState(0);
+    const [subjectPerformance, setSubjectPerformance] = useState({ qa1: [], qa2: [], endOfTerm: [] });
 
     // Add with other state declarations
     const [selectedClassForPublish, setSelectedClassForPublish] = useState<string>('');
@@ -128,7 +130,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         exam_number: '',
         name: '',
         class_id: '',
-        photo_url: ''
+        photo_url: '',
+        gender: ''
     });
 
     // Teacher management state
@@ -224,6 +227,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             setCurrentPassRates(rates);
         };
         loadPassRates();
+    }, []);
+
+    useEffect(() => {
+        const loadSubjectPerformance = async () => {
+            const performance = await fetchSubjectPerformance();
+            setSubjectPerformance(performance);
+        };
+        loadSubjectPerformance();
     }, []);
 
     // Fetch term data for HomeOverview
@@ -551,7 +562,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             await createStudent(studentForm);
             showMessage('Student created successfully!');
             setShowStudentForm(false);
-            setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '' });
+            setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '', gender: '' });
             loadData();
         } catch (err: any) {
             showMessage(err.message || 'Failed to create student', true);
@@ -570,7 +581,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             await updateStudent(editingStudent.id, studentForm);
             showMessage('Student updated successfully!');
             setEditingStudent(null);
-            setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '' });
+            setStudentForm({ exam_number: '', name: '', class_id: '', photo_url: '', gender: '' });
             loadData();
         } catch (err: any) {
             showMessage(err.message || 'Failed to update student', true);
@@ -596,7 +607,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             exam_number: student.examNumber,
             name: student.name,
             class_id: student.class?.id || '',
-            photo_url: student.photo_url || ''
+            photo_url: student.photo_url || '',
+            gender: student.gender || ''
         });
     };
 
@@ -1201,6 +1213,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                         currentPassRates={currentPassRates}
                         weeksRemaining={weeksRemaining}
                         academicYear={currentAcademicYear}
+                        subjectPerformance={subjectPerformance}
                         onNavigate={(section) => setActiveMainMenu(section)}
                     />
                 ) : activeMainMenu === 'classes' ? (

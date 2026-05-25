@@ -1201,3 +1201,28 @@ export const fetchCurrentTermPassRates = async () => {
     return [];
   }
 };
+
+// Add this function to your studentService.ts (after fetchCurrentTermPassRates or anywhere)
+
+export const fetchSubjectPerformance = async () => {
+  try {
+    const schoolId = getSchoolId();
+    const url = schoolId
+      ? `${API_BASE_URL}/api/subjects/performance?schoolId=${schoolId}`
+      : `${API_BASE_URL}/api/subjects/performance`;
+
+    const res = await fetch(url, {
+      headers: authHeaders()
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) return { qa1: [], qa2: [], endOfTerm: [] };
+      throw new Error('Failed to fetch subject performance');
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error('Error fetching subject performance:', error);
+    return { qa1: [], qa2: [], endOfTerm: [] };
+  }
+};

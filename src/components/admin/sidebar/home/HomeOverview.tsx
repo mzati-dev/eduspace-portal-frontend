@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Student } from '@/types/admin';
 import { Users, BookOpen, GraduationCap, DollarSign, Calendar, Clock, Bell, Plus, FileText, CheckSquare, CreditCard, AlertCircle, BarChart3, Megaphone } from 'lucide-react';
-import { fetchPublicHolidays, fetchSchoolHolidays } from '@/services/attendanceService';
+import { fetchClassComparisons, fetchPublicHolidays, fetchSchoolHolidays } from '@/services/attendanceService';
 
 interface HomeOverviewProps {
     students: Student[];
@@ -23,6 +23,11 @@ interface HomeOverviewProps {
     currentPassRates?: any[];
     reminders?: any[];
     announcements?: any[];
+    subjectPerformance?: {
+        qa1: { subjectName: string; passRate: number }[];
+        qa2: { subjectName: string; passRate: number }[];
+        endOfTerm: { subjectName: string; passRate: number }[];
+    };
     onNavigate?: (section: string) => void
 }
 
@@ -31,16 +36,11 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
     teachers,
     classes,
     termInfo,
-    totalDays,
-    recordedDays,
-    remainingDays,
-    currentWeekNumber,
-    totalWeeks,
-    weeksRemaining,
     currentPassRates = [],
     reminders = [],
     announcements = [],
     academicYear,
+    subjectPerformance,
     onNavigate
 }) => {
 
@@ -49,6 +49,7 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
     const allHolidays = new Set([...publicHolidays, ...schoolHolidays]);
     const maleStudents = Math.floor(students.length * 0.55);
     const femaleStudents = students.length - maleStudents;
+    const [classAttendance, setClassAttendance] = useState<any[]>([]);
 
 
 
@@ -76,6 +77,19 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
         };
 
         loadHolidays();
+    }, []);
+
+    // Add useEffect to fetch attendance data
+    useEffect(() => {
+        const loadAttendance = async () => {
+            try {
+                const data = await fetchClassComparisons();
+                setClassAttendance(data);
+            } catch (error) {
+                console.error('Failed to fetch attendance:', error);
+            }
+        };
+        loadAttendance();
     }, []);
 
     const formatDate = (dateString: string) => {
@@ -529,70 +543,129 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                 <h3 className="text-md font-semibold text-slate-700 mb-3">Academic Performance</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     {/* Class with Highest Pass Rate */}
+                    {/* Highest Pass Rates - All Assessments */}
                     <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 shadow-sm border border-green-200">
-                        <p className="text-xs text-green-600 font-medium">Highest Pass Rate</p>
-                        {(() => {
-                            // Calculate pass rate per class from your results data
-                            const highestPass = classes.reduce((max, cls) => {
-                                // Replace with actual pass rate calculation from your results API
-                                // For now using mock - replace with real data
-                                const passRate = 85;
-                                return passRate > (max.rate || 0) ? { name: cls.name, rate: passRate } : max;
-                            }, { name: '', rate: 0 });
-                            return (
-                                <>
-                                    <p className="text-lg font-bold text-green-800 mt-1 break-words">{highestPass.name || '—'}</p>
-                                    <p className="text-xs text-green-600">{highestPass.rate}% pass rate</p>
-                                </>
-                            );
-                        })()}
+                        <p className="text-xs text-green-600 font-medium mb-2">🏆 Highest Pass Rates</p>
+                        <div className="space-y-2">
+                            <div>
+                                <p className="text-xs text-slate-500">QA1</p>
+                                <p className="text-sm font-bold text-green-800">
+                                    {currentPassRates.reduce((max, c) => c.qa1PassRate > (max.rate || 0) ? { name: c.className, rate: c.qa1PassRate } : max, { name: '—', rate: 0 }).name}
+                                    <span className="text-xs font-normal ml-1">({currentPassRates.reduce((max, c) => c.qa1PassRate > (max.rate || 0) ? { rate: c.qa1PassRate } : max, { rate: 0 }).rate}%)</span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">QA2</p>
+                                <p className="text-sm font-bold text-green-800">
+                                    {currentPassRates.reduce((max, c) => c.qa2PassRate > (max.rate || 0) ? { name: c.className, rate: c.qa2PassRate } : max, { name: '—', rate: 0 }).name}
+                                    <span className="text-xs font-normal ml-1">({currentPassRates.reduce((max, c) => c.qa2PassRate > (max.rate || 0) ? { rate: c.qa2PassRate } : max, { rate: 0 }).rate}%)</span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">End of Term</p>
+                                <p className="text-sm font-bold text-green-800">
+                                    {currentPassRates.reduce((max, c) => c.endOfTermPassRate > (max.rate || 0) ? { name: c.className, rate: c.endOfTermPassRate } : max, { name: '—', rate: 0 }).name}
+                                    <span className="text-xs font-normal ml-1">({currentPassRates.reduce((max, c) => c.endOfTermPassRate > (max.rate || 0) ? { rate: c.endOfTermPassRate } : max, { rate: 0 }).rate}%)</span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Class with Lowest Pass Rate */}
+                    {/* Lowest Pass Rates - All Assessments */}
                     <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 shadow-sm border border-red-200">
-                        <p className="text-xs text-red-600 font-medium">Lowest Pass Rate</p>
-                        {(() => {
-                            const lowestPass = classes.reduce((min, cls) => {
-                                const passRate = 65; // Replace with actual calculation
-                                return passRate < (min.rate || 100) ? { name: cls.name, rate: passRate } : min;
-                            }, { name: '', rate: 0 });
-                            return (
-                                <>
-                                    <p className="text-lg font-bold text-red-800 mt-1 break-words">{lowestPass.name || '—'}</p>
-                                    <p className="text-xs text-red-600">{lowestPass.rate}% pass rate</p>
-                                </>
-                            );
-                        })()}
+                        <p className="text-xs text-red-600 font-medium mb-2">⚠️ Lowest Pass Rates</p>
+                        <div className="space-y-2">
+                            <div>
+                                <p className="text-xs text-slate-500">QA1</p>
+                                <p className="text-sm font-bold text-red-800">
+                                    {currentPassRates.reduce((min, c) => c.qa1PassRate < (min.rate || 101) ? { name: c.className, rate: c.qa1PassRate } : min, { name: '—', rate: 100 }).name}
+                                    <span className="text-xs font-normal ml-1">({currentPassRates.reduce((min, c) => c.qa1PassRate < (min.rate || 101) ? { rate: c.qa1PassRate } : min, { rate: 0 }).rate}%)</span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">QA2</p>
+                                <p className="text-sm font-bold text-red-800">
+                                    {currentPassRates.reduce((min, c) => c.qa2PassRate < (min.rate || 101) ? { name: c.className, rate: c.qa2PassRate } : min, { name: '—', rate: 100 }).name}
+                                    <span className="text-xs font-normal ml-1">({currentPassRates.reduce((min, c) => c.qa2PassRate < (min.rate || 101) ? { rate: c.qa2PassRate } : min, { rate: 0 }).rate}%)</span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">End of Term</p>
+                                <p className="text-sm font-bold text-red-800">
+                                    {currentPassRates.reduce((min, c) => c.endOfTermPassRate < (min.rate || 101) ? { name: c.className, rate: c.endOfTermPassRate } : min, { name: '—', rate: 100 }).name}
+                                    <span className="text-xs font-normal ml-1">({currentPassRates.reduce((min, c) => c.endOfTermPassRate < (min.rate || 101) ? { rate: c.endOfTermPassRate } : min, { rate: 0 }).rate}%)</span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Most Passed Subject */}
+                    {/* Most Passed Subject - All Assessments */}
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 shadow-sm border border-blue-200">
-                        <p className="text-xs text-blue-600 font-medium">Most Passed Subject</p>
-                        {(() => {
-                            // Replace with actual subject pass rate calculation from your results API
-                            const subjects = ['Mathematics', 'English', 'Science'];
-                            const highestSubject = { name: 'Mathematics', count: 85 };
-                            return (
-                                <>
-                                    <p className="text-lg font-bold text-blue-800 mt-1 break-words">{highestSubject.name || '—'}</p>
-                                    <p className="text-xs text-blue-600">{highestSubject.count}% pass rate</p>
-                                </>
-                            );
-                        })()}
+                        <p className="text-xs text-blue-600 font-medium mb-2">🏆 Most Passed Subject</p>
+                        <div className="space-y-2">
+                            <div>
+                                <p className="text-xs text-slate-500">QA1</p>
+                                <p className="text-sm font-bold text-blue-800">
+                                    {subjectPerformance?.qa1?.reduce((max, s) => s.passRate > (max.rate || 0) ? { name: s.subjectName, rate: s.passRate } : max, { name: '—', rate: 0 }).name}
+                                    <span className="text-xs font-normal ml-1">
+                                        ({subjectPerformance?.qa1?.reduce((max, s) => s.passRate > (max.rate || 0) ? { rate: s.passRate } : max, { rate: 0 }).rate}%)
+                                    </span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">QA2</p>
+                                <p className="text-sm font-bold text-blue-800">
+                                    {subjectPerformance?.qa2?.reduce((max, s) => s.passRate > (max.rate || 0) ? { name: s.subjectName, rate: s.passRate } : max, { name: '—', rate: 0 }).name}
+                                    <span className="text-xs font-normal ml-1">
+                                        ({subjectPerformance?.qa2?.reduce((max, s) => s.passRate > (max.rate || 0) ? { rate: s.passRate } : max, { rate: 0 }).rate}%)
+                                    </span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">End of Term</p>
+                                <p className="text-sm font-bold text-blue-800">
+                                    {subjectPerformance?.endOfTerm?.reduce((max, s) => s.passRate > (max.rate || 0) ? { name: s.subjectName, rate: s.passRate } : max, { name: '—', rate: 0 }).name}
+                                    <span className="text-xs font-normal ml-1">
+                                        ({subjectPerformance?.endOfTerm?.reduce((max, s) => s.passRate > (max.rate || 0) ? { rate: s.passRate } : max, { rate: 0 }).rate}%)
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Least Passed Subject */}
+                    {/* Least Passed Subject - All Assessments */}
+                    {/* Least Passed Subject - All Assessments */}
                     <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 shadow-sm border border-amber-200">
-                        <p className="text-xs text-amber-600 font-medium">Least Passed Subject</p>
-                        {(() => {
-                            const lowestSubject = { name: 'Physics', count: 45 };
-                            return (
-                                <>
-                                    <p className="text-lg font-bold text-amber-800 mt-1 break-words">{lowestSubject.name || '—'}</p>
-                                    <p className="text-xs text-amber-600">{lowestSubject.count}% pass rate</p>
-                                </>
-                            );
-                        })()}
+                        <p className="text-xs text-amber-600 font-medium mb-2">⚠️ Least Passed Subject</p>
+                        <div className="space-y-2">
+                            <div>
+                                <p className="text-xs text-slate-500">QA1</p>
+                                <p className="text-sm font-bold text-amber-800">
+                                    {subjectPerformance?.qa1?.reduce((min, s) => s.passRate < (min.rate || 101) ? { name: s.subjectName, rate: s.passRate } : min, { name: '—', rate: 100 }).name}
+                                    <span className="text-xs font-normal ml-1">
+                                        ({subjectPerformance?.qa1?.reduce((min, s) => s.passRate < (min.rate || 101) ? { rate: s.passRate } : min, { rate: 0 }).rate}%)
+                                    </span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">QA2</p>
+                                <p className="text-sm font-bold text-amber-800">
+                                    {subjectPerformance?.qa2?.reduce((min, s) => s.passRate < (min.rate || 101) ? { name: s.subjectName, rate: s.passRate } : min, { name: '—', rate: 100 }).name}
+                                    <span className="text-xs font-normal ml-1">
+                                        ({subjectPerformance?.qa2?.reduce((min, s) => s.passRate < (min.rate || 101) ? { rate: s.passRate } : min, { rate: 0 }).rate}%)
+                                    </span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">End of Term</p>
+                                <p className="text-sm font-bold text-amber-800">
+                                    {subjectPerformance?.endOfTerm?.reduce((min, s) => s.passRate < (min.rate || 101) ? { name: s.subjectName, rate: s.passRate } : min, { name: '—', rate: 100 }).name}
+                                    <span className="text-xs font-normal ml-1">
+                                        ({subjectPerformance?.endOfTerm?.reduce((min, s) => s.passRate < (min.rate || 101) ? { rate: s.passRate } : min, { rate: 0 }).rate}%)
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -602,38 +675,50 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                 <h3 className="text-md font-semibold text-slate-700 mb-3">Attendance Insights</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
                     {/* Class with Highest Attendance */}
+                    {/* Highest Attendance */}
                     <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-4 shadow-sm border border-teal-200">
                         <p className="text-xs text-teal-600 font-medium">Highest Attendance</p>
-                        {(() => {
-                            // Replace with actual attendance calculation from your attendance API
-                            const highestAttendance = classes.reduce((max, cls) => {
-                                const rate = 92; // Replace with actual attendance rate
-                                return rate > (max.rate || 0) ? { name: cls.name, rate } : max;
-                            }, { name: '', rate: 0 });
-                            return (
-                                <>
-                                    <p className="text-lg font-bold text-teal-800 mt-1 break-words">{highestAttendance.name || '—'}</p>
-                                    <p className="text-xs text-teal-600">{highestAttendance.rate}% attendance</p>
-                                </>
-                            );
-                        })()}
+                        {classAttendance.length > 0 ? (
+                            (() => {
+                                let highest = classAttendance[0];
+                                for (let i = 1; i < classAttendance.length; i++) {
+                                    if (classAttendance[i].attendanceRate > highest.attendanceRate) {
+                                        highest = classAttendance[i];
+                                    }
+                                }
+                                return (
+                                    <>
+                                        <p className="text-lg font-bold text-teal-800 mt-1 break-words">{highest.name}</p>
+                                        <p className="text-xs text-teal-600">{highest.attendanceRate}% attendance</p>
+                                    </>
+                                );
+                            })()
+                        ) : (
+                            <p className="text-sm text-slate-500 mt-2">No data</p>
+                        )}
                     </div>
 
-                    {/* Class with Lowest Attendance */}
+                    {/* Lowest Attendance */}
                     <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 shadow-sm border border-orange-200">
                         <p className="text-xs text-orange-600 font-medium">Lowest Attendance</p>
-                        {(() => {
-                            const lowestAttendance = classes.reduce((min, cls) => {
-                                const rate = 78; // Replace with actual attendance rate
-                                return rate < (min.rate || 100) ? { name: cls.name, rate } : min;
-                            }, { name: '', rate: 0 });
-                            return (
-                                <>
-                                    <p className="text-lg font-bold text-orange-800 mt-1 break-words">{lowestAttendance.name || '—'}</p>
-                                    <p className="text-xs text-orange-600">{lowestAttendance.rate}% attendance</p>
-                                </>
-                            );
-                        })()}
+                        {classAttendance.length > 0 ? (
+                            (() => {
+                                let lowest = classAttendance[0];
+                                for (let i = 1; i < classAttendance.length; i++) {
+                                    if (classAttendance[i].attendanceRate < lowest.attendanceRate) {
+                                        lowest = classAttendance[i];
+                                    }
+                                }
+                                return (
+                                    <>
+                                        <p className="text-lg font-bold text-orange-800 mt-1 break-words">{lowest.name}</p>
+                                        <p className="text-xs text-orange-600">{lowest.attendanceRate}% attendance</p>
+                                    </>
+                                );
+                            })()
+                        ) : (
+                            <p className="text-sm text-slate-500 mt-2">No data</p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -913,17 +998,20 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Gender Distribution</h3>
-                    <div className="space-y-3">
+
+                    {/* Overall School Gender Distribution */}
+                    <div className="mb-6 pb-4 border-b border-slate-200">
+                        <h4 className="text-sm font-medium text-indigo-600 mb-3">Overall School</h4>
                         {(() => {
                             const maleCount = students.filter(s => s.gender === 'Male').length;
                             const femaleCount = students.filter(s => s.gender === 'Female').length;
                             const malePercentage = students.length > 0 ? (maleCount / students.length) * 100 : 0;
                             const femalePercentage = students.length > 0 ? (femaleCount / students.length) * 100 : 0;
                             return (
-                                <>
+                                <div className="space-y-2">
                                     <div>
                                         <div className="flex justify-between text-sm mb-1">
-                                            <span>Male Students</span>
+                                            <span>Male</span>
                                             <span>{maleCount} ({malePercentage.toFixed(1)}%)</span>
                                         </div>
                                         <div className="w-full bg-slate-200 rounded-full h-2">
@@ -932,16 +1020,57 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                                     </div>
                                     <div>
                                         <div className="flex justify-between text-sm mb-1">
-                                            <span>Female Students</span>
+                                            <span>Female</span>
                                             <span>{femaleCount} ({femalePercentage.toFixed(1)}%)</span>
                                         </div>
                                         <div className="w-full bg-slate-200 rounded-full h-2">
                                             <div className="bg-pink-600 h-2 rounded-full" style={{ width: `${femalePercentage}%` }}></div>
                                         </div>
                                     </div>
-                                </>
+                                </div>
                             );
                         })()}
+                    </div>
+
+                    {/* Per Class Gender Distribution */}
+                    <div className="space-y-4 max-h-80 overflow-y-auto">
+                        <h4 className="text-sm font-medium text-slate-600 sticky top-0 bg-white py-1">By Class</h4>
+                        {classes.map((cls) => {
+                            const classStudents = students.filter(s => s.class?.id === cls.id);
+                            const maleCount = classStudents.filter(s => s.gender === 'Male').length;
+                            const femaleCount = classStudents.filter(s => s.gender === 'Female').length;
+                            const total = classStudents.length;
+                            const malePercentage = total > 0 ? (maleCount / total) * 100 : 0;
+                            const femalePercentage = total > 0 ? (femaleCount / total) * 100 : 0;
+
+                            if (total === 0) return null;
+
+                            return (
+                                <div key={cls.id} className="bg-slate-50 rounded-lg p-3">
+                                    <p className="text-sm font-medium text-slate-700 mb-2">{cls.name}</p>
+                                    <div className="space-y-2">
+                                        <div>
+                                            <div className="flex justify-between text-xs mb-1">
+                                                <span>Male</span>
+                                                <span>{maleCount} ({malePercentage.toFixed(1)}%)</span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 rounded-full h-1.5">
+                                                <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${malePercentage}%` }}></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="flex justify-between text-xs mb-1">
+                                                <span>Female</span>
+                                                <span>{femaleCount} ({femalePercentage.toFixed(1)}%)</span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 rounded-full h-1.5">
+                                                <div className="bg-pink-600 h-1.5 rounded-full" style={{ width: `${femalePercentage}%` }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
