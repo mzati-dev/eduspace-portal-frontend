@@ -391,6 +391,74 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                 </div>
             </div>
 
+            {/* My Subjects Pass Rates */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                    <BookOpen className="w-5 h-5 text-purple-600" />
+                    <h3 className="text-lg font-semibold text-slate-800">My Subjects Pass Rates</h3>
+                </div>
+
+                {teacherSubjects.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500">
+                        <p>No subjects assigned yet.</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-slate-200">
+                                    <th className="text-left py-3 text-sm font-semibold text-slate-600">Subject</th>
+                                    <th className="text-left py-3 text-sm font-semibold text-slate-600">Class</th>
+                                    <th className="text-left py-3 text-sm font-semibold text-slate-600">QA1 Pass Rate</th>
+                                    <th className="text-left py-3 text-sm font-semibold text-slate-600">QA2 Pass Rate</th>
+                                    <th className="text-left py-3 text-sm font-semibold text-slate-600">End Term Pass Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {teacherSubjects.map((subject, idx) => {
+                                    const className = teacherClasses.find(c => c.id === subject.classId)?.name || 'Unknown';
+                                    const subjectPerformance = currentPassRates.find(rate =>
+                                        rate.className === className
+                                    );
+                                    console.log('teacherSubjects:', teacherSubjects);
+                                    console.log('teacherClasses:', teacherClasses);
+                                    return (
+                                        <tr key={idx} className="border-b border-slate-100">
+                                            <td className="py-3 text-sm font-medium text-slate-800">{subject.name}</td>
+                                            <td className="py-3 text-sm text-slate-600">{className}</td>
+                                            <td className="py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-20 bg-slate-200 rounded-full h-2">
+                                                        <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa1PassRate || 0}%` }}></div>
+                                                    </div>
+                                                    <span className="text-sm font-medium">{subjectPerformance?.qa1PassRate || 0}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-20 bg-slate-200 rounded-full h-2">
+                                                        <div className="bg-green-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa2PassRate || 0}%` }}></div>
+                                                    </div>
+                                                    <span className="text-sm font-medium">{subjectPerformance?.qa2PassRate || 0}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-20 bg-slate-200 rounded-full h-2">
+                                                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.endOfTermPassRate || 0}%` }}></div>
+                                                    </div>
+                                                    <span className="text-sm font-medium">{subjectPerformance?.endOfTermPassRate || 0}%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
             {/* Current Term Pass Rates - Teacher View */}
             <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 mb-8">
                 <div className="flex items-center gap-2 mb-4">

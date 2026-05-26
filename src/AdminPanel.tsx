@@ -63,6 +63,7 @@ import RemindersManagement from './components/admin/sidebar/communication/remind
 import ProgramsManagement from './components/admin/sidebar/school-life/ProgramsManagement';
 import ActivitiesManagement from './components/admin/sidebar/school-life/ActivitiesManagement';
 import TransferLetter from './components/admin/sidebar/parents/TransferLetter';
+import AnnouncementsManagement from './components/admin/sidebar/communication/announcement/AnnouncementsManagement';
 
 interface AdminPanelProps {
     onBack: () => void;
@@ -1557,32 +1558,37 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                         ) : activeMainMenu === 'reminders' ? (
                             <RemindersManagement />
 
+
                         ) :
-                            activeMainMenu === 'programs' ? (
-                                <ProgramsManagement />
-                            ) : activeMainMenu === 'activities' ? (
-                                <ActivitiesManagement />
-                            ) : activeMainMenu === 'gradeConfig' ? (
-                                <GradeConfigManagement
-                                    gradeConfigs={gradeConfigs}
-                                    activeConfig={activeConfig}
-                                    showConfigForm={showConfigForm}
-                                    editingConfig={editingConfig}
-                                    configForm={configForm}
-                                    setShowConfigForm={setShowConfigForm}
-                                    setEditingConfig={setEditingConfig}
-                                    setConfigForm={setConfigForm}
-                                    handleSaveConfig={handleSaveConfig}
-                                    handleActivateConfig={handleActivateConfig}
-                                    startEditConfig={startEditConfig}
-                                    loadData={loadData}
-                                />
-                            ) : activeMainMenu === 'settings' ? (
-                                <SettingsManagement
-                                    classes={classes}
-                                    showMessage={showMessage}
-                                />
-                            ) : null}
+
+                            activeMainMenu === 'announcements' ? (
+                                <AnnouncementsManagement />
+                            ) :
+                                activeMainMenu === 'programs' ? (
+                                    <ProgramsManagement />
+                                ) : activeMainMenu === 'activities' ? (
+                                    <ActivitiesManagement />
+                                ) : activeMainMenu === 'gradeConfig' ? (
+                                    <GradeConfigManagement
+                                        gradeConfigs={gradeConfigs}
+                                        activeConfig={activeConfig}
+                                        showConfigForm={showConfigForm}
+                                        editingConfig={editingConfig}
+                                        configForm={configForm}
+                                        setShowConfigForm={setShowConfigForm}
+                                        setEditingConfig={setEditingConfig}
+                                        setConfigForm={setConfigForm}
+                                        handleSaveConfig={handleSaveConfig}
+                                        handleActivateConfig={handleActivateConfig}
+                                        startEditConfig={startEditConfig}
+                                        loadData={loadData}
+                                    />
+                                ) : activeMainMenu === 'settings' ? (
+                                    <SettingsManagement
+                                        classes={classes}
+                                        showMessage={showMessage}
+                                    />
+                                ) : null}
 
             </div>
 

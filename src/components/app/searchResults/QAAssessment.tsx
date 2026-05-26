@@ -969,18 +969,27 @@ const QAAssessment: React.FC<QAAssessmentProps> = ({ studentData, activeTab, sho
     if (!hasAssessmentScores(assessmentType)) {
         return (
             <div className="text-center py-12 bg-slate-50 rounded-xl">
-                <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-slate-700 mb-2">
+                {/* <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" /> */}
+                {/* <h4 className="text-lg font-semibold text-slate-700 mb-2">
                     No {assessmentType === 'qa1' ? 'Quarterly Assessment 1' :
                         assessmentType === 'qa2' ? 'Quarterly Assessment 2' :
                             'End of Term'} Scores
-                </h4>
-                <p className="text-slate-500 max-w-md mx-auto">
+                </h4> */}
+                <div className="text-center">
+                    <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl">📢</span>
+                    </div>
+                    <h2 className="text-2xl font-bold text-amber-600 mb-3">No Results Published Yet</h2>
+                    <p className="text-slate-600">
+                        Results are being processed. Please check back later.
+                    </p>
+                </div>
+                {/* <p className="text-slate-500 max-w-md mx-auto">
                     This student did not write the {assessmentType === 'qa1' ? 'first quarterly assessment' :
                         assessmentType === 'qa2' ? 'second quarterly assessment' :
                             'end of term examination'}.
                     Scores will appear here once entered by the teacher.
-                </p>
+                </p> */}
             </div>
         );
     }
