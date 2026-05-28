@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Users, Search, MessageCircle, Mail, Phone } from 'lucide-react';
+import { MessageSquare, Send, Users, Phone, Mail, Search, Trash2, Clock, Building2 } from 'lucide-react';
 import {
     getConversations,
     getConversationMessages,
@@ -8,35 +8,48 @@ import {
     Message as ApiMessage
 } from '@/services/messageService';
 
-interface MessagingManagementProps {
-    teachers: any[];
-    parents: any[];
+interface TeacherMessagesProps {
+    teachers?: any[];  // Not needed for teacher side
+    parents: any[];    // Students data with parent info
+    currentTeacherId: string;
+    currentTeacherName: string;
 }
 
-const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, parents }) => {
+const TeacherMessages: React.FC<TeacherMessagesProps> = ({ parents, currentTeacherId, currentTeacherName }) => {
     const [conversations, setConversations] = useState<any[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<any>(null);
     const [newMessage, setNewMessage] = useState('');
-    const [messageType, setMessageType] = useState<'sms' | 'email'>('sms');
+    const [messageSubject, setMessageSubject] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [showNewMessage, setShowNewMessage] = useState(false);
-    const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
+    const [showComposeModal, setShowComposeModal] = useState(false);
+    const [composeType, setComposeType] = useState<'parent' | 'admin'>('parent');
     const [selectedParent, setSelectedParent] = useState<any>(null);
+    const [selectedAdmin, setSelectedAdmin] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
-    const [recipientType, setRecipientType] = useState<'teacher' | 'parent'>('teacher');
-    const userStr = localStorage.getItem('user');
-    const currentUserId = userStr ? JSON.parse(userStr).id : '';
 
-    // Helper to get recipient name from ID
+    // Helper to get recipient name
     const getRecipientName = (recipientId: string, recipientRole: string): string => {
-        if (recipientRole === 'teacher') {
-            const teacher = teachers.find(t => t.id === recipientId);
-            return teacher ? teacher.name : 'Unknown Teacher';
-        } else {
+        if (recipientRole === 'parent') {
             const parent = parents.find(p => p.id === recipientId);
             return parent ? parent.name : 'Unknown Parent';
+        } else if (recipientRole === 'admin') {
+            // For admin, you might need to fetch admin names
+            return 'School Admin';
         }
+        return 'Unknown';
+    };
+
+    // Get student name for parent
+    const getStudentName = (parentId: string): string => {
+        const parent = parents.find(p => p.id === parentId);
+        return parent?.studentName || '';
+    };
+
+    // Get student class for parent
+    const getStudentClass = (parentId: string): string => {
+        const parent = parents.find(p => p.id === parentId);
+        return parent?.studentClass || '';
     };
 
     // Load conversations
@@ -46,7 +59,7 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
             const apiConversations = await getConversations();
 
             const localConvs = apiConversations.map((conv: ApiConversation) => {
-                const isParticipantOne = conv.participantOneId === currentUserId;
+                const isParticipantOne = conv.participantOneId === currentTeacherId;
                 const recipientId = isParticipantOne ? conv.participantTwoId : conv.participantOneId;
                 const recipientRole = isParticipantOne ? conv.participantTwoRole : conv.participantOneRole;
                 const unreadCount = isParticipantOne ? conv.unreadCountP1 : conv.unreadCountP2;
@@ -56,7 +69,10 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                     recipientId: recipientId,
                     recipientRole: recipientRole,
                     recipientName: getRecipientName(recipientId, recipientRole),
-                    recipientType: recipientRole === 'teacher' ? 'teacher' : 'parent',
+                    recipientType: recipientRole === 'parent' ? 'parent' : 'admin',
+                    studentName: recipientRole === 'parent' ? getStudentName(recipientId) : undefined,
+                    studentClass: recipientRole === 'parent' ? getStudentClass(recipientId) : undefined,
+                    recipientRoleName: recipientRole === 'admin' ? 'School Admin' : undefined,
                     lastMessage: conv.lastMessage || '',
                     lastMessageTime: conv.lastMessageAt || new Date().toISOString(),
                     unreadCount: unreadCount,
@@ -77,12 +93,12 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
         try {
             const apiMessages = await getConversationMessages(conversationId);
             const localMessages = apiMessages.map((msg: ApiMessage) => {
-                const isAdminSender = msg.senderId === currentUserId;
+                const isTeacherSender = msg.senderId === currentTeacherId;
                 return {
                     id: msg.id,
-                    sender: isAdminSender ? 'admin' : 'recipient',
+                    sender: isTeacherSender ? 'teacher' : 'recipient',
                     content: msg.content,
-                    type: msg.type === 'both' ? 'sms' : msg.type,
+                    subject: msg.subject || undefined,
                     timestamp: msg.createdAt,
                     read: msg.read
                 };
@@ -120,14 +136,15 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                 recipientId: selectedConversation.recipientId,
                 recipientRole: selectedConversation.recipientRole,
                 content: newMessage,
-                type: messageType
+                subject: messageSubject || undefined,
+                type: 'sms'
             });
 
             const newLocalMsg = {
                 id: sentMessage.id,
-                sender: 'admin',
+                sender: 'teacher',
                 content: sentMessage.content,
-                type: sentMessage.type === 'both' ? 'sms' : sentMessage.type,
+                subject: sentMessage.subject || undefined,
                 timestamp: sentMessage.createdAt,
                 read: true
             };
@@ -151,6 +168,7 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
             } : null);
 
             setNewMessage('');
+            setMessageSubject('');
         } catch (error) {
             console.error('Failed to send message:', error);
             alert('Failed to send message');
@@ -160,17 +178,15 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
     };
 
     // Start new conversation
-    // Start new conversation
-    const handleStartConversation = async () => {
-        const recipient = selectedTeacher || selectedParent;
-        const recipientRole = selectedTeacher ? 'teacher' : 'parent';
+    const handleStartNewConversation = async () => {
+        const recipient = selectedParent || selectedAdmin;
+        const recipientRole = selectedParent ? 'parent' : 'admin';
 
         if (!recipient) {
             alert('Please select a recipient');
             return;
         }
 
-        // Send first message to create conversation
         try {
             await sendMessage({
                 recipientId: recipient.id,
@@ -179,10 +195,9 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                 type: 'sms'
             });
 
-            setShowNewMessage(false);
-            setSelectedTeacher(null);
+            setShowComposeModal(false);
             setSelectedParent(null);
-            setRecipientType('teacher');
+            setSelectedAdmin(null);
             await loadConversations();
         } catch (error) {
             console.error('Failed to start conversation:', error);
@@ -207,7 +222,8 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
     };
 
     const filteredConversations = conversations.filter(conv =>
-        conv.recipientName.toLowerCase().includes(searchTerm.toLowerCase())
+        conv.recipientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (conv.studentName && conv.studentName.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     if (loading) {
@@ -225,10 +241,10 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="border-b border-slate-200 p-6">
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <MessageCircle className="w-5 h-5 text-indigo-600" />
+                    <MessageSquare className="w-5 h-5 text-indigo-600" />
                     Messages
                 </h2>
-                <p className="text-slate-500 mt-1">Private conversations with teachers and parents</p>
+                <p className="text-slate-500 mt-1">Chat with parents and school administrators</p>
             </div>
 
             <div className="flex h-[600px]">
@@ -246,7 +262,7 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                             />
                         </div>
                         <button
-                            onClick={() => setShowNewMessage(true)}
+                            onClick={() => setShowComposeModal(true)}
                             className="w-full mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm flex items-center justify-center gap-2"
                         >
                             <Send className="w-4 h-4" />
@@ -267,7 +283,7 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                                 >
                                     <div className="flex justify-between items-start mb-1">
                                         <div className="flex items-center gap-2">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${conv.recipientType === 'teacher' ? 'bg-green-600' : 'bg-purple-600'
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${conv.recipientType === 'parent' ? 'bg-green-600' : 'bg-purple-600'
                                                 }`}>
                                                 {conv.recipientName.charAt(0)}
                                             </div>
@@ -276,7 +292,9 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                                                     {conv.recipientName}
                                                 </p>
                                                 <p className="text-xs text-slate-500">
-                                                    {conv.recipientType === 'teacher' ? '👩‍🏫 Teacher' : '👨‍👩‍👧 Parent'}
+                                                    {conv.recipientType === 'parent'
+                                                        ? `👨‍👩‍👧 Parent of ${conv.studentName}`
+                                                        : `👔 ${conv.recipientRoleName}`}
                                                 </p>
                                             </div>
                                         </div>
@@ -304,41 +322,54 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                 <div className="flex-1 flex flex-col">
                     {selectedConversation ? (
                         <>
-                            <div className="p-4 border-b border-slate-200 flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${selectedConversation.recipientType === 'teacher' ? 'bg-green-600' : 'bg-purple-600'
-                                    }`}>
-                                    {selectedConversation.recipientName.charAt(0)}
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-slate-800">
-                                        {selectedConversation.recipientName}
-                                    </h3>
-                                    <p className="text-xs text-slate-500">
-                                        {selectedConversation.recipientType === 'teacher' ? 'Teacher' : 'Parent'}
-                                    </p>
+                            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${selectedConversation.recipientType === 'parent' ? 'bg-green-600' : 'bg-purple-600'
+                                        }`}>
+                                        {selectedConversation.recipientName.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-slate-800">
+                                            {selectedConversation.recipientName}
+                                        </h3>
+                                        <p className="text-xs text-slate-500">
+                                            {selectedConversation.recipientType === 'parent'
+                                                ? `Parent of ${selectedConversation.studentName} • ${selectedConversation.studentClass}`
+                                                : `${selectedConversation.recipientRoleName}`}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                 {selectedConversation.messages.length === 0 ? (
                                     <div className="text-center text-slate-400 py-8">
-                                        <MessageCircle className="w-12 h-12 mx-auto mb-2" />
+                                        <MessageSquare className="w-12 h-12 mx-auto mb-2" />
                                         <p>No messages yet. Start the conversation!</p>
                                     </div>
                                 ) : (
                                     selectedConversation.messages.map((msg: any) => (
                                         <div
                                             key={msg.id}
-                                            className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}
+                                            className={`flex ${msg.sender === 'teacher' ? 'justify-end' : 'justify-start'}`}
                                         >
-                                            <div className={`max-w-[70%] rounded-lg p-3 ${msg.sender === 'admin' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+                                            <div className={`max-w-[70%] rounded-lg p-3 ${msg.sender === 'teacher'
+                                                ? 'bg-indigo-600 text-white'
+                                                : 'bg-slate-100 text-slate-700'
                                                 }`}>
+                                                {msg.subject && (
+                                                    <p className={`text-xs font-medium mb-1 ${msg.sender === 'teacher' ? 'text-indigo-200' : 'text-indigo-600'
+                                                        }`}>
+                                                        Subject: {msg.subject}
+                                                    </p>
+                                                )}
                                                 <p className="text-sm">{msg.content}</p>
-                                                <div className={`flex items-center gap-2 mt-1 text-xs ${msg.sender === 'admin' ? 'text-indigo-200' : 'text-slate-400'
+                                                <div className={`flex items-center gap-2 mt-1 text-xs ${msg.sender === 'teacher' ? 'text-indigo-200' : 'text-slate-400'
                                                     }`}>
-                                                    <span>{msg.type === 'sms' ? '📱 SMS' : '📧 Email'}</span>
-                                                    <span>•</span>
                                                     <span>{formatTime(msg.timestamp)}</span>
+                                                    {msg.read && msg.sender === 'recipient' && (
+                                                        <span>✓ Read</span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -347,21 +378,14 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                             </div>
 
                             <div className="p-4 border-t border-slate-200">
-                                <div className="flex gap-2 mb-2">
-                                    <button
-                                        onClick={() => setMessageType('sms')}
-                                        className={`px-3 py-1 text-sm rounded-lg ${messageType === 'sms' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'
-                                            }`}
-                                    >
-                                        📱 SMS
-                                    </button>
-                                    <button
-                                        onClick={() => setMessageType('email')}
-                                        className={`px-3 py-1 text-sm rounded-lg ${messageType === 'email' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'
-                                            }`}
-                                    >
-                                        📧 Email
-                                    </button>
+                                <div>
+                                    <input
+                                        type="text"
+                                        placeholder="Subject (optional)"
+                                        value={messageSubject}
+                                        onChange={(e) => setMessageSubject(e.target.value)}
+                                        className="w-full mb-2 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                                    />
                                 </div>
                                 <div className="flex gap-2">
                                     <textarea
@@ -385,17 +409,16 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                     ) : (
                         <div className="flex-1 flex items-center justify-center text-slate-400">
                             <div className="text-center">
-                                <MessageCircle className="w-12 h-12 mx-auto mb-3" />
-                                <p>Select a conversation to start messaging</p>
+                                <MessageSquare className="w-12 h-12 mx-auto mb-3" />
+                                <p>Select a conversation or start a new message</p>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* New Message Modal */}
-            {/* New Message Modal */}
-            {showNewMessage && (
+            {/* Compose Modal */}
+            {showComposeModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-xl p-6 w-full max-w-md">
                         <h3 className="text-lg font-bold mb-4">New Message</h3>
@@ -404,99 +427,71 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
                                 <label className="block text-sm font-medium mb-1">Send To</label>
                                 <div className="flex gap-2 mb-3">
                                     <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedTeacher(null);
-                                            setSelectedParent(null);
-                                            setRecipientType('teacher');
-                                        }}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium ${recipientType === 'teacher'
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'bg-slate-100 text-slate-600'
-                                            }`}
-                                    >
-                                        <Users className="w-4 h-4 inline mr-1" />
-                                        Teacher
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedTeacher(null);
-                                            setSelectedParent(null);
-                                            setRecipientType('parent');
-                                        }}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium ${recipientType === 'parent'
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'bg-slate-100 text-slate-600'
+                                        onClick={() => setComposeType('parent')}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium ${composeType === 'parent'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-slate-100 text-slate-600'
                                             }`}
                                     >
                                         <Users className="w-4 h-4 inline mr-1" />
                                         Parent
                                     </button>
+                                    <button
+                                        onClick={() => setComposeType('admin')}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium ${composeType === 'admin'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-slate-100 text-slate-600'
+                                            }`}
+                                    >
+                                        <Building2 className="w-4 h-4 inline mr-1" />
+                                        Admin
+                                    </button>
                                 </div>
                             </div>
 
-                            {recipientType === 'teacher' && (
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Select Teacher</label>
-                                    <select
-                                        className="w-full border rounded-lg p-2"
-                                        value={selectedTeacher?.id || ''}
-                                        onChange={(e) => {
-                                            const teacher = teachers.find(t => t.id === e.target.value);
-                                            setSelectedTeacher(teacher);
-                                        }}
-                                    >
-                                        <option value="">Select a teacher...</option>
-                                        {teachers.map(teacher => (
-                                            <option key={teacher.id} value={teacher.id}>
-                                                {teacher.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {recipientType === 'parent' && (
+                            {composeType === 'parent' && (
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Select Parent</label>
                                     <select
                                         className="w-full border rounded-lg p-2"
-                                        value={selectedParent?.id || ''}
                                         onChange={(e) => {
                                             const parent = parents.find(p => p.id === e.target.value);
                                             setSelectedParent(parent);
                                         }}
                                     >
                                         <option value="">Select a parent...</option>
-                                        {parents.map(parent => (
+                                        {parents.map((parent: any) => (
                                             <option key={parent.id} value={parent.id}>
-                                                {parent.name} {parent.studentName ? `(${parent.studentName})` : ''}
+                                                {parent.name} ({parent.studentName} - {parent.studentClass})
                                             </option>
                                         ))}
                                     </select>
                                 </div>
                             )}
 
+                            {composeType === 'admin' && (
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Select Admin</label>
+                                    <select
+                                        className="w-full border rounded-lg p-2"
+                                        onChange={(e) => {
+                                            // Admin selection - you'll need admin list
+                                            const admin = { id: e.target.value, name: e.target.options[e.target.selectedIndex].text, role: 'Admin' };
+                                            setSelectedAdmin(admin);
+                                        }}
+                                    >
+                                        <option value="">Select an admin...</option>
+                                        <option value="admin1">Head Teacher</option>
+                                        <option value="admin2">Deputy Head</option>
+                                    </select>
+                                </div>
+                            )}
+
                             <div className="flex gap-3 justify-end pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowNewMessage(false);
-                                        setSelectedTeacher(null);
-                                        setSelectedParent(null);
-                                        setRecipientType('teacher');
-                                    }}
-                                    className="px-4 py-2 border rounded-lg"
-                                >
+                                <button onClick={() => setShowComposeModal(false)} className="px-4 py-2 border rounded-lg">
                                     Cancel
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={handleStartConversation}
-                                    disabled={!selectedTeacher && !selectedParent}
-                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50"
-                                >
+                                <button onClick={handleStartNewConversation} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">
                                     Start Conversation
                                 </button>
                             </div>
@@ -508,17 +503,18 @@ const MessagingManagement: React.FC<MessagingManagementProps> = ({ teachers, par
     );
 };
 
-export default MessagingManagement;
-
+export default TeacherMessages;
 
 // import React, { useState } from 'react';
-// import { Send, UserCheck, Users, Search, MessageCircle, Mail, Phone } from 'lucide-react';
+// import { MessageSquare, Send, Users, Phone, Mail, Search, Inbox, SendHorizonal, Trash2, Clock, Building2 } from 'lucide-react';
 
 // interface Conversation {
 //     id: string;
 //     recipientName: string;
-//     recipientType: 'teacher' | 'parent';
-//     recipientPhoto?: string;
+//     recipientType: 'parent' | 'admin';
+//     recipientRole?: string;
+//     studentName?: string;
+//     studentClass?: string;
 //     lastMessage: string;
 //     lastMessageTime: string;
 //     unreadCount: number;
@@ -527,82 +523,84 @@ export default MessagingManagement;
 
 // interface Message {
 //     id: string;
-//     sender: 'admin' | 'recipient';
+//     sender: 'teacher' | 'recipient';
 //     content: string;
-//     type: 'sms' | 'email';
+//     subject?: string;
 //     timestamp: string;
 //     read: boolean;
 // }
 
-// const MessagingManagement: React.FC = () => {
+// const TeacherMessages: React.FC = () => {
 //     const [conversations, setConversations] = useState<Conversation[]>([
 //         {
 //             id: '1',
-//             recipientName: 'Mr. John Banda',
-//             recipientType: 'teacher',
-//             lastMessage: 'I will submit the lesson plans tomorrow',
-//             lastMessageTime: '2026-05-26T09:30:00Z',
+//             recipientName: 'Mrs. Grace Phiri',
+//             recipientType: 'parent',
+//             studentName: 'Chisomo Phiri',
+//             studentClass: 'Class 5A',
+//             lastMessage: 'My child is sick today, will not come to school',
+//             lastMessageTime: '2026-05-26T07:15:00Z',
 //             unreadCount: 2,
 //             messages: [
 //                 {
 //                     id: 'm1',
-//                     sender: 'admin',
-//                     content: 'Please submit your lesson plans for next week',
-//                     type: 'email',
-//                     timestamp: '2026-05-25T14:00:00Z',
-//                     read: true
+//                     sender: 'recipient',
+//                     content: 'My child is sick today, will not come to school',
+//                     subject: 'Absence Notice',
+//                     timestamp: '2026-05-26T07:15:00Z',
+//                     read: false
 //                 },
 //                 {
 //                     id: 'm2',
-//                     sender: 'recipient',
-//                     content: 'I will submit the lesson plans tomorrow',
-//                     type: 'sms',
-//                     timestamp: '2026-05-26T09:30:00Z',
-//                     read: false
+//                     sender: 'teacher',
+//                     content: 'Thank you for letting me know. Please ensure they catch up on homework.',
+//                     timestamp: '2026-05-26T08:30:00Z',
+//                     read: true
 //                 }
 //             ]
 //         },
 //         {
 //             id: '2',
-//             recipientName: 'Mrs. Grace Phiri (Parent of Chisomo Phiri - Class 5A)',
+//             recipientName: 'Mr. Peter Kwenda',
 //             recipientType: 'parent',
-//             lastMessage: 'My child is sick today, will not come to school',
-//             lastMessageTime: '2026-05-26T07:15:00Z',
-//             unreadCount: 1,
+//             studentName: 'Mary Kwenda',
+//             studentClass: 'Class 3B',
+//             lastMessage: 'When is the parent-teacher meeting?',
+//             lastMessageTime: '2026-05-25T16:30:00Z',
+//             unreadCount: 0,
 //             messages: [
 //                 {
 //                     id: 'm3',
 //                     sender: 'recipient',
-//                     content: 'My child is sick today, will not come to school',
-//                     type: 'sms',
-//                     timestamp: '2026-05-26T07:15:00Z',
-//                     read: false
+//                     content: 'When is the parent-teacher meeting?',
+//                     timestamp: '2026-05-25T16:30:00Z',
+//                     read: true
+//                 },
+//                 {
+//                     id: 'm4',
+//                     sender: 'teacher',
+//                     content: 'The meeting is on June 5th at 2:00 PM',
+//                     timestamp: '2026-05-25T17:00:00Z',
+//                     read: true
 //                 }
 //             ]
 //         },
 //         {
 //             id: '3',
-//             recipientName: 'Mr. Peter Kwenda (Parent of Mary Kwenda - Class 3B)',
-//             recipientType: 'parent',
-//             lastMessage: 'I have paid the school fees. Receipt attached.',
-//             lastMessageTime: '2026-05-25T16:45:00Z',
-//             unreadCount: 0,
+//             recipientName: 'Mr. John Banda',
+//             recipientType: 'admin',
+//             recipientRole: 'Head Teacher',
+//             lastMessage: 'Please prepare your lesson plans for review',
+//             lastMessageTime: '2026-05-25T10:00:00Z',
+//             unreadCount: 1,
 //             messages: [
 //                 {
-//                     id: 'm4',
-//                     sender: 'recipient',
-//                     content: 'I have paid the school fees. Receipt attached.',
-//                     type: 'email',
-//                     timestamp: '2026-05-25T16:45:00Z',
-//                     read: true
-//                 },
-//                 {
 //                     id: 'm5',
-//                     sender: 'admin',
-//                     content: 'Thank you. I have confirmed your payment.',
-//                     type: 'sms',
-//                     timestamp: '2026-05-25T17:30:00Z',
-//                     read: true
+//                     sender: 'recipient',
+//                     content: 'Please prepare your lesson plans for review by Friday',
+//                     subject: 'Lesson Plan Submission',
+//                     timestamp: '2026-05-25T10:00:00Z',
+//                     read: false
 //                 }
 //             ]
 //         }
@@ -610,28 +608,37 @@ export default MessagingManagement;
 
 //     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 //     const [newMessage, setNewMessage] = useState('');
-//     const [messageType, setMessageType] = useState<'sms' | 'email'>('sms');
+//     const [messageSubject, setMessageSubject] = useState('');
 //     const [searchTerm, setSearchTerm] = useState('');
-//     const [showNewMessage, setShowNewMessage] = useState(false);
-//     const [newRecipient, setNewRecipient] = useState({ type: 'teacher', id: '', name: '' });
+//     const [showComposeModal, setShowComposeModal] = useState(false);
+//     const [composeType, setComposeType] = useState<'parent' | 'admin'>('parent');
+//     const [selectedParent, setSelectedParent] = useState<any>(null);
+//     const [selectedAdmin, setSelectedAdmin] = useState<any>(null);
 
-//     const filteredConversations = conversations.filter(conv =>
-//         conv.recipientName.toLowerCase().includes(searchTerm.toLowerCase())
-//     );
+//     // Sample data for compose modal
+//     const parentsList = [
+//         { id: 'p1', name: 'Mrs. Grace Phiri', studentName: 'Chisomo Phiri', studentClass: 'Class 5A', phone: '+265 888 123 456', email: 'grace@example.com' },
+//         { id: 'p2', name: 'Mr. Peter Kwenda', studentName: 'Mary Kwenda', studentClass: 'Class 3B', phone: '+265 888 234 567', email: 'peter@example.com' },
+//         { id: 'p3', name: 'Mrs. Elizabeth Banda', studentName: 'Tawanda Banda', studentClass: 'Class 2A', phone: '+265 888 345 678', email: 'elizabeth@example.com' },
+//     ];
+
+//     const adminsList = [
+//         { id: 'a1', name: 'Mr. John Banda', role: 'Head Teacher', department: 'Administration', email: 'headteacher@school.com' },
+//         { id: 'a2', name: 'Mrs. Sarah Chisale', role: 'Deputy Head', department: 'Academics', email: 'deputy@school.com' },
+//     ];
 
 //     const handleSendMessage = () => {
 //         if (!newMessage.trim() || !selectedConversation) return;
 
 //         const newMsg: Message = {
 //             id: Date.now().toString(),
-//             sender: 'admin',
+//             sender: 'teacher',
 //             content: newMessage,
-//             type: messageType,
+//             subject: messageSubject || undefined,
 //             timestamp: new Date().toISOString(),
 //             read: true
 //         };
 
-//         // Update conversation
 //         const updatedConversations = conversations.map(conv => {
 //             if (conv.id === selectedConversation.id) {
 //                 return {
@@ -646,8 +653,6 @@ export default MessagingManagement;
 //         });
 
 //         setConversations(updatedConversations);
-
-//         // Update selected conversation
 //         setSelectedConversation({
 //             ...selectedConversation,
 //             messages: [...selectedConversation.messages, newMsg],
@@ -657,6 +662,42 @@ export default MessagingManagement;
 //         });
 
 //         setNewMessage('');
+//         setMessageSubject('');
+//     };
+
+//     const handleStartNewConversation = () => {
+//         if (composeType === 'parent' && selectedParent) {
+//             const newConversation: Conversation = {
+//                 id: Date.now().toString(),
+//                 recipientName: selectedParent.name,
+//                 recipientType: 'parent',
+//                 studentName: selectedParent.studentName,
+//                 studentClass: selectedParent.studentClass,
+//                 lastMessage: '',
+//                 lastMessageTime: new Date().toISOString(),
+//                 unreadCount: 0,
+//                 messages: []
+//             };
+//             setConversations([newConversation, ...conversations]);
+//             setSelectedConversation(newConversation);
+//             setShowComposeModal(false);
+//             setSelectedParent(null);
+//         } else if (composeType === 'admin' && selectedAdmin) {
+//             const newConversation: Conversation = {
+//                 id: Date.now().toString(),
+//                 recipientName: selectedAdmin.name,
+//                 recipientType: 'admin',
+//                 recipientRole: selectedAdmin.role,
+//                 lastMessage: '',
+//                 lastMessageTime: new Date().toISOString(),
+//                 unreadCount: 0,
+//                 messages: []
+//             };
+//             setConversations([newConversation, ...conversations]);
+//             setSelectedConversation(newConversation);
+//             setShowComposeModal(false);
+//             setSelectedAdmin(null);
+//         }
 //     };
 
 //     const markAsRead = (conversationId: string) => {
@@ -681,14 +722,19 @@ export default MessagingManagement;
 //         return date.toLocaleDateString();
 //     };
 
+//     const filteredConversations = conversations.filter(conv =>
+//         conv.recipientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+//         (conv.studentName && conv.studentName.toLowerCase().includes(searchTerm.toLowerCase()))
+//     );
+
 //     return (
 //         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
 //             <div className="border-b border-slate-200 p-6">
 //                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-//                     <MessageCircle className="w-5 h-5 text-indigo-600" />
+//                     <MessageSquare className="w-5 h-5 text-indigo-600" />
 //                     Messages
 //                 </h2>
-//                 <p className="text-slate-500 mt-1">Private conversations with teachers and parents</p>
+//                 <p className="text-slate-500 mt-1">Chat with parents and school administrators</p>
 //             </div>
 
 //             <div className="flex h-[600px]">
@@ -706,7 +752,7 @@ export default MessagingManagement;
 //                             />
 //                         </div>
 //                         <button
-//                             onClick={() => setShowNewMessage(true)}
+//                             onClick={() => setShowComposeModal(true)}
 //                             className="w-full mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm flex items-center justify-center gap-2"
 //                         >
 //                             <Send className="w-4 h-4" />
@@ -727,9 +773,7 @@ export default MessagingManagement;
 //                             >
 //                                 <div className="flex justify-between items-start mb-1">
 //                                     <div className="flex items-center gap-2">
-//                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${conv.recipientType === 'teacher'
-//                                                 ? 'bg-green-600'
-//                                                 : 'bg-purple-600'
+//                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${conv.recipientType === 'parent' ? 'bg-green-600' : 'bg-purple-600'
 //                                             }`}>
 //                                             {conv.recipientName.charAt(0)}
 //                                         </div>
@@ -738,7 +782,9 @@ export default MessagingManagement;
 //                                                 {conv.recipientName}
 //                                             </p>
 //                                             <p className="text-xs text-slate-500">
-//                                                 {conv.recipientType === 'teacher' ? '👩‍🏫 Teacher' : '👨‍👩‍👧 Parent'}
+//                                                 {conv.recipientType === 'parent'
+//                                                     ? `👨‍👩‍👧 Parent of ${conv.studentName}`
+//                                                     : `👔 ${conv.recipientRole}`}
 //                                             </p>
 //                                         </div>
 //                                     </div>
@@ -747,7 +793,7 @@ export default MessagingManagement;
 //                                     </span>
 //                                 </div>
 //                                 <p className="text-sm text-slate-600 truncate pl-10">
-//                                     {conv.lastMessage}
+//                                     {conv.lastMessage || 'No messages yet'}
 //                                 </p>
 //                                 {conv.unreadCount > 0 && (
 //                                     <div className="mt-1 pl-10">
@@ -766,70 +812,82 @@ export default MessagingManagement;
 //                     {selectedConversation ? (
 //                         <>
 //                             {/* Chat Header */}
-//                             <div className="p-4 border-b border-slate-200 flex items-center gap-3">
-//                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${selectedConversation.recipientType === 'teacher'
-//                                         ? 'bg-green-600'
-//                                         : 'bg-purple-600'
-//                                     }`}>
-//                                     {selectedConversation.recipientName.charAt(0)}
+//                             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+//                                 <div className="flex items-center gap-3">
+//                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${selectedConversation.recipientType === 'parent' ? 'bg-green-600' : 'bg-purple-600'
+//                                         }`}>
+//                                         {selectedConversation.recipientName.charAt(0)}
+//                                     </div>
+//                                     <div>
+//                                         <h3 className="font-semibold text-slate-800">
+//                                             {selectedConversation.recipientName}
+//                                         </h3>
+//                                         <p className="text-xs text-slate-500">
+//                                             {selectedConversation.recipientType === 'parent'
+//                                                 ? `Parent of ${selectedConversation.studentName} • ${selectedConversation.studentClass}`
+//                                                 : `${selectedConversation.recipientRole}`}
+//                                         </p>
+//                                     </div>
 //                                 </div>
-//                                 <div>
-//                                     <h3 className="font-semibold text-slate-800">
-//                                         {selectedConversation.recipientName}
-//                                     </h3>
-//                                     <p className="text-xs text-slate-500">
-//                                         {selectedConversation.recipientType === 'teacher' ? 'Teacher' : 'Parent'}
-//                                     </p>
-//                                 </div>
+//                                 {selectedConversation.recipientType === 'parent' && (
+//                                     <div className="flex gap-2">
+//                                         <a href="#" className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg">
+//                                             <Phone className="w-4 h-4" />
+//                                         </a>
+//                                         <a href="#" className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg">
+//                                             <Mail className="w-4 h-4" />
+//                                         </a>
+//                                     </div>
+//                                 )}
 //                             </div>
 
 //                             {/* Messages */}
 //                             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-//                                 {selectedConversation.messages.map(msg => (
-//                                     <div
-//                                         key={msg.id}
-//                                         className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}
-//                                     >
-//                                         <div className={`max-w-[70%] rounded-lg p-3 ${msg.sender === 'admin'
-//                                                 ? 'bg-indigo-600 text-white'
-//                                                 : 'bg-slate-100 text-slate-700'
-//                                             }`}>
-//                                             <p className="text-sm">{msg.content}</p>
-//                                             <div className={`flex items-center gap-2 mt-1 text-xs ${msg.sender === 'admin' ? 'text-indigo-200' : 'text-slate-400'
+//                                 {selectedConversation.messages.length === 0 ? (
+//                                     <div className="text-center text-slate-400 py-8">
+//                                         <MessageSquare className="w-12 h-12 mx-auto mb-2" />
+//                                         <p>No messages yet. Start the conversation!</p>
+//                                     </div>
+//                                 ) : (
+//                                     selectedConversation.messages.map(msg => (
+//                                         <div
+//                                             key={msg.id}
+//                                             className={`flex ${msg.sender === 'teacher' ? 'justify-end' : 'justify-start'}`}
+//                                         >
+//                                             <div className={`max-w-[70%] rounded-lg p-3 ${msg.sender === 'teacher'
+//                                                     ? 'bg-indigo-600 text-white'
+//                                                     : 'bg-slate-100 text-slate-700'
 //                                                 }`}>
-//                                                 <span>{msg.type === 'sms' ? '📱 SMS' : '📧 Email'}</span>
-//                                                 <span>•</span>
-//                                                 <span>{formatTime(msg.timestamp)}</span>
-//                                                 {msg.read && msg.sender === 'recipient' && (
-//                                                     <span>✓✓ Read</span>
+//                                                 {msg.subject && (
+//                                                     <p className={`text-xs font-medium mb-1 ${msg.sender === 'teacher' ? 'text-indigo-200' : 'text-indigo-600'
+//                                                         }`}>
+//                                                         Subject: {msg.subject}
+//                                                     </p>
 //                                                 )}
+//                                                 <p className="text-sm">{msg.content}</p>
+//                                                 <div className={`flex items-center gap-2 mt-1 text-xs ${msg.sender === 'teacher' ? 'text-indigo-200' : 'text-slate-400'
+//                                                     }`}>
+//                                                     <span>{formatTime(msg.timestamp)}</span>
+//                                                     {msg.read && msg.sender === 'recipient' && (
+//                                                         <span>✓ Read</span>
+//                                                     )}
+//                                                 </div>
 //                                             </div>
 //                                         </div>
-//                                     </div>
-//                                 ))}
+//                                     ))
+//                                 )}
 //                             </div>
 
 //                             {/* Message Input */}
 //                             <div className="p-4 border-t border-slate-200">
-//                                 <div className="flex gap-2 mb-2">
-//                                     <button
-//                                         onClick={() => setMessageType('sms')}
-//                                         className={`px-3 py-1 text-sm rounded-lg ${messageType === 'sms'
-//                                                 ? 'bg-indigo-600 text-white'
-//                                                 : 'bg-slate-100 text-slate-600'
-//                                             }`}
-//                                     >
-//                                         📱 SMS
-//                                     </button>
-//                                     <button
-//                                         onClick={() => setMessageType('email')}
-//                                         className={`px-3 py-1 text-sm rounded-lg ${messageType === 'email'
-//                                                 ? 'bg-indigo-600 text-white'
-//                                                 : 'bg-slate-100 text-slate-600'
-//                                             }`}
-//                                     >
-//                                         📧 Email
-//                                     </button>
+//                                 <div>
+//                                     <input
+//                                         type="text"
+//                                         placeholder="Subject (optional)"
+//                                         value={messageSubject}
+//                                         onChange={(e) => setMessageSubject(e.target.value)}
+//                                         className="w-full mb-2 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+//                                     />
 //                                 </div>
 //                                 <div className="flex gap-2">
 //                                     <textarea
@@ -853,57 +911,87 @@ export default MessagingManagement;
 //                     ) : (
 //                         <div className="flex-1 flex items-center justify-center text-slate-400">
 //                             <div className="text-center">
-//                                 <MessageCircle className="w-12 h-12 mx-auto mb-3" />
-//                                 <p>Select a conversation to start messaging</p>
+//                                 <MessageSquare className="w-12 h-12 mx-auto mb-3" />
+//                                 <p>Select a conversation or start a new message</p>
 //                             </div>
 //                         </div>
 //                     )}
 //                 </div>
 //             </div>
 
-//             {/* New Message Modal */}
-//             {showNewMessage && (
+//             {/* Compose Modal */}
+//             {showComposeModal && (
 //                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
 //                     <div className="bg-white rounded-xl p-6 w-full max-w-md">
 //                         <h3 className="text-lg font-bold mb-4">New Message</h3>
 //                         <div className="space-y-4">
 //                             <div>
 //                                 <label className="block text-sm font-medium mb-1">Send To</label>
-//                                 <select
-//                                     className="w-full border rounded-lg p-2"
-//                                     value={newRecipient.type}
-//                                     onChange={(e) => setNewRecipient({ ...newRecipient, type: e.target.value, id: '', name: '' })}
-//                                 >
-//                                     <option value="teacher">Teacher</option>
-//                                     <option value="parent">Parent</option>
-//                                 </select>
+//                                 <div className="flex gap-2 mb-3">
+//                                     <button
+//                                         onClick={() => setComposeType('parent')}
+//                                         className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium ${composeType === 'parent'
+//                                                 ? 'bg-indigo-600 text-white'
+//                                                 : 'bg-slate-100 text-slate-600'
+//                                             }`}
+//                                     >
+//                                         <Users className="w-4 h-4 inline mr-1" />
+//                                         Parent
+//                                     </button>
+//                                     <button
+//                                         onClick={() => setComposeType('admin')}
+//                                         className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium ${composeType === 'admin'
+//                                                 ? 'bg-indigo-600 text-white'
+//                                                 : 'bg-slate-100 text-slate-600'
+//                                             }`}
+//                                     >
+//                                         <Building2 className="w-4 h-4 inline mr-1" />
+//                                         Admin
+//                                     </button>
+//                                 </div>
 //                             </div>
-//                             <div>
-//                                 <label className="block text-sm font-medium mb-1">Select Recipient</label>
-//                                 <select className="w-full border rounded-lg p-2">
-//                                     <option value="">Select {newRecipient.type}...</option>
-//                                     {newRecipient.type === 'teacher' ? (
-//                                         <>
-//                                             <option>Mr. John Banda</option>
-//                                             <option>Mrs. Sarah Chisale</option>
-//                                             <option>Mr. David Mwale</option>
-//                                         </>
-//                                     ) : (
-//                                         <>
-//                                             <option>Mrs. Grace Phiri (Chisomo - Class 5A)</option>
-//                                             <option>Mr. Peter Kwenda (Mary - Class 3B)</option>
-//                                             <option>Mrs. Elizabeth Banda (Tawanda - Class 2A)</option>
-//                                         </>
-//                                     )}
-//                                 </select>
-//                             </div>
-//                             <div>
-//                                 <label className="block text-sm font-medium mb-1">Message</label>
-//                                 <textarea rows={4} className="w-full border rounded-lg p-2" placeholder="Type your message..."></textarea>
-//                             </div>
-//                             <div className="flex gap-3 justify-end">
-//                                 <button onClick={() => setShowNewMessage(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
-//                                 <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Send</button>
+
+//                             {composeType === 'parent' && (
+//                                 <div>
+//                                     <label className="block text-sm font-medium mb-1">Select Parent</label>
+//                                     <select
+//                                         className="w-full border rounded-lg p-2"
+//                                         onChange={(e) => setSelectedParent(parentsList.find(p => p.id === e.target.value))}
+//                                     >
+//                                         <option value="">Select a parent...</option>
+//                                         {parentsList.map(parent => (
+//                                             <option key={parent.id} value={parent.id}>
+//                                                 {parent.name} ({parent.studentName} - {parent.studentClass})
+//                                             </option>
+//                                         ))}
+//                                     </select>
+//                                 </div>
+//                             )}
+
+//                             {composeType === 'admin' && (
+//                                 <div>
+//                                     <label className="block text-sm font-medium mb-1">Select Admin</label>
+//                                     <select
+//                                         className="w-full border rounded-lg p-2"
+//                                         onChange={(e) => setSelectedAdmin(adminsList.find(a => a.id === e.target.value))}
+//                                     >
+//                                         <option value="">Select an admin...</option>
+//                                         {adminsList.map(admin => (
+//                                             <option key={admin.id} value={admin.id}>
+//                                                 {admin.name} ({admin.role})
+//                                             </option>
+//                                         ))}
+//                                     </select>
+//                                 </div>
+//                             )}
+
+//                             <div className="flex gap-3 justify-end pt-4">
+//                                 <button onClick={() => setShowComposeModal(false)} className="px-4 py-2 border rounded-lg">
+//                                     Cancel
+//                                 </button>
+//                                 <button onClick={handleStartNewConversation} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">
+//                                     Start Conversation
+//                                 </button>
 //                             </div>
 //                         </div>
 //                     </div>
@@ -913,4 +1001,4 @@ export default MessagingManagement;
 //     );
 // };
 
-// export default MessagingManagement;
+// export default TeacherMessages;

@@ -544,7 +544,40 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     {/* Class with Highest Pass Rate */}
                     {/* Highest Pass Rates - All Assessments */}
+                    {/* Highest Pass Rates - All Assessments */}
                     <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 shadow-sm border border-green-200">
+                        <p className="text-xs text-green-600 font-medium mb-2">🏆 Highest Pass Rates</p>
+                        <div className="space-y-2">
+                            <div>
+                                <p className="text-xs text-slate-500">QA1</p>
+                                <p className="text-sm font-bold text-green-800">
+                                    {currentPassRates.reduce((max, c) => c.qa1PassRate > (max.rate || 0) ? { name: c.className, rate: c.qa1PassRate } : max, { name: '—', rate: 0 }).name}
+                                    {currentPassRates.some(c => c.qa1PassRate > 0) && (
+                                        <span className="text-xs font-normal ml-1">({currentPassRates.reduce((max, c) => c.qa1PassRate > (max.rate || 0) ? { rate: c.qa1PassRate } : max, { rate: 0 }).rate}%)</span>
+                                    )}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">QA2</p>
+                                <p className="text-sm font-bold text-green-800">
+                                    {currentPassRates.reduce((max, c) => c.qa2PassRate > (max.rate || 0) ? { name: c.className, rate: c.qa2PassRate } : max, { name: '—', rate: 0 }).name}
+                                    {currentPassRates.some(c => c.qa2PassRate > 0) && (
+                                        <span className="text-xs font-normal ml-1">({currentPassRates.reduce((max, c) => c.qa2PassRate > (max.rate || 0) ? { rate: c.qa2PassRate } : max, { rate: 0 }).rate}%)</span>
+                                    )}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">End of Term</p>
+                                <p className="text-sm font-bold text-green-800">
+                                    {currentPassRates.reduce((max, c) => c.endOfTermPassRate > (max.rate || 0) ? { name: c.className, rate: c.endOfTermPassRate } : max, { name: '—', rate: 0 }).name}
+                                    {currentPassRates.some(c => c.endOfTermPassRate > 0) && (
+                                        <span className="text-xs font-normal ml-1">({currentPassRates.reduce((max, c) => c.endOfTermPassRate > (max.rate || 0) ? { rate: c.endOfTermPassRate } : max, { rate: 0 }).rate}%)</span>
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {/* <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 shadow-sm border border-green-200">
                         <p className="text-xs text-green-600 font-medium mb-2">🏆 Highest Pass Rates</p>
                         <div className="space-y-2">
                             <div>
@@ -569,10 +602,59 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                                 </p>
                             </div>
                         </div>
-                    </div>
+                    </div> */}
 
                     {/* Lowest Pass Rates - All Assessments */}
+                    {/* Lowest Pass Rates - All Assessments */}
                     <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 shadow-sm border border-red-200">
+                        <p className="text-xs text-red-600 font-medium mb-2">⚠️ Lowest Pass Rates</p>
+                        <div className="space-y-2">
+                            <div>
+                                <p className="text-xs text-slate-500">QA1</p>
+                                <p className="text-sm font-bold text-red-800">
+                                    {(() => {
+                                        // Filter out classes with 0% (no data) - just like Highest does
+                                        const classesWithData = currentPassRates.filter(c => c.qa1PassRate > 0);
+                                        if (classesWithData.length === 0) return '—';
+                                        const lowest = classesWithData.reduce((min, c) =>
+                                            c.qa1PassRate < min.qa1PassRate ? c : min,
+                                            classesWithData[0]
+                                        );
+                                        return `${lowest.className} (${lowest.qa1PassRate}%)`;
+                                    })()}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">QA2</p>
+                                <p className="text-sm font-bold text-red-800">
+                                    {(() => {
+                                        const classesWithData = currentPassRates.filter(c => c.qa2PassRate > 0);
+                                        if (classesWithData.length === 0) return '—';
+                                        const lowest = classesWithData.reduce((min, c) =>
+                                            c.qa2PassRate < min.qa2PassRate ? c : min,
+                                            classesWithData[0]
+                                        );
+                                        return `${lowest.className} (${lowest.qa2PassRate}%)`;
+                                    })()}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">End of Term</p>
+                                <p className="text-sm font-bold text-red-800">
+                                    {(() => {
+                                        const classesWithData = currentPassRates.filter(c => c.endOfTermPassRate > 0);
+                                        if (classesWithData.length === 0) return '—';
+                                        const lowest = classesWithData.reduce((min, c) =>
+                                            c.endOfTermPassRate < min.endOfTermPassRate ? c : min,
+                                            classesWithData[0]
+                                        );
+                                        return `${lowest.className} (${lowest.endOfTermPassRate}%)`;
+                                    })()}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {/* <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 shadow-sm border border-red-200">
                         <p className="text-xs text-red-600 font-medium mb-2">⚠️ Lowest Pass Rates</p>
                         <div className="space-y-2">
                             <div>
@@ -597,7 +679,7 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                                 </p>
                             </div>
                         </div>
-                    </div>
+                    </div> */}
 
                     {/* Most Passed Subject - All Assessments */}
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 shadow-sm border border-blue-200">

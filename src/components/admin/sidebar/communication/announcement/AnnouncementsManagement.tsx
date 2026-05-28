@@ -1,70 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Megaphone, Plus, Trash2, Pin, Target, Calendar, Eye, Send } from 'lucide-react';
+import {
+    fetchAnnouncements,
+    createAnnouncement,
+    updateAnnouncement,
+    deleteAnnouncement,
+    markAnnouncementAsRead,
+    Announcement as ApiAnnouncement
+} from '@/services/announcementService';
 
-interface Announcement {
+// Map API Announcement to component interface
+interface LocalAnnouncement {
     id: string;
     title: string;
     message: string;
     type: 'general' | 'academic' | 'emergency' | 'event';
-    audience: 'teachers' | 'parents' | 'both';  // NO students
+    audience: 'teachers' | 'parents' | 'both';
     priority: 'low' | 'medium' | 'high';
     pinned: boolean;
     publish_date: string;
     expiry_date?: string;
-    createdAt: string;
+    created_at: string;
 }
 
 const AnnouncementsManagement: React.FC = () => {
-    const [announcements, setAnnouncements] = useState<Announcement[]>([
-        {
-            id: '1',
-            title: 'School Holiday Announcement',
-            message: 'School will remain closed on Monday, June 3rd due to national holiday.',
-            type: 'general',
-            audience: 'both',
-            priority: 'high',
-            pinned: true,
-            publish_date: '2026-05-26',
-            expiry_date: '2026-06-03',
-            createdAt: '2026-05-26T08:00:00Z'
-        },
-        {
-            id: '2',
-            title: 'Exam Schedule Released',
-            message: 'Final term examinations will begin on June 10th. Parents please ensure your children are prepared.',
-            type: 'academic',
-            audience: 'parents',
-            priority: 'high',
-            pinned: false,
-            publish_date: '2026-05-25',
-            expiry_date: '2026-06-20',
-            createdAt: '2026-05-25T10:30:00Z'
-        },
-        {
-            id: '3',
-            title: 'Parent-Teacher Conference',
-            message: 'Annual parent-teacher conference scheduled for June 5th, 2:00 PM - 6:00 PM.',
-            type: 'event',
-            audience: 'parents',
-            priority: 'medium',
-            pinned: true,
-            publish_date: '2026-05-24',
-            expiry_date: '2026-06-05',
-            createdAt: '2026-05-24T14:15:00Z'
-        },
-        {
-            id: '4',
-            title: 'Staff Meeting',
-            message: 'All teachers must attend mandatory staff meeting on Friday at 2:30 PM.',
-            type: 'academic',
-            audience: 'teachers',
-            priority: 'medium',
-            pinned: false,
-            publish_date: '2026-05-26',
-            createdAt: '2026-05-26T09:00:00Z'
-        }
-    ]);
-
+    const [announcements, setAnnouncements] = useState<LocalAnnouncement[]>([]);
+    const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
@@ -77,46 +38,114 @@ const AnnouncementsManagement: React.FC = () => {
         expiry_date: ''
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-
-        const newAnnouncement: Announcement = {
-            id: Date.now().toString(),
-            title: formData.title,
-            message: formData.message,
-            type: formData.type as 'general' | 'academic' | 'emergency' | 'event',
-            audience: formData.audience as 'teachers' | 'parents' | 'both',
-            priority: formData.priority as 'low' | 'medium' | 'high',
-            pinned: formData.pinned,
-            publish_date: formData.publish_date,
-            expiry_date: formData.expiry_date || undefined,
-            createdAt: new Date().toISOString()
-        };
-
-        setAnnouncements([newAnnouncement, ...announcements]);
-        setShowForm(false);
-        setFormData({
-            title: '',
-            message: '',
-            type: 'general',
-            audience: 'both',
-            priority: 'medium',
-            pinned: false,
-            publish_date: '',
-            expiry_date: ''
-        });
-    };
-
-    const handleDelete = (id: string) => {
-        if (confirm('Delete this announcement?')) {
-            setAnnouncements(announcements.filter(a => a.id !== id));
+    // Load announcements from API
+    const loadAnnouncements = async () => {
+        setLoading(true);
+        try {
+            const data = await fetchAnnouncements();
+            // Convert API data to component format
+            const mapped = data.map((item: ApiAnnouncement) => ({
+                id: item.id,
+                title: item.title,
+                message: item.content,
+                type: item.type as any,
+                audience: item.audience as any,
+                priority: item.priority as any,
+                pinned: item.is_pinned,
+                publish_date: item.publish_date ? item.publish_date.split('T')[0] : new Date().toISOString().split('T')[0],
+                expiry_date: item.expiry_date ? item.expiry_date.split('T')[0] : undefined,
+                created_at: item.created_at
+            }));
+            setAnnouncements(mapped);
+        } catch (error) {
+            console.error('Failed to load announcements:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const togglePin = (id: string) => {
-        setAnnouncements(announcements.map(a =>
-            a.id === id ? { ...a, pinned: !a.pinned } : a
-        ));
+    useEffect(() => {
+        loadAnnouncements();
+    }, []);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const newAnnouncement = await createAnnouncement({
+                title: formData.title,
+                content: formData.message,
+                type: formData.type,
+                audience: formData.audience,
+                priority: formData.priority,
+                is_pinned: formData.pinned,
+                publish_date: formData.publish_date,
+                expiry_date: formData.expiry_date || null
+            });
+
+            const localAnnouncement: LocalAnnouncement = {
+                id: newAnnouncement.id,
+                title: newAnnouncement.title,
+                message: newAnnouncement.content,
+                type: newAnnouncement.type as any,
+                audience: newAnnouncement.audience as any,
+                priority: newAnnouncement.priority as any,
+                pinned: newAnnouncement.is_pinned,
+                publish_date: newAnnouncement.publish_date ? newAnnouncement.publish_date.split('T')[0] : new Date().toISOString().split('T')[0],
+                expiry_date: newAnnouncement.expiry_date ? newAnnouncement.expiry_date.split('T')[0] : undefined,
+                created_at: newAnnouncement.created_at
+            };
+
+            setAnnouncements([localAnnouncement, ...announcements]);
+            setShowForm(false);
+            setFormData({
+                title: '',
+                message: '',
+                type: 'general',
+                audience: 'both',
+                priority: 'medium',
+                pinned: false,
+                publish_date: '',
+                expiry_date: ''
+            });
+        } catch (error) {
+            console.error('Failed to create announcement:', error);
+            alert('Failed to create announcement');
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (confirm('Delete this announcement?')) {
+            try {
+                await deleteAnnouncement(id);
+                setAnnouncements(announcements.filter(a => a.id !== id));
+            } catch (error) {
+                console.error('Failed to delete announcement:', error);
+                alert('Failed to delete announcement');
+            }
+        }
+    };
+
+    const togglePin = async (id: string) => {
+        const announcement = announcements.find(a => a.id === id);
+        if (announcement) {
+            try {
+                await updateAnnouncement(id, { is_pinned: !announcement.pinned });
+                setAnnouncements(announcements.map(a =>
+                    a.id === id ? { ...a, pinned: !a.pinned } : a
+                ));
+            } catch (error) {
+                console.error('Failed to toggle pin:', error);
+                alert('Failed to update announcement');
+            }
+        }
+    };
+
+    const handleMarkAsRead = async (id: string) => {
+        try {
+            await markAnnouncementAsRead(id);
+        } catch (error) {
+            console.error('Failed to mark as read:', error);
+        }
     };
 
     const getPriorityStyles = (priority: string) => {
@@ -172,6 +201,17 @@ const AnnouncementsManagement: React.FC = () => {
     const pinnedAnnouncements = announcements.filter(a => a.pinned);
     const regularAnnouncements = announcements.filter(a => !a.pinned);
 
+    if (loading) {
+        return (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                    <p className="text-slate-500 mt-2">Loading announcements...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             {/* Header */}
@@ -197,7 +237,6 @@ const AnnouncementsManagement: React.FC = () => {
                     <div className="bg-white rounded-xl p-6 w-full max-w-2xl my-8">
                         <h3 className="text-lg font-bold mb-4">Create New Announcement</h3>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* Title */}
                             <div>
                                 <label className="block text-sm font-medium mb-1">Title</label>
                                 <input
@@ -210,7 +249,6 @@ const AnnouncementsManagement: React.FC = () => {
                                 />
                             </div>
 
-                            {/* Message */}
                             <div>
                                 <label className="block text-sm font-medium mb-1">Message</label>
                                 <textarea
@@ -224,7 +262,6 @@ const AnnouncementsManagement: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                {/* Type */}
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Category</label>
                                     <select
@@ -239,7 +276,6 @@ const AnnouncementsManagement: React.FC = () => {
                                     </select>
                                 </div>
 
-                                {/* Priority */}
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Priority</label>
                                     <select
@@ -255,7 +291,6 @@ const AnnouncementsManagement: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                {/* Audience - ONLY teachers and parents */}
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Target Audience</label>
                                     <select
@@ -269,7 +304,6 @@ const AnnouncementsManagement: React.FC = () => {
                                     </select>
                                 </div>
 
-                                {/* Pin to Top */}
                                 <div className="flex items-center mt-7">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input
@@ -284,7 +318,6 @@ const AnnouncementsManagement: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                {/* Publish Date */}
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Publish Date</label>
                                     <input
@@ -296,7 +329,6 @@ const AnnouncementsManagement: React.FC = () => {
                                     />
                                 </div>
 
-                                {/* Expiry Date (Optional) */}
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Expiry Date (Optional)</label>
                                     <input
@@ -308,7 +340,6 @@ const AnnouncementsManagement: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Form Buttons */}
                             <div className="flex gap-3 justify-end pt-4">
                                 <button
                                     type="button"
@@ -344,6 +375,7 @@ const AnnouncementsManagement: React.FC = () => {
                                 announcement={announcement}
                                 onDelete={handleDelete}
                                 onPin={togglePin}
+                                onMarkAsRead={handleMarkAsRead}
                                 getPriorityStyles={getPriorityStyles}
                                 getTypeStyles={getTypeStyles}
                                 getAudienceBadge={getAudienceBadge}
@@ -367,6 +399,7 @@ const AnnouncementsManagement: React.FC = () => {
                                 announcement={announcement}
                                 onDelete={handleDelete}
                                 onPin={togglePin}
+                                onMarkAsRead={handleMarkAsRead}
                                 getPriorityStyles={getPriorityStyles}
                                 getTypeStyles={getTypeStyles}
                                 getAudienceBadge={getAudienceBadge}
@@ -388,7 +421,7 @@ const AnnouncementsManagement: React.FC = () => {
                 </div>
             )}
 
-            {/* Stats Summary - Only Teachers and Parents */}
+            {/* Stats Summary */}
             {announcements.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-slate-200 flex gap-4 text-sm">
                     <div className="flex items-center gap-2">
@@ -409,23 +442,23 @@ const AnnouncementsManagement: React.FC = () => {
     );
 };
 
-// Separate component for each announcement card
+// Announcement Card Component
 const AnnouncementCard: React.FC<{
-    announcement: Announcement;
+    announcement: LocalAnnouncement;
     onDelete: (id: string) => void;
     onPin: (id: string) => void;
+    onMarkAsRead: (id: string) => void;
     getPriorityStyles: (priority: string) => string;
     getTypeStyles: (type: string) => string;
     getAudienceBadge: (audience: string) => string;
     getAudienceLabel: (audience: string) => string;
     getTypeLabel: (type: string) => string;
     getPriorityLabel: (priority: string) => string;
-}> = ({ announcement, onDelete, onPin, getPriorityStyles, getTypeStyles, getAudienceBadge, getAudienceLabel, getTypeLabel, getPriorityLabel }) => {
+}> = ({ announcement, onDelete, onPin, onMarkAsRead, getPriorityStyles, getTypeStyles, getAudienceBadge, getAudienceLabel, getTypeLabel, getPriorityLabel }) => {
     return (
         <div className={`rounded-lg border p-4 ${getTypeStyles(announcement.type)}`}>
             <div className="flex justify-between items-start">
                 <div className="flex-1">
-                    {/* Title and Badges */}
                     <div className="flex items-start gap-2 flex-wrap mb-2">
                         <h4 className="font-bold text-slate-800">{announcement.title}</h4>
                         {announcement.pinned && (
@@ -444,10 +477,8 @@ const AnnouncementCard: React.FC<{
                         </span>
                     </div>
 
-                    {/* Message */}
                     <p className="text-slate-600 text-sm mb-2">{announcement.message}</p>
 
-                    {/* Dates */}
                     <div className="flex items-center gap-4 text-xs text-slate-500">
                         <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
@@ -462,7 +493,6 @@ const AnnouncementCard: React.FC<{
                     </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-2">
                     <button
                         onClick={() => onPin(announcement.id)}

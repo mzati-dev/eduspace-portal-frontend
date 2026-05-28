@@ -1137,6 +1137,7 @@ export const importSelectedStudents = async (classId: string, selectedStudents: 
   return res.json();
 };
 // Add this function to your studentService.ts
+// Add this function to your studentService.ts - REPLACE the existing fetchCurrentTermPassRates
 export const fetchCurrentTermPassRates = async () => {
   try {
     const schoolId = getSchoolId();
@@ -1147,6 +1148,10 @@ export const fetchCurrentTermPassRates = async () => {
       headers: authHeaders()
     });
     const classes = await classesRes.json();
+
+    // Get active grade configuration for pass mark
+    const activeConfig = await getActiveGradeConfig();
+    const passMark = activeConfig?.pass_mark || 50;
 
     const passRatesData = [];
 
@@ -1159,39 +1164,105 @@ export const fetchCurrentTermPassRates = async () => {
       let qa1PassCount = 0;
       let qa2PassCount = 0;
       let endOfTermPassCount = 0;
-      let totalSubjectEntries = 0;
+      let qa1StudentsWithScores = 0;
+      let qa2StudentsWithScores = 0;
+      let endOfTermStudentsWithScores = 0;
 
       if (resultsRes.ok) {
         const classResults = await resultsRes.json();
 
+        // Calculate each student's performance per assessment type
         classResults.forEach((student: any) => {
-          student.subjects?.forEach((subject: any) => {
-            totalSubjectEntries++;
+          // For QA1 - calculate student's average for QA1 across all subjects
+          let qa1Total = 0;
+          let qa1SubjectCount = 0;
+          let hasQa1Scores = false;
 
+          // For QA2 - calculate student's average for QA2 across all subjects
+          let qa2Total = 0;
+          let qa2SubjectCount = 0;
+          let hasQa2Scores = false;
+
+          // For End of Term - calculate student's average for End of Term across all subjects
+          let endOfTermTotal = 0;
+          let endOfTermSubjectCount = 0;
+          let hasEndOfTermScores = false;
+
+          student.subjects?.forEach((subject: any) => {
             // QA1
             if (!subject.qa1_absent && subject.qa1 !== null && subject.qa1 >= 0) {
-              const grade = calculateGrade(subject.qa1, 50, false, cls.name);
-              if (grade !== 'F' && grade !== '9') qa1PassCount++;
+              qa1Total += subject.qa1;
+              qa1SubjectCount++;
+              hasQa1Scores = true;
+            } else if (subject.qa1_absent) {
+              // Absent counts as 0 for average calculation
+              qa1Total += 0;
+              qa1SubjectCount++;
+              hasQa1Scores = true;
             }
+
             // QA2
             if (!subject.qa2_absent && subject.qa2 !== null && subject.qa2 >= 0) {
-              const grade = calculateGrade(subject.qa2, 50, false, cls.name);
-              if (grade !== 'F' && grade !== '9') qa2PassCount++;
+              qa2Total += subject.qa2;
+              qa2SubjectCount++;
+              hasQa2Scores = true;
+            } else if (subject.qa2_absent) {
+              qa2Total += 0;
+              qa2SubjectCount++;
+              hasQa2Scores = true;
             }
+
             // End of Term
             if (!subject.endOfTerm_absent && subject.endOfTerm !== null && subject.endOfTerm >= 0) {
-              const grade = calculateGrade(subject.endOfTerm, 50, false, cls.name);
-              if (grade !== 'F' && grade !== '9') endOfTermPassCount++;
+              endOfTermTotal += subject.endOfTerm;
+              endOfTermSubjectCount++;
+              hasEndOfTermScores = true;
+            } else if (subject.endOfTerm_absent) {
+              endOfTermTotal += 0;
+              endOfTermSubjectCount++;
+              hasEndOfTermScores = true;
             }
           });
+
+          // Calculate student's average for each assessment type
+          const qa1Average = qa1SubjectCount > 0 ? qa1Total / qa1SubjectCount : 0;
+          const qa2Average = qa2SubjectCount > 0 ? qa2Total / qa2SubjectCount : 0;
+          const endOfTermAverage = endOfTermSubjectCount > 0 ? endOfTermTotal / endOfTermSubjectCount : 0;
+
+          // Determine pass/fail for QA1 (only count students who have scores)
+          if (hasQa1Scores) {
+            qa1StudentsWithScores++;
+            const qa1Grade = calculateGrade(qa1Average, passMark, false, cls.name);
+            if (qa1Grade !== 'F' && qa1Grade !== '9') {
+              qa1PassCount++;
+            }
+          }
+
+          // Determine pass/fail for QA2
+          if (hasQa2Scores) {
+            qa2StudentsWithScores++;
+            const qa2Grade = calculateGrade(qa2Average, passMark, false, cls.name);
+            if (qa2Grade !== 'F' && qa2Grade !== '9') {
+              qa2PassCount++;
+            }
+          }
+
+          // Determine pass/fail for End of Term
+          if (hasEndOfTermScores) {
+            endOfTermStudentsWithScores++;
+            const endOfTermGrade = calculateGrade(endOfTermAverage, passMark, false, cls.name);
+            if (endOfTermGrade !== 'F' && endOfTermGrade !== '9') {
+              endOfTermPassCount++;
+            }
+          }
         });
       }
 
       passRatesData.push({
         className: cls.name,
-        qa1PassRate: totalSubjectEntries > 0 ? Math.round((qa1PassCount / totalSubjectEntries) * 100) : 0,
-        qa2PassRate: totalSubjectEntries > 0 ? Math.round((qa2PassCount / totalSubjectEntries) * 100) : 0,
-        endOfTermPassRate: totalSubjectEntries > 0 ? Math.round((endOfTermPassCount / totalSubjectEntries) * 100) : 0,
+        qa1PassRate: qa1StudentsWithScores > 0 ? Math.round((qa1PassCount / qa1StudentsWithScores) * 100) : 0,
+        qa2PassRate: qa2StudentsWithScores > 0 ? Math.round((qa2PassCount / qa2StudentsWithScores) * 100) : 0,
+        endOfTermPassRate: endOfTermStudentsWithScores > 0 ? Math.round((endOfTermPassCount / endOfTermStudentsWithScores) * 100) : 0,
       });
     }
 
@@ -1201,6 +1272,70 @@ export const fetchCurrentTermPassRates = async () => {
     return [];
   }
 };
+// export const fetchCurrentTermPassRates = async () => {
+//   try {
+//     const schoolId = getSchoolId();
+//     const term = await fetchCurrentTerm();
+
+//     // Fetch all classes
+//     const classesRes = await fetch(`${API_BASE_URL}/api/classes?schoolId=${schoolId}`, {
+//       headers: authHeaders()
+//     });
+//     const classes = await classesRes.json();
+
+//     const passRatesData = [];
+
+//     for (const cls of classes) {
+//       // Fetch results for each class
+//       const resultsRes = await fetch(`${API_BASE_URL}/api/students/class/${cls.id}/results?schoolId=${schoolId}&term=${term?.name}`, {
+//         headers: authHeaders()
+//       });
+
+//       let qa1PassCount = 0;
+//       let qa2PassCount = 0;
+//       let endOfTermPassCount = 0;
+//       let totalSubjectEntries = 0;
+
+//       if (resultsRes.ok) {
+//         const classResults = await resultsRes.json();
+
+//         classResults.forEach((student: any) => {
+//           student.subjects?.forEach((subject: any) => {
+//             totalSubjectEntries++;
+
+//             // QA1
+//             if (!subject.qa1_absent && subject.qa1 !== null && subject.qa1 >= 0) {
+//               const grade = calculateGrade(subject.qa1, 50, false, cls.name);
+//               if (grade !== 'F' && grade !== '9') qa1PassCount++;
+//             }
+//             // QA2
+//             if (!subject.qa2_absent && subject.qa2 !== null && subject.qa2 >= 0) {
+//               const grade = calculateGrade(subject.qa2, 50, false, cls.name);
+//               if (grade !== 'F' && grade !== '9') qa2PassCount++;
+//             }
+//             // End of Term
+//             if (!subject.endOfTerm_absent && subject.endOfTerm !== null && subject.endOfTerm >= 0) {
+//               const grade = calculateGrade(subject.endOfTerm, 50, false, cls.name);
+//               if (grade !== 'F' && grade !== '9') endOfTermPassCount++;
+//             }
+//           });
+//         });
+//       }
+
+//       passRatesData.push({
+//         className: cls.name,
+//         qa1PassRate: totalSubjectEntries > 0 ? Math.round((qa1PassCount / totalSubjectEntries) * 100) : 0,
+//         qa2PassRate: totalSubjectEntries > 0 ? Math.round((qa2PassCount / totalSubjectEntries) * 100) : 0,
+//         endOfTermPassRate: totalSubjectEntries > 0 ? Math.round((endOfTermPassCount / totalSubjectEntries) * 100) : 0,
+//       });
+//     }
+
+//     return passRatesData;
+//   } catch (error) {
+//     console.error('Error fetching pass rates:', error);
+//     return [];
+//   }
+// };
 
 // Add this function to your studentService.ts (after fetchCurrentTermPassRates or anywhere)
 

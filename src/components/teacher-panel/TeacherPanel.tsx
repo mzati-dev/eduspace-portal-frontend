@@ -32,7 +32,7 @@ import TeacherSidebar from './sidebar/TeacherSidebar';
 import TeacherClasses from './sidebar/TeacherClasses';
 // import TeacherAttendance from './sidebar/TeacherAttendance';
 import TeacherTimetable from './sidebar/TeacherTimetable';
-import TeacherMessages from './sidebar/MessagingCenter';
+import TeacherMessages from './sidebar/TeacherMessages.tsx';
 import TeacherReports from './sidebar/TeacherReports';
 import TeacherProfile from './sidebar/TeacherProfile';
 import TeacherAttendance from './sidebar/attendance/TeacherAttendance';
@@ -821,12 +821,9 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                 ) : activeMainMenu === 'messages' ? (
                     <div className="px-4 sm:px-6 lg:px-8 py-6">
                         <TeacherMessages
-                            classes={teacherClasses}
-                            students={students}
-                            subjects={teacherSubjects}
-                            teacherId={teacherId}
-                            teacherName={teacherName}
-                            showMessage={showMessage}
+                            parents={students}  // Your students array with parent data
+                            currentTeacherId={teacherId}
+                            currentTeacherName={teacherName}
                         />
                     </div>
                 ) : activeMainMenu === 'reports' ? (

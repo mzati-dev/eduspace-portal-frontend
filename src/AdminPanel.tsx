@@ -1550,10 +1550,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                             />
                         ) : activeMainMenu === 'messages' ? (
                             <MessagingManagement
-                                classes={classes}
-                                students={students}
                                 teachers={teachers}
-                                showMessage={showMessage}
+                                parents={students}
+
                             />
                         ) : activeMainMenu === 'reminders' ? (
                             <RemindersManagement />
