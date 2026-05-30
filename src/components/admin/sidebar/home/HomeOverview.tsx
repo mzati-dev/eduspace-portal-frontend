@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Student } from '@/types/admin';
-import { Users, BookOpen, GraduationCap, DollarSign, Calendar, Clock, Bell, Plus, FileText, CheckSquare, CreditCard, AlertCircle, BarChart3, Megaphone } from 'lucide-react';
+import { Users, BookOpen, GraduationCap, DollarSign, Calendar, Clock, Bell, Plus, FileText, CheckSquare, CreditCard, AlertCircle, BarChart3, Megaphone, UserCircle } from 'lucide-react';
 import { fetchClassComparisons, fetchPublicHolidays, fetchSchoolHolidays } from '@/services/attendanceService';
 
 interface HomeOverviewProps {
@@ -806,7 +806,7 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
             </div>
 
             {/* Current Term Pass Rates */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 mb-8">
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 mb-2">
                 <div className="flex items-center gap-2 mb-4">
                     <BarChart3 className="w-5 h-5 text-indigo-600" />
                     <h3 className="text-lg font-semibold text-slate-800">Current Term Pass Rates</h3>
@@ -1007,74 +1007,115 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                 </div>
             </div> */}
 
-
-
             {/* Reminders */}
-            {/* Reminders & Announcements Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* Reminders */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-                    <div className="flex items-center gap-2 mb-4">
-                        <AlertCircle className="w-5 h-5 text-amber-600" />
-                        <h3 className="text-lg font-semibold text-slate-800">Reminders</h3>
-                    </div>
-                    <div className="space-y-3">
-                        {reminderList.length === 0 ? (
-                            <div className="text-center py-6 text-slate-500">
-                                <Bell className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                                <p>No reminders at this time.</p>
-                                <p className="text-xs mt-1">Check back later for updates.</p>
-                            </div>
-                        ) : (
-                            reminderList.map((reminder) => (
-                                <div key={reminder.id} className={`p-3 rounded-lg flex items-center justify-between ${reminder.type === 'urgent' ? 'bg-red-50 border-l-4 border-red-500' :
-                                    reminder.type === 'warning' ? 'bg-yellow-50 border-l-4 border-yellow-500' :
-                                        'bg-blue-50 border-l-4 border-blue-500'
-                                    }`}>
-                                    <div>
-                                        <p className="text-sm font-medium text-slate-800">{reminder.message}</p>
-                                        <p className="text-xs text-slate-500">{formatDate(reminder.date)}</p>
-                                    </div>
-                                    {reminder.type === 'urgent' && (
-                                        <span className="text-xs bg-red-200 text-red-700 px-2 py-1 rounded-full">Urgent</span>
-                                    )}
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
 
-                {/* Announcements */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Megaphone className="w-5 h-5 text-blue-600" />
-                        <h3 className="text-lg font-semibold text-slate-800">Announcements</h3>
-                    </div>
-                    <div className="space-y-3">
-                        {announcements.length === 0 ? (
-                            <div className="text-center py-6 text-slate-500">
-                                <Megaphone className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                                <p>No announcements at this time.</p>
-                                <p className="text-xs mt-1">Check back later for updates.</p>
-                            </div>
-                        ) : (
-                            announcements.map((announcement) => (
-                                <div key={announcement.id} className="p-3 rounded-lg bg-blue-50 border-l-4 border-blue-500">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="text-sm font-medium text-slate-800">{announcement.title}</p>
-                                            <p className="text-xs text-slate-500 mt-1">{announcement.message}</p>
+
+
+
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 mb-2">
+                <div className="flex items-center gap-2 mb-4">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                    <h3 className="text-lg font-semibold text-slate-800">Reminders</h3>
+                </div>
+                <div className="space-y-3">
+                    {reminderList.length === 0 ? (
+                        <div className="text-center py-6 text-slate-500">
+                            <Bell className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                            <p>No reminders at this time.</p>
+                            <p className="text-xs mt-1">Check back later for updates.</p>
+                        </div>
+                    ) : (
+                        reminderList.map((reminder) => (
+                            <div key={reminder.id} className={`p-3 rounded-lg border-l-4 ${reminder.type === 'urgent' ? 'bg-red-50 border-red-500' :
+                                reminder.type === 'warning' ? 'bg-yellow-50 border-yellow-500' :
+                                    'bg-blue-50 border-blue-500'
+                                }`}>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                        <div className="flex items-start gap-2 flex-wrap mb-2">
+                                            <p className="font-medium text-sm">{reminder.message}</p>
+                                            {reminder.audience && (
+                                                <span className={`text-xs px-2 py-0.5 rounded-full ${reminder.audience === 'teachers' ? 'bg-green-100 text-green-700' :
+                                                    reminder.audience === 'parents' ? 'bg-purple-100 text-purple-700' :
+                                                        'bg-gray-100 text-gray-700'
+                                                    }`}>
+                                                    {reminder.audience === 'teachers' ? '👩‍🏫 Teachers Only' :
+                                                        reminder.audience === 'parents' ? '👨‍👩‍👧 Parents Only' :
+                                                            '👥 Both'}
+                                                </span>
+                                            )}
+                                            <span className={`text-xs px-2 py-0.5 rounded-full bg-white/50 font-medium ${reminder.type === 'urgent' ? 'text-red-700' :
+                                                reminder.type === 'warning' ? 'text-yellow-700' :
+                                                    'text-blue-700'
+                                                }`}>
+                                                {reminder.type === 'urgent' ? '🔴 URGENT' :
+                                                    reminder.type === 'warning' ? '⚠️ WARNING' :
+                                                        'ℹ️ INFO'}
+                                            </span>
                                         </div>
-                                        <span className="text-xs text-slate-400 whitespace-nowrap ml-4">
-                                            {formatDate(announcement.date)}
-                                        </span>
+                                        <div className="flex items-center gap-4 text-xs opacity-70 mt-1">
+                                            <span>📅 {reminder.reminderDate ? new Date(reminder.reminderDate).toLocaleDateString('en-US', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                            }) : 'Date not set'}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            </div>
+                        ))
+                    )}
+                    {reminderList.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-slate-200 flex gap-4 text-sm">
+                            <div className="flex items-center gap-2">
+                                <Users className="w-4 h-4 text-green-600" />
+                                <span className="text-slate-600">
+                                    Teachers: {reminderList.filter(r => r.audience === 'teachers' || r.audience === 'both').length}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <UserCircle className="w-4 h-4 text-purple-600" />
+                                <span className="text-slate-600">
+                                    Parents: {reminderList.filter(r => r.audience === 'parents' || r.audience === 'both').length}
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* Announcements */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 mb-2">
+                <div className="flex items-center gap-2 mb-4">
+                    <Megaphone className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-slate-800">Announcements</h3>
+                </div>
+                <div className="space-y-3">
+                    {announcements.length === 0 ? (
+                        <div className="text-center py-6 text-slate-500">
+                            <Megaphone className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                            <p>No announcements at this time.</p>
+                            <p className="text-xs mt-1">Check back later for updates.</p>
+                        </div>
+                    ) : (
+                        announcements.map((announcement) => (
+                            <div key={announcement.id} className="p-3 rounded-lg bg-blue-50 border-l-4 border-blue-500">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-800">{announcement.title}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{announcement.message}</p>
+                                    </div>
+                                    <span className="text-xs text-slate-400 whitespace-nowrap ml-4">
+                                        {formatDate(announcement.date)}
+                                    </span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
 
             {/* Distribution Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

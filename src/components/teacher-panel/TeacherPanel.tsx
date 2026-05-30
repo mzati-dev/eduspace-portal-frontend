@@ -12,6 +12,8 @@ import {
 import {
     getActiveGradeConfig, getAllGradeConfigs, calculateFinalScore
 } from '@/services/gradeConfigService';
+import { fetchAnnouncements, Announcement as ApiAnnouncement } from '@/services/announcementService';
+import { fetchReminders, Reminder } from '@/services/reminderService';
 import { Assessment, ClassResultStudent, Student } from '@/types/admin';
 import LoadingSpinner from '../common/LoadingSpinner';
 import SubjectsManagement from '../admin/sidebar/academic/subjects/SubjectsManagement';
@@ -108,6 +110,8 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
     const [totalWeeks, setTotalWeeks] = useState(0);
     const [weeksRemaining, setWeeksRemaining] = useState(0);
     const [currentPassRates, setCurrentPassRates] = useState([]);
+    const [homeAnnouncements, setHomeAnnouncements] = useState<any[]>([]);
+    const [homeReminders, setHomeReminders] = useState<any[]>([]);
 
 
 
@@ -205,6 +209,8 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
     useEffect(() => {
         loadData();
         fetchSchoolName();
+        loadAnnouncementsForTeacher();
+        loadRemindersForTeacher();
     }, []);
 
     // NEW (mobile UX): prevent background scrolling while the sidebar drawer is open
@@ -319,6 +325,38 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
             console.error('Error loading teacher data:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadAnnouncementsForTeacher = async () => {
+        try {
+            const data = await fetchAnnouncements();
+            const mapped = data.map((item: ApiAnnouncement) => ({
+                id: item.id,
+                title: item.title,
+                message: item.content,
+                date: item.publish_date ? item.publish_date.split('T')[0] : new Date().toISOString().split('T')[0]
+            }));
+            setHomeAnnouncements(mapped);
+        } catch (error) {
+            console.error('Failed to load announcements:', error);
+        }
+    };
+
+    const loadRemindersForTeacher = async () => {
+        try {
+            const data = await fetchReminders();
+            const mapped = data.map((item: Reminder) => ({
+                id: item.id,
+                message: item.message,
+                type: item.type,
+                audience: item.audience,
+                reminderDate: item.reminderDate,
+                date: item.reminderDate
+            }));
+            setHomeReminders(mapped);
+        } catch (error) {
+            console.error('Failed to load reminders:', error);
         }
     };
 
@@ -662,7 +700,8 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                         totalWeeks={totalWeeks}
                         weeksRemaining={weeksRemaining}
                         currentPassRates={currentPassRates}
-                        reminders={[]}
+                        reminders={homeReminders}
+                        announcements={homeAnnouncements}
                         onNavigate={(section) => handleMenuChange(section)}
                     />
 

@@ -25,6 +25,8 @@ import {
     getActiveGradeConfig, getAllGradeConfigs, createGradeConfig,
     updateGradeConfig, setActiveConfig, GradeConfiguration, calculateFinalScore
 } from '@/services/gradeConfigService';
+import { fetchAnnouncements, Announcement as ApiAnnouncement } from '@/services/announcementService';
+import { fetchReminders, Reminder } from '@/services/reminderService';
 import AdminHeader from './components/admin/AdminHeader';
 import AdminTabs from './components/admin/AdminTabs';
 import ClassesManagement from './components/admin/sidebar/academic/classes/ClassesManagement';
@@ -204,6 +206,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     const [schoolDistrict, setSchoolDistrict] = useState<string>('');
     const [schoolZone, setSchoolZone] = useState<string>('');
     const [schoolEmis, setSchoolEmis] = useState<string>('');
+    const [homeAnnouncements, setHomeAnnouncements] = useState<any[]>([]);
+    const [homeReminders, setHomeReminders] = useState<any[]>([]);
 
     // Auto-generate exam number effect
     // useEffect(() => {
@@ -364,6 +368,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     // Load data on mount
     useEffect(() => {
         loadData();
+        loadAnnouncementsForHome();
+        loadRemindersForHome();
     }, []);
 
     useEffect(() => {
@@ -454,6 +460,52 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             setLoading(false);
         }
     };
+
+    const loadAnnouncementsForHome = async () => {
+        try {
+            const data = await fetchAnnouncements();
+            const mapped = data.map((item: ApiAnnouncement) => ({
+                id: item.id,
+                title: item.title,
+                message: item.content,
+                date: item.publish_date ? item.publish_date.split('T')[0] : new Date().toISOString().split('T')[0]
+            }));
+            setHomeAnnouncements(mapped);
+        } catch (error) {
+            console.error('Failed to load announcements:', error);
+        }
+    };
+
+    const loadRemindersForHome = async () => {
+        try {
+            const data = await fetchReminders();
+            const mapped = data.map((item: Reminder) => ({
+                id: item.id,
+                message: item.message,
+                type: item.type,
+                audience: item.audience,  // ← ADD THIS
+                reminderDate: item.reminderDate  // This is fine
+            }));
+            setHomeReminders(mapped);
+        } catch (error) {
+            console.error('Failed to load reminders:', error);
+        }
+    };
+
+    // const loadRemindersForHome = async () => {
+    //     try {
+    //         const data = await fetchReminders();
+    //         const mapped = data.map((item: Reminder) => ({
+    //             id: item.id,
+    //             message: item.message,
+    //             type: item.type,
+    //             date: item.reminder_date
+    //         }));
+    //         setHomeReminders(mapped);
+    //     } catch (error) {
+    //         console.error('Failed to load reminders:', error);
+    //     }
+    // };
 
     const showMessage = (msg: string, isError = false) => {
         if (isError) {
@@ -1215,6 +1267,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                         weeksRemaining={weeksRemaining}
                         academicYear={currentAcademicYear}
                         subjectPerformance={subjectPerformance}
+                        announcements={homeAnnouncements}
+                        reminders={homeReminders}
                         onNavigate={(section) => setActiveMainMenu(section)}
                     />
                 ) : activeMainMenu === 'classes' ? (

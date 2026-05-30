@@ -7,7 +7,7 @@ export interface Reminder {
     message: string;
     type: 'info' | 'warning' | 'urgent';
     audience: 'teachers' | 'parents' | 'both';
-    reminder_date: string;
+    reminderDate: string;
     created_by: string;
     created_by_role: string;
     is_sent: boolean;
