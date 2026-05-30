@@ -124,3 +124,25 @@ export const deleteMessage = async (id: string): Promise<void> => {
 
     if (!response.ok) throw new Error('Failed to delete message');
 };
+export const getWhatsAppLink = async (
+    recipientId: string,
+    recipientRole: string,
+    message: string
+): Promise<{ link: string | null; phone: string | null }> => {
+    const user = getUserInfo();
+    const schoolId = user?.schoolId;
+
+    const response = await fetch(
+        `${API_BASE_URL}/api/messages/whatsapp-link/${recipientId}/${recipientRole}?message=${encodeURIComponent(message)}&schoolId=${schoolId || ''}`,
+        {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`,
+                'x-user-id': user?.id || '',
+                'x-user-role': user?.role || '',
+            },
+        }
+    );
+
+    if (!response.ok) throw new Error('Failed to get WhatsApp link');
+    return response.json();
+};
