@@ -5,11 +5,13 @@ const API_BASE_URL = 'https://eduspace-portal-backend.onrender.com';
 
 
 // ====================== NEW CODE: School ID Helpers ======================
+
 // const getSchoolId = () => {
 //   const userStr = localStorage.getItem('user');
 //   if (userStr) {
 //     try {
 //       const user = JSON.parse(userStr);
+//       console.log('USER OBJECT FROM LOCALSTORAGE:', user); // ADD THIS
 //       return user.schoolId || null;
 //     } catch (e) {
 //       return null;
@@ -19,16 +21,19 @@ const API_BASE_URL = 'https://eduspace-portal-backend.onrender.com';
 // };
 
 const getSchoolId = () => {
+  // First try from logged-in user
   const userStr = localStorage.getItem('user');
   if (userStr) {
     try {
       const user = JSON.parse(userStr);
-      console.log('USER OBJECT FROM LOCALSTORAGE:', user); // ADD THIS
-      return user.schoolId || null;
-    } catch (e) {
-      return null;
-    }
+      if (user.schoolId) return user.schoolId;
+    } catch (e) {}
   }
+  
+  // Then try from currentSchoolId (set by useSchoolBranding for school subdomains)
+  const schoolIdFromStorage = localStorage.getItem('currentSchoolId');
+  if (schoolIdFromStorage) return schoolIdFromStorage;
+  
   return null;
 };
 

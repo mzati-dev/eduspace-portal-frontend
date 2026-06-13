@@ -26,6 +26,7 @@ export function useSchoolBranding() {
             logo: data.logo_url,
             slogan: data.slogan
           });
+          localStorage.setItem('currentSchoolId', data.id);
           updateBrowserBranding({ name: data.name, logo: data.logo_url });
           setLoading(false);
         })
@@ -51,6 +52,7 @@ export function useSchoolBranding() {
               logo: data.logo_url,
               slogan: data.slogan
             });
+            localStorage.setItem('currentSchoolId', data.id);
             updateBrowserBranding({ name: data.name, logo: data.logo_url });
             setLoading(false);
           })
