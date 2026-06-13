@@ -93,7 +93,7 @@ const Footer: React.FC = () => {
                             </li>
                             <li className="flex items-center gap-3">
                                 <Mail className="w-5 h-5 text-indigo-500 shrink-0" />
-                                <span>support@eduspaceportal.com</span>
+                                <span>support@eduspace.mzatinova.com</span>
                             </li>
                         </ul>
                     </div>
@@ -102,7 +102,7 @@ const Footer: React.FC = () => {
                 {/* Footer Bottom */}
                 <div className="pt-8 text-center md:text-left">
                     <p className="text-slate-500 text-sm">
-                        &copy; {new Date().getFullYear()} {school ? school.name : "EduSpace Portal"} by Mzatinova. All rights reserved.
+                        &copy; {new Date().getFullYear()} {school ? school.name : "EduSpace Portal"} by Mzatinova Eduspace. All rights reserved.
                     </p>
                 </div>
             </div>
