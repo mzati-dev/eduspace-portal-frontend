@@ -7,6 +7,9 @@ interface School {
     email: string;
     phone?: string;
     address?: string;
+    subdomain?: string;
+    logo_url?: string;
+    slogan?: string;
     isActive: boolean;
     createdAt: string;
 }
@@ -30,10 +33,12 @@ const SchoolsManagement: React.FC<SchoolsManagementProps> = ({ onSchoolSelect })
         email: '',
         phone: '',
         address: '',
-        // ADD THESE 3 NEW FIELDS:
         adminEmail: '',
         adminPassword: '',
         adminName: '',
+        subdomain: '',
+        logo_url: '',
+        slogan: '',
     });
 
     // ===== START: ADD PASSWORD VISIBILITY STATE =====
@@ -109,7 +114,10 @@ const SchoolsManagement: React.FC<SchoolsManagementProps> = ({ onSchoolSelect })
             setFormData({
                 name: '', email: '', phone: '', address: '', adminEmail: '',
                 adminPassword: '',
-                adminName: ''
+                adminName: '',
+                subdomain: '',
+                logo_url: '',
+                slogan: ''
             });
             loadSchools();
 
@@ -199,6 +207,9 @@ const SchoolsManagement: React.FC<SchoolsManagementProps> = ({ onSchoolSelect })
             adminEmail: '',  // You might need to fetch this from API
             adminPassword: '', // Usually empty for security
             adminName: '',   // You might need to fetch this from API
+            subdomain: '',
+            logo_url: '',
+            slogan: ''
         });
         setShowForm(true);
     };
@@ -234,7 +245,8 @@ const SchoolsManagement: React.FC<SchoolsManagementProps> = ({ onSchoolSelect })
                         setFormData({
                             name: '', email: '', phone: '', address: '', adminEmail: '',
                             adminPassword: '',
-                            adminName: ''
+                            adminName: '',
+                            subdomain: '', logo_url: '', slogan: ''
                         });
                         setShowForm(true);
                     }}
@@ -320,6 +332,49 @@ const SchoolsManagement: React.FC<SchoolsManagementProps> = ({ onSchoolSelect })
                                     rows={2}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder="School physical address"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Subdomain *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="subdomain"
+                                    value={formData.subdomain}
+                                    onChange={handleInputChange}
+                                    required
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g., progress"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">This will be the school's URL: subdomain.eduspace.mzatinova.com</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Logo URL (optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    name="logo_url"
+                                    value={formData.logo_url}
+                                    onChange={handleInputChange}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="https://example.com/logo.png"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Slogan (optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    name="slogan"
+                                    value={formData.slogan}
+                                    onChange={handleInputChange}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="A window to a child's academic success"
                                 />
                             </div>
                             {/* ===== START: NEW ADMIN CREDENTIALS SECTION ===== */}
