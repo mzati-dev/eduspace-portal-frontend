@@ -52,43 +52,56 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                 <div className="flex items-center justify-between gap-2">
 
                     {/* LEFT SIDE: Logo & Text Group */}
-                    {/* LEFT SIDE: Logo & Text Group */}
-<div className="flex items-center gap-2 sm:gap-3 flex-1">
-{school ? (
-  // School mode
-  school.logo ? (
-    <img src={school.logo} alt={school.name} className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 object-contain" />
+                    {loading ? (
+                        // Show empty space while loading (prevents flicker)
+                        <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                            <div className="w-10 h-10 sm:w-20 sm:h-20"></div>
+                            <div className="flex flex-col justify-center min-w-0">
+                                <div className="h-6 sm:h-8 w-32 bg-gray-200 rounded animate-pulse"></div>
+                                <div className="h-3 sm:h-4 w-48 bg-gray-200 rounded animate-pulse mt-1"></div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                            {school ? (
+                                // School mode
+                                school.logo ? (
+                                    <img src={school.logo} alt={school.name} className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 object-contain" />
+                                ) : (
+                                    <div className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-xl sm:text-4xl font-bold">{school.name.charAt(0).toUpperCase()}</span>
+                                    </div>
+                                )
+                            ) : (
+                                // Portal mode - show EduSpace logo image
+                                <img src="/eduspace-logo.png" alt="EduSpace Portal" className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 object-contain" />
+                            )}
+                            <div className="flex flex-col justify-center min-w-0">
+                                <div className="flex items-baseline gap-1">
+                                    <h1 className="text-lg sm:text-2xl font-bold tracking-tight leading-tight">
+  {school ? (
+    <>
+      <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+        {school.name}
+      </span>
+      <span className="text-orange-400"> Portal</span>
+    </>
   ) : (
-    <div className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
-      <span className="text-white text-xl sm:text-4xl font-bold">{school.name.charAt(0).toUpperCase()}</span>
-    </div>
-  )
-) : (
-  // Portal mode - show EduSpace logo image
-  <img src="/eduspace-logo.png" alt="EduSpace Portal" className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 object-contain" />
-)}
-  <div className="flex flex-col justify-center min-w-0">
-    <div className="flex items-baseline gap-1">
-      <h1 className="text-lg sm:text-2xl font-bold tracking-tight leading-tight whitespace-nowrap">
-        {school ? (
-          <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-            {school.name}
-          </span>
-        ) : (
-          <>
-            <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-              EduSpace
-            </span>
-            <span className="text-orange-400"> Portal</span>
-          </>
-        )}
-      </h1>
-    </div>
-    <p className="block text-[10px] sm:text-sm text-gray-500 font-light mt-0.5 sm:whitespace-nowrap max-w-[180px] sm:max-w-none">
-      {school?.slogan || "A window to a child's academic success"}
-    </p>
-  </div>
-</div>
+    <>
+      <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+        EduSpace
+      </span>
+      <span className="text-orange-400"> Portal</span>
+    </>
+  )}
+</h1>
+                                </div>
+                                <p className="block text-[10px] sm:text-sm text-gray-500 font-light mt-0.5 sm:whitespace-nowrap max-w-[180px] sm:max-w-none">
+                                    {school?.slogan || "A window to a child's academic success"}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                     {/* <div className="flex items-center gap-2 sm:gap-3 flex-1">
                         <img
                             src="/eduspace-logo.png"
