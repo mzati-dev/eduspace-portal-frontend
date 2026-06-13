@@ -54,18 +54,18 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                     {/* LEFT SIDE: Logo & Text Group */}
                     {/* LEFT SIDE: Logo & Text Group */}
 <div className="flex items-center gap-2 sm:gap-3 flex-1">
-{school?.logo ? (
-    <img
-        src={school.logo}
-        alt={school.name}
-        className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 object-contain"
-    />
-) : (
+{school ? (
+  // School mode
+  school.logo ? (
+    <img src={school.logo} alt={school.name} className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 object-contain" />
+  ) : (
     <div className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
-        <span className="text-white text-xl sm:text-4xl font-bold">
-            {school?.name?.charAt(0).toUpperCase() || "E"}
-        </span>
+      <span className="text-white text-xl sm:text-4xl font-bold">{school.name.charAt(0).toUpperCase()}</span>
     </div>
+  )
+) : (
+  // Portal mode - show EduSpace logo image
+  <img src="/eduspace-logo.png" alt="EduSpace Portal" className="w-10 h-10 sm:w-20 sm:h-20 shrink-0 object-contain" />
 )}
   <div className="flex flex-col justify-center min-w-0">
     <div className="flex items-baseline gap-1">

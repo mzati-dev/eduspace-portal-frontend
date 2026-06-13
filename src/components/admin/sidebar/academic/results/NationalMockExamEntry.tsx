@@ -21,39 +21,39 @@ interface NationalMockExamResultsEntryProps {
 }
 
 // Subject configurations for each exam type
-const getSubjectsForExam = (examType: string, schoolLevel: string) => {
-    if (examType === 'PSLCE' || (examType === 'MOCK' && schoolLevel === 'primary')) {
-        return [
-            { id: 'eng', name: 'English', maxScore: 100 },
-            { id: 'math', name: 'Mathematics', maxScore: 100 },
-            { id: 'science', name: 'Science', maxScore: 100 },
-            { id: 'chichewa', name: 'Chichewa', maxScore: 100 },
-            { id: 'social', name: 'Social Studies', maxScore: 100 }
-        ];
-    }
+// const getSubjectsForExam = (examType: string, schoolLevel: string) => {
+//     if (examType === 'PSLCE' || (examType === 'MOCK' && schoolLevel === 'primary')) {
+//         return [
+//             { id: 'eng', name: 'English', maxScore: 100 },
+//             { id: 'math', name: 'Mathematics', maxScore: 100 },
+//             { id: 'science', name: 'Science', maxScore: 100 },
+//             { id: 'chichewa', name: 'Chichewa', maxScore: 100 },
+//             { id: 'social', name: 'Social Studies', maxScore: 100 }
+//         ];
+//     }
 
-    if (examType === 'JCE' || (examType === 'MOCK' && schoolLevel === 'secondary')) {
-        return [
-            { id: 'eng', name: 'English', maxScore: 100 },
-            { id: 'math', name: 'Mathematics', maxScore: 100 },
-            { id: 'bio', name: 'Biology', maxScore: 100 },
-            { id: 'chem', name: 'Chemistry', maxScore: 100 },
-            { id: 'physics', name: 'Physics', maxScore: 100 }
-        ];
-    }
+//     if (examType === 'JCE' || (examType === 'MOCK' && schoolLevel === 'secondary')) {
+//         return [
+//             { id: 'eng', name: 'English', maxScore: 100 },
+//             { id: 'math', name: 'Mathematics', maxScore: 100 },
+//             { id: 'bio', name: 'Biology', maxScore: 100 },
+//             { id: 'chem', name: 'Chemistry', maxScore: 100 },
+//             { id: 'physics', name: 'Physics', maxScore: 100 }
+//         ];
+//     }
 
-    if (examType === 'MSCE') {
-        return [
-            { id: 'eng', name: 'English', maxScore: 100 },
-            { id: 'math', name: 'Mathematics', maxScore: 100 },
-            { id: 'bio', name: 'Biology', maxScore: 100 },
-            { id: 'chem', name: 'Chemistry', maxScore: 100 },
-            { id: 'physics', name: 'Physics', maxScore: 100 }
-        ];
-    }
+//     if (examType === 'MSCE') {
+//         return [
+//             { id: 'eng', name: 'English', maxScore: 100 },
+//             { id: 'math', name: 'Mathematics', maxScore: 100 },
+//             { id: 'bio', name: 'Biology', maxScore: 100 },
+//             { id: 'chem', name: 'Chemistry', maxScore: 100 },
+//             { id: 'physics', name: 'Physics', maxScore: 100 }
+//         ];
+//     }
 
-    return [];
-};
+//     return [];
+// };
 
 // Convert score to grade based on exam type
 const getGradeFromScore = (score: number, examType: string): string => {
@@ -190,7 +190,13 @@ const NationalMockExamResultsEntry: React.FC<NationalMockExamResultsEntryProps> 
     const [editingMock, setEditingMock] = useState<CustomMockExam | null>(null);
     const [mockScores, setMockScores] = useState<any>({});
 
-    const examSubjects = getSubjectsForExam(examType, schoolLevel);
+    // const examSubjects = getSubjectsForExam(examType, schoolLevel);
+    // Use subjects from database - map to the format expected by the component
+const examSubjects = subjects.map(subject => ({
+    id: subject.id,
+    name: subject.name,
+    maxScore: 100
+}));
 
     // Load custom mocks and scores on mount
     useEffect(() => {
@@ -960,7 +966,7 @@ const NationalMockExamResultsEntry: React.FC<NationalMockExamResultsEntryProps> 
                         <h3 className="text-lg font-semibold text-slate-800 mb-2">Upload Excel File</h3>
                         <p className="text-slate-500 mb-4">
                             Upload an Excel file with student results. The file should have columns for:
-                            Exam Number, {examSubjects.map(s => s.name).join(', ')}
+                           Exam Number, {subjects.map(s => s.name).join(', ')}
                         </p>
                         <div className="flex justify-center gap-4">
                             <button className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 flex items-center gap-2">
