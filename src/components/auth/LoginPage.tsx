@@ -81,9 +81,12 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <>   <Header onShowAdmin={() => setShowAdmin(true)}
-
-    />
+    <>  <Header 
+  onShowAdmin={() => setShowAdmin(true)}
+  hasSuccessfulSearch={false}
+  currentView="search"
+  onNavigate={() => {}}
+/>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
 
         <button
@@ -107,7 +110,7 @@ const LoginPage: React.FC = () => {
             />
           </div> */}
             <h1 className="text-2xl font-bold text-gray-900">Welcome Back</h1>
-            <p className="text-gray-500 mt-2">Sign in to access your eduspace portal</p>
+            <p className="text-gray-500 mt-2">Sign in to access your portal</p>
           </div>
 
           {/* Login Form */}
