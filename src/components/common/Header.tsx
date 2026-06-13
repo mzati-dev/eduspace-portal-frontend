@@ -15,6 +15,7 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
     const location = useLocation();
     const [tabStyle, setTabStyle] = useState({ left: 0, width: 0, opacity: 0 });
     const { school, loading } = useSchoolBranding();
+    const isLoginPage = location.pathname === '/login';
     const isActive = (view: string) => {
         return currentView === view;
     };
@@ -79,22 +80,22 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                             <div className="flex flex-col justify-center min-w-0">
                                 <div className="flex items-baseline gap-1">
                                     <h1 className="text-lg sm:text-2xl font-bold tracking-tight leading-tight">
-  {school ? (
-    <>
-      <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-        {school.name}
-      </span>
-      <span className="text-orange-400"> Portal</span>
-    </>
-  ) : (
-    <>
-      <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-        EduSpace
-      </span>
-      <span className="text-orange-400"> Portal</span>
-    </>
-  )}
-</h1>
+                                        {school ? (
+                                            <>
+                                                <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                                                    {school.name}
+                                                </span>
+                                                <span className="text-orange-400"> Portal</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                                                    EduSpace
+                                                </span>
+                                                <span className="text-orange-400"> Portal</span>
+                                            </>
+                                        )}
+                                    </h1>
                                 </div>
                                 <p className="block text-[10px] sm:text-sm text-gray-500 font-light mt-0.5 sm:whitespace-nowrap max-w-[180px] sm:max-w-none">
                                     {school?.slogan || "A window to a child's academic success"}
@@ -124,6 +125,7 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                     </div> */}
 
                     {/* CENTER: Navigation Links */}
+                    {!isLoginPage && (
                     <div
                         className="hidden md:flex items-center justify-center gap-6 relative shrink-0"
                         onMouseLeave={() => setTabStyle(prev => ({ ...prev, opacity: 0 }))}
@@ -179,6 +181,7 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                             <span>Contact</span>
                         </button>
                     </div>
+                    )}
 
                     {/* RIGHT SIDE: Login Button */}
                     <div className="flex items-center justify-end gap-2 flex-1">
@@ -195,6 +198,7 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                 </div>
 
                 {/* Mobile Navigation Links */}
+                {!isLoginPage && (
                 <div className="flex md:hidden items-center justify-center gap-12 mt-3 pt-2 border-t border-slate-100">
                     <button
                         onClick={() => handleNavClick('search')}
@@ -232,6 +236,7 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                         <span className="text-xs font-medium">Contact</span>
                     </button>
                 </div>
+                )}
             </div>
         </header>
     );
