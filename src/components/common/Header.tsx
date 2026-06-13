@@ -17,8 +17,12 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
     const { school, loading } = useSchoolBranding();
     const isLoginPage = location.pathname === '/login';
     const isActive = (view: string) => {
-        return currentView === view;
-    };
+    if (isLoginPage) return false;
+    return currentView === view;
+};
+    // const isActive = (view: string) => {
+    //     return currentView === view;
+    // };
 
     const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
         const target = e.currentTarget;
@@ -125,7 +129,7 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                     </div> */}
 
                     {/* CENTER: Navigation Links */}
-                    {!isLoginPage && (
+                    
                     <div
                         className="hidden md:flex items-center justify-center gap-6 relative shrink-0"
                         onMouseLeave={() => setTabStyle(prev => ({ ...prev, opacity: 0 }))}
@@ -181,7 +185,6 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                             <span>Contact</span>
                         </button>
                     </div>
-                    )}
 
                     {/* RIGHT SIDE: Login Button */}
                     <div className="flex items-center justify-end gap-2 flex-1">
@@ -198,7 +201,6 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                 </div>
 
                 {/* Mobile Navigation Links */}
-                {!isLoginPage && (
                 <div className="flex md:hidden items-center justify-center gap-12 mt-3 pt-2 border-t border-slate-100">
                     <button
                         onClick={() => handleNavClick('search')}
@@ -236,7 +238,6 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
                         <span className="text-xs font-medium">Contact</span>
                     </button>
                 </div>
-                )}
             </div>
         </header>
     );
