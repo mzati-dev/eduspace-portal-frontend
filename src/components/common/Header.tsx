@@ -15,7 +15,7 @@ const Header: React.FC<HeaderProps> = ({ onShowAdmin, hasSuccessfulSearch, curre
     const location = useLocation();
     const [tabStyle, setTabStyle] = useState({ left: 0, width: 0, opacity: 0 });
     const { school, loading } = useSchoolBranding();
-    const isLoginPage = location.pathname === '/login';
+const isLoginPage = location.pathname === '/login' || location.pathname === '/forgot-password';
     const isActive = (view: string) => {
     if (isLoginPage) return false;
     return currentView === view;
