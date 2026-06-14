@@ -22,6 +22,7 @@ import FindTutorPage from "./components/find-tutor/FindTutorPage";
 import AboutUsPage from "./components/about/AboutUsPage";
 import FaqPage from "./components/faq/FaqPage";
 import { useEffect } from "react";
+import ContactPage from "./components/common/ContactPage";
 
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="/super-admin" element={<SuperAdminPanel onBack={() => window.history.back()} />} /> {/* ADD THIS LINE */}
               <Route path="/about" element={<AboutUsPage />} />
               <Route path="/faq" element={<FaqPage />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

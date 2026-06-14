@@ -43,13 +43,25 @@ const isLoginPage = location.pathname === '/login' || location.pathname === '/fo
     };
 
     const handleNavClick = (view: 'search' | 'results' | 'contact') => {
-        // FIXED: Route back to home if user is on the login page
+    if (view === 'contact') {
+        navigate('/contact');
+    } else {
         if (location.pathname !== '/') {
             navigate('/');
         }
         onNavigate(view);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+    // const handleNavClick = (view: 'search' | 'results' | 'contact') => {
+    //     // FIXED: Route back to home if user is on the login page
+    //     if (location.pathname !== '/') {
+    //         navigate('/');
+    //     }
+    //     onNavigate(view);
+    //     window.scrollTo({ top: 0, behavior: 'smooth' });
+    // };
 
     return (
         <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">

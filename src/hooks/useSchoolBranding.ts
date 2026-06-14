@@ -10,6 +10,8 @@ interface School {
   slogan: string | null;
   phone: string | null;   // Add this
   email: string | null;   // Add this
+    address: string | null;
+  
 }
 
 export function useSchoolBranding() {
@@ -35,7 +37,9 @@ export function useSchoolBranding() {
             logo: data.logo_url,
             slogan: data.slogan,
             phone: data.phone || null,      // Add this
-            email: data.email || null       // Add this
+            email: data.email || null,     // Add this
+            address: data.address || null
+            
           });
           localStorage.setItem('currentSchoolId', data.id);
           updateBrowserBranding({ name: data.name, logo: data.logo_url });
@@ -63,7 +67,8 @@ export function useSchoolBranding() {
               logo: data.logo_url,
               slogan: data.slogan,
               phone: data.phone || null,    // Add this
-              email: data.email || null     // Add this
+              email: data.email || null,    // Add this
+                address: data.address || null
             });
             localStorage.setItem('currentSchoolId', data.id);
             updateBrowserBranding({ name: data.name, logo: data.logo_url });
