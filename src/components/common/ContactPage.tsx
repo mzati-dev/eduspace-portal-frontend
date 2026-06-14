@@ -46,15 +46,14 @@ const ContactPage: React.FC = () => {
                 <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white py-12">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         
-                        <div className="text-center mb-12">
-                            <h1 className="text-4xl font-bold text-slate-800 mb-4">
-                                Contact {school.name}
-                            </h1>
-                            <p className="text-slate-500 max-w-2xl mx-auto">
-                                Get in touch with the school administration for any questions about grades, 
-                                student records, or school matters.
-                            </p>
-                        </div>
+                     <div className="text-center mb-12">
+    <h1 className="text-4xl font-bold text-slate-800 mb-2">Get In Touch</h1>
+    <p className="text-2xl text-indigo-600 font-semibold">{school.name}</p>
+    <p className="text-slate-500 max-w-2xl mx-auto mt-4">
+        Get in touch with the school administration for any questions about grades, 
+        student records, or school matters.
+    </p>
+</div>
 
                         <div className="grid md:grid-cols-2 gap-8 mb-12">
                             
@@ -131,17 +130,7 @@ const ContactPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="text-center">
-                            <a
-                                href="https://api.whatsapp.com/send?phone=265999613324"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-lg"
-                            >
-                                <MessageCircle className="w-5 h-5" />
-                                Message Us on WhatsApp
-                            </a>
-                        </div>
+                    
                     </div>
                 </div>
                 <Footer />
@@ -157,13 +146,12 @@ const ContactPage: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     
                     <div className="text-center mb-12">
-                        <h1 className="text-4xl font-bold text-slate-800 mb-4">
-                            Contact EduSpace
-                        </h1>
-                        <p className="text-slate-500 max-w-2xl mx-auto">
-                            Have questions about EduSpace? Want to schedule a demo? We're here to help.
-                        </p>
-                    </div>
+    <h1 className="text-4xl font-bold text-slate-800 mb-2">Get In Touch</h1>
+    <p className="text-2xl text-indigo-600 font-semibold">EduSpace Portal</p>
+    <p className="text-slate-500 max-w-2xl mx-auto mt-4">
+        Have questions about EduSpace? Want to schedule a demo? We're here to help.
+    </p>
+</div>
 
                     <div className="grid md:grid-cols-2 gap-8 mb-12">
                         
