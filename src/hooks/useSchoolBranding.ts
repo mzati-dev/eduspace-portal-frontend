@@ -3,8 +3,17 @@ import { updateBrowserBranding } from '@/utils/browserBranding';
 
 const API_URL = 'https://eduspace-portal-backend.onrender.com';
 
+// Update the School type here
+interface School {
+  name: string;
+  logo: string | null;
+  slogan: string | null;
+  phone: string | null;   // Add this
+  email: string | null;   // Add this
+}
+
 export function useSchoolBranding() {
-  const [school, setSchool] = useState<{ name: string; logo: string | null; slogan: string | null } | null>(null);
+  const [school, setSchool] = useState<School | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,7 +33,9 @@ export function useSchoolBranding() {
           setSchool({ 
             name: data.name, 
             logo: data.logo_url,
-            slogan: data.slogan
+            slogan: data.slogan,
+            phone: data.phone || null,      // Add this
+            email: data.email || null       // Add this
           });
           localStorage.setItem('currentSchoolId', data.id);
           updateBrowserBranding({ name: data.name, logo: data.logo_url });
@@ -50,7 +61,9 @@ export function useSchoolBranding() {
             setSchool({ 
               name: data.name, 
               logo: data.logo_url,
-              slogan: data.slogan
+              slogan: data.slogan,
+              phone: data.phone || null,    // Add this
+              email: data.email || null     // Add this
             });
             localStorage.setItem('currentSchoolId', data.id);
             updateBrowserBranding({ name: data.name, logo: data.logo_url });
@@ -71,6 +84,80 @@ export function useSchoolBranding() {
 
   return { school, loading };
 }
+
+// import { useEffect, useState } from 'react';
+// import { updateBrowserBranding } from '@/utils/browserBranding';
+
+// const API_URL = 'https://eduspace-portal-backend.onrender.com';
+
+// export function useSchoolBranding() {
+//   const [school, setSchool] = useState<{ name: string; logo: string | null; slogan: string | null } | null>(null);
+//   const [loading, setLoading] = useState(true);
+
+//   useEffect(() => {
+//     const hostname = window.location.hostname;
+    
+//     // Check if it's a custom domain (not ending with eduspace.mzatinova.com and not portal)
+//     const isCustomDomain = !hostname.endsWith('.eduspace.mzatinova.com') && hostname !== 'portal.eduspace.mzatinova.com';
+    
+//     if (isCustomDomain) {
+//       // Try to fetch school by custom domain
+//       fetch(`${API_URL}/schools/by-domain/${hostname}`)
+//         .then(res => {
+//           if (!res.ok) throw new Error('School not found');
+//           return res.json();
+//         })
+//         .then(data => {
+//           setSchool({ 
+//             name: data.name, 
+//             logo: data.logo_url,
+//             slogan: data.slogan,
+//           });
+//           localStorage.setItem('currentSchoolId', data.id);
+//           updateBrowserBranding({ name: data.name, logo: data.logo_url });
+//           setLoading(false);
+//         })
+//         .catch(() => {
+//           // No custom domain found, check eduspace subdomain
+//           checkEduspaceSubdomain(hostname);
+//         });
+//     } else {
+//       // Check eduspace subdomain
+//       checkEduspaceSubdomain(hostname);
+//     }
+    
+//     function checkEduspaceSubdomain(hostname: string) {
+//       const match = hostname.match(/^(.+)\.eduspace\.mzatinova\.com$/);
+      
+//       if (match && match[1] !== 'portal') {
+//         const subdomain = match[1];
+//         fetch(`${API_URL}/schools/by-subdomain/${subdomain}`)
+//           .then(res => res.json())
+//           .then(data => {
+//             setSchool({ 
+//               name: data.name, 
+//               logo: data.logo_url,
+//               slogan: data.slogan
+//             });
+//             localStorage.setItem('currentSchoolId', data.id);
+//             updateBrowserBranding({ name: data.name, logo: data.logo_url });
+//             setLoading(false);
+//           })
+//           .catch(() => {
+//             setSchool(null);
+//             updateBrowserBranding(null);
+//             setLoading(false);
+//           });
+//       } else {
+//         setSchool(null);
+//         updateBrowserBranding(null);
+//         setLoading(false);
+//       }
+//     }
+//   }, []);
+
+//   return { school, loading };
+// }
 
 // import { useEffect, useState } from 'react';
 
