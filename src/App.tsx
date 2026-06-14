@@ -23,6 +23,7 @@ import AboutUsPage from "./components/about/AboutUsPage";
 import FaqPage from "./components/faq/FaqPage";
 import { useEffect } from "react";
 import ContactPage from "./components/common/ContactPage";
+import { DynamicMeta } from "./components/common/DynamicMeta";
 
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
         <Sonner />
         <AuthProvider>
           <BrowserRouter>
+          <DynamicMeta />
             <ScrollToTop />
             <Routes>
               <Route path="/" element={<Index />} />
