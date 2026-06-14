@@ -240,7 +240,14 @@ const ContactPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-            <Footer />
+          {/* Built-in footer - dynamic for public or school */}
+<footer className="bg-slate-900 text-white py-6 mt-12">
+    <div className="text-center text-slate-400 text-sm">
+        © {new Date().getFullYear()} {isCustomized ? school.name : 'EduSpace Portal'}.
+        {!isCustomized && ' Built by Mzatinova.'}
+        All rights reserved.
+    </div>
+</footer>
         </>
     );
 };
