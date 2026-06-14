@@ -5,6 +5,21 @@ export const DynamicMeta: React.FC = () => {
   const { school } = useSchoolBranding();
 
   useEffect(() => {
+    const setMetaTag = (name: string, content: string, isProperty = false) => {
+      let selector = isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`;
+      let tag = document.querySelector(selector);
+      if (!tag) {
+        tag = document.createElement('meta');
+        if (isProperty) {
+          tag.setAttribute('property', name);
+        } else {
+          tag.setAttribute('name', name);
+        }
+        document.head.appendChild(tag);
+      }
+      tag.setAttribute('content', content);
+    };
+
     let title = 'EduSpace Portal';
     let description = 'EduSpace Portal: Your window to your child\'s academic success. Check exam results, download report cards, and stay updated with your child\'s progress. Simple, secure, and always accessible.';
     let ogTitle = 'EduSpace Portal | Your Child\'s Academic Success at Your Fingertips';
@@ -16,15 +31,9 @@ export const DynamicMeta: React.FC = () => {
     }
 
     document.title = title;
-    
-    const metaDescription = document.querySelector('meta[name="description"]');
-    if (metaDescription) metaDescription.setAttribute('content', description);
-    
-    const ogTitleTag = document.querySelector('meta[property="og:title"]');
-    if (ogTitleTag) ogTitleTag.setAttribute('content', ogTitle);
-    
-    const ogDescription = document.querySelector('meta[property="og:description"]');
-    if (ogDescription) ogDescription.setAttribute('content', description);
+    setMetaTag('description', description);
+    setMetaTag('og:title', ogTitle, true);
+    setMetaTag('og:description', description, true);
   }, [school]);
 
   return null;
