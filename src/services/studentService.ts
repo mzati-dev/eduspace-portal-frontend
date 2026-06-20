@@ -27,13 +27,13 @@ const getSchoolId = () => {
     try {
       const user = JSON.parse(userStr);
       if (user.schoolId) return user.schoolId;
-    } catch (e) {}
+    } catch (e) { }
   }
-  
+
   // Then try from currentSchoolId (set by useSchoolBranding for school subdomains)
   const schoolIdFromStorage = localStorage.getItem('currentSchoolId');
   if (schoolIdFromStorage) return schoolIdFromStorage;
-  
+
   return null;
 };
 

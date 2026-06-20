@@ -1,4 +1,5 @@
 // components/admin/analytics/AnalyticsMain.tsx
+
 import React, { useState } from 'react';
 import {
     TrendingUp,
@@ -16,20 +17,11 @@ import {
     Filter
 } from 'lucide-react';
 import { KeyMetric, GradeRanking, FactorAnalysis, RiskStudent, SubjectDifficulty, ExamGap, CohortTracking } from './types';
-// import {
-//     KeyMetric,
-//     GradeRanking,
-//     FactorAnalysis,
-//     RiskStudent,
-//     SubjectDifficulty,
-//     ExamGap,
-//     CohortTracking
-// } from '../analytics/types';
 
 interface AnalyticsMainProps {
     loading: boolean;
-    selectedTerm: string;
-    setSelectedTerm: (term: string) => void;
+    // selectedTerm: string;
+    // setSelectedTerm: (term: string) => void;
     keyMetrics: KeyMetric[];
     gradeRanking: GradeRanking[];
     factorAnalysis: FactorAnalysis[];
@@ -46,12 +38,15 @@ interface AnalyticsMainProps {
     classes?: any[];
     onFilterByClass?: (classId: string) => void;
     availableTerms?: { value: string; label: string }[];
+    // ===== NEW: Assessment type change handler =====
+    onAssessmentTypeChange?: (type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => void;
+    assessmentType?: 'qa1' | 'qa2' | 'endOfTerm' | 'overall';
 }
 
 const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
     loading,
-    selectedTerm,
-    setSelectedTerm,
+    // selectedTerm,
+    // setSelectedTerm,
     keyMetrics,
     gradeRanking,
     factorAnalysis,
@@ -66,9 +61,14 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
     onExportReport,
     classes = [],
     onFilterByClass,
-    availableTerms = []
+    availableTerms = [],
+    // ===== NEW: Receive the prop =====
+    onAssessmentTypeChange,
+    assessmentType = 'overall',
 }) => {
     const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all');
+    // ===== NEW: State for assessment type =====
+
 
     const getRiskColor = (level: string) => {
         switch (level) {
@@ -92,6 +92,14 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
         setSelectedClassFilter(classId);
         if (onFilterByClass) {
             onFilterByClass(classId);
+        }
+    };
+
+    // ===== NEW: Handle assessment type change =====
+    // ===== NEW: Handle assessment type change =====
+    const handleAssessmentTypeChange = (type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => {
+        if (onAssessmentTypeChange) {
+            onAssessmentTypeChange(type);
         }
     };
 
@@ -153,8 +161,7 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                     )}
 
                     {/* Time Period Selector */}
-
-                    <div className="flex items-center gap-3">
+                    {/* <div className="flex items-center gap-3">
                         <Calendar className="w-4 h-4 text-slate-400" />
                         <span className="text-sm font-medium text-slate-700">Time Period:</span>
                         <select
@@ -169,6 +176,21 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                             ) : (
                                 <option value="">No terms available</option>
                             )}
+                        </select>
+                    </div> */}
+
+                    {/* ===== NEW: Assessment Type Selector ===== */}
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-slate-700">Assessment:</span>
+                        <select
+                            value={assessmentType}
+                            onChange={(e) => handleAssessmentTypeChange(e.target.value as 'qa1' | 'qa2' | 'endOfTerm' | 'overall')}
+                            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+                        >
+                            <option value="overall">Overall</option>
+                            <option value="qa1">QA1</option>
+                            <option value="qa2">QA2</option>
+                            <option value="endOfTerm">End of Term</option>
                         </select>
                     </div>
 
@@ -490,4 +512,3 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
 };
 
 export default AnalyticsMain;
-

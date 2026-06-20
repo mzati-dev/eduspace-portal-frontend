@@ -1,4 +1,5 @@
 // components/admin/analytics/AnalyticsManagement.tsx
+
 import React, { useState, useEffect } from 'react';
 import AnalyticsMain from './AnalyticsMain';
 import StudentDrillDown from './StudentDrillDown';
@@ -27,6 +28,11 @@ import {
     StudentDetail
 } from '@/services/analyticsService';
 import { API_BASE_URL } from '@/services/attendanceService';
+import { fetchClassResults } from '@/services/studentService';
+// ===== NEW: Import the data generator =====
+import { generateAnalyticsFromResults } from '@/services/analyticsDataGenerator';
+import { ClassResultStudent, Student } from '@/types/admin';
+import { GradeConfiguration } from '@/services/gradeConfigService';
 
 interface AnalyticsManagementProps {
     classes: any[];
@@ -34,6 +40,16 @@ interface AnalyticsManagementProps {
     subjects: any[];
     showMessage: (msg: string, isError?: boolean) => void;
     schoolLevel?: 'primary' | 'secondary';
+    // ===== NEW: Props for local data =====
+    classResults?: ClassResultStudent[];
+    activeConfig?: GradeConfiguration | null;
+    calculateGrade?: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string;
+    calculateFinalScore?: (qa1: number, qa2: number, endOfTerm: number, config: GradeConfiguration) => number;
+    assessmentType?: 'qa1' | 'qa2' | 'endOfTerm' | 'overall';
+    // ===== ADD THESE TWO =====
+    loadClassResults?: (classId: string) => Promise<void>;
+    setSelectedClassForResults?: (classId: string) => void;
+    setAssessmentType?: (type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => void;  // ← ADD THIS
 }
 
 const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
@@ -41,7 +57,17 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
     students,
     subjects,
     showMessage,
-    schoolLevel: propSchoolLevel
+    schoolLevel: propSchoolLevel,
+    // ===== NEW: Receive props =====
+    classResults = [],
+    activeConfig = null,
+    calculateGrade,
+    calculateFinalScore,
+    assessmentType = 'overall',
+    // ===== ADD THESE TWO =====
+    loadClassResults,
+    setSelectedClassForResults,
+    setAssessmentType,
 }) => {
     // Main Tabs - Only 2: Internal and Exam
     const [activeTab, setActiveTab] = useState<'internal' | 'exam'>('internal');
@@ -87,6 +113,7 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
     const [loadingExam, setLoadingExam] = useState(false);
     const [schoolLevel, setSchoolLevel] = useState<'primary' | 'secondary' | null>(propSchoolLevel || null);
     const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all');
+    const [localClassResults, setLocalClassResults] = useState<ClassResultStudent[]>([]);
 
     // Load available terms on mount
     useEffect(() => {
@@ -141,26 +168,65 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
         }
     }, [schoolLevel]);
 
-    // Load Main Dashboard Data
+    // ===== MODIFIED: Load Main Dashboard Data =====
     useEffect(() => {
         if (activeTab === 'internal' && internalView === 'main' && selectedTerm) {
             loadMainDashboardData();
         }
-    }, [selectedTerm, internalView, activeTab, selectedClassFilter]);
+    }, [selectedTerm, internalView, activeTab, selectedClassFilter, classResults, assessmentType]);
+
+    // ===== RELOAD WHEN CLASS RESULTS CHANGE =====
+    useEffect(() => {
+        if (activeTab === 'internal' && internalView === 'main' && selectedTerm) {
+            const hasData = classResults.length > 0 || localClassResults.length > 0;
+            if (hasData) {
+                loadMainDashboardData();
+            }
+        }
+    }, [classResults, localClassResults]);
+
 
     const loadMainDashboardData = async () => {
         setLoadingMain(true);
         try {
-            const classId = selectedClassFilter !== 'all' ? selectedClassFilter : undefined;
-            const data = await fetchDashboardAnalytics(selectedTerm, classId);
+            // ===== NEW: Check if we have local data to generate analytics =====
+            const resultsToUse = localClassResults.length > 0 ? localClassResults : classResults;
+            if (resultsToUse && resultsToUse.length > 0 && calculateGrade && calculateFinalScore) {
+                console.log('📊 Generating analytics from local class results data...');
 
-            setKeyMetrics(data.keyMetrics);
-            setGradeRanking(data.gradeRanking);
-            setFactorAnalysis(data.factorAnalysis);
-            setRiskStudents(data.riskStudents);
-            setSubjectDifficulty(data.subjectDifficulty);
-            setExamGap(data.examGap);
-            setCohortTracking(data.cohortTracking);
+                const analyticsData = generateAnalyticsFromResults(
+                    resultsToUse,
+                    students as Student[],
+                    subjects,
+                    activeConfig || null,
+                    assessmentType || 'overall',
+                    calculateGrade,
+                    calculateFinalScore
+                );
+
+                setKeyMetrics(analyticsData.keyMetrics);
+                setGradeRanking(analyticsData.gradeRanking);
+                setFactorAnalysis(analyticsData.factorAnalysis);
+                setRiskStudents(analyticsData.riskStudents);
+                setSubjectDifficulty(analyticsData.subjectDifficulty);
+                setExamGap(analyticsData.examGap);
+                setCohortTracking(analyticsData.cohortTracking);
+
+                console.log('✅ Analytics generated successfully from local data');
+            } else {
+                // ===== FALLBACK: Use API if no local data =====
+                console.log('📡 No local data available, falling back to API...');
+                const classId = selectedClassFilter !== 'all' ? selectedClassFilter : undefined;
+                const data = await fetchDashboardAnalytics(selectedTerm, classId);
+
+                setKeyMetrics(data.keyMetrics);
+                setGradeRanking(data.gradeRanking);
+                setFactorAnalysis(data.factorAnalysis);
+                setRiskStudents(data.riskStudents);
+                setSubjectDifficulty(data.subjectDifficulty);
+                setExamGap(data.examGap);
+                setCohortTracking(data.cohortTracking);
+            }
         } catch (error: any) {
             console.error('Failed to load dashboard analytics:', error);
             showMessage(error.message || 'Failed to load analytics data', true);
@@ -262,6 +328,37 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
         setSelectedTerm(newTerm);
     };
 
+    // ===== NEW: Handle assessment type change from AnalyticsMain =====
+    const handleAssessmentTypeChange = (type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => {
+        console.log('Assessment type changed to:', type);
+
+        // Update parent state
+        if (setAssessmentType) {
+            setAssessmentType(type);
+        }
+
+        // Reload data with new assessment type
+        if (classResults && classResults.length > 0 && calculateGrade && calculateFinalScore) {
+            const analyticsData = generateAnalyticsFromResults(
+                classResults,
+                students as Student[],
+                subjects,
+                activeConfig || null,
+                type,
+                calculateGrade,
+                calculateFinalScore
+            );
+
+            setKeyMetrics(analyticsData.keyMetrics);
+            setGradeRanking(analyticsData.gradeRanking);
+            setFactorAnalysis(analyticsData.factorAnalysis);
+            setRiskStudents(analyticsData.riskStudents);
+            setSubjectDifficulty(analyticsData.subjectDifficulty);
+            setExamGap(analyticsData.examGap);
+            setCohortTracking(analyticsData.cohortTracking);
+        }
+    };
+
     // Main Tab Navigation - Only 2 tabs
     const MainTabNavigation = () => (
         <div className="flex justify-center">
@@ -304,6 +401,20 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
             </div>
         </div>
     );
+
+    // Show data source indicator
+    const DataSourceIndicator = () => {
+        const hasLocalData = classResults && classResults.length > 0;
+        return (
+            <div className="text-right text-xs text-slate-400 mt-2">
+                {hasLocalData ? (
+                    <span className="text-green-600">✓ Using real data from {classResults.length} students</span>
+                ) : (
+                    <span className="text-amber-600">⚠ Using sample data (no results found)</span>
+                )}
+            </div>
+        );
+    };
 
     // Render Internal Analysis Tab
     if (activeTab === 'internal') {
@@ -380,10 +491,15 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
             <div className="space-y-6">
                 <MainTabNavigation />
                 <InternalSubNavigation />
+
+                {/* ===== NEW: Show data source indicator ===== */}
+                <DataSourceIndicator />
+
                 <AnalyticsMain
+
                     loading={loadingMain}
-                    selectedTerm={selectedTerm}
-                    setSelectedTerm={setSelectedTerm}
+                    // selectedTerm={selectedTerm}
+                    // setSelectedTerm={setSelectedTerm}
                     keyMetrics={keyMetrics}
                     gradeRanking={gradeRanking}
                     factorAnalysis={factorAnalysis}
@@ -397,11 +513,37 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
                     onExportReport={handleExportReport}
                     onViewExamAnalysis={() => setActiveTab('exam')}
                     classes={classes}
-                    onFilterByClass={(classId) => {
+                    onFilterByClass={async (classId) => {
                         setSelectedClassFilter(classId);
-                        loadMainDashboardData();
+                        if (classId && classId !== 'all') {
+                            setLoadingMain(true);
+                            try {
+                                if (loadClassResults) {
+                                    await loadClassResults(classId);
+                                } else {
+                                    const results = await fetchClassResults(classId);
+                                    setLocalClassResults(results);
+                                }
+                                if (setSelectedClassForResults) {
+                                    setSelectedClassForResults(classId);
+                                }
+                                // loadMainDashboardData() removed - useEffect will handle it
+                            } catch (error) {
+                                console.error('Failed to load class results:', error);
+                                showMessage('Failed to load class results', true);
+                            } finally {
+                                setLoadingMain(false);
+                            }
+                        } else {
+                            setLocalClassResults([]);
+                            // loadMainDashboardData() removed - useEffect will handle it
+                        }
                     }}
                     availableTerms={availableTerms}
+                    // ===== NEW: Pass assessment type change handler =====
+                    onAssessmentTypeChange={handleAssessmentTypeChange}
+                    assessmentType={assessmentType}
+
                 />
             </div>
         );
@@ -457,5 +599,3 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
 };
 
 export default AnalyticsManagement;
-
-

@@ -1575,6 +1575,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                         subjects={subjects}
                         showMessage={showMessage}
                         schoolLevel={determineSchoolLevel()}
+                        // ===== NEW PROPS =====
+                        classResults={classResults}
+                        activeConfig={activeConfig}
+                        calculateGrade={calculateGrade}
+                        calculateFinalScore={calculateFinalScore}
+                        assessmentType={activeAssessmentType}
+                        // ===== ADD THESE TWO LINES =====
+                        loadClassResults={loadClassResults}
+                        setSelectedClassForResults={setSelectedClassForResults}
+                        setAssessmentType={setActiveAssessmentType}
                     />
                 ) : activeMainMenu === 'timetable' ? (
                     <TimetableManagement
