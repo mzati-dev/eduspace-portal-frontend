@@ -17,6 +17,7 @@ import {
     Filter
 } from 'lucide-react';
 import { KeyMetric, GradeRanking, FactorAnalysis, RiskStudent, SubjectDifficulty, ExamGap, CohortTracking } from './types';
+import { ClassResultStudent } from '@/types/admin';
 
 interface AnalyticsMainProps {
     loading: boolean;
@@ -41,6 +42,11 @@ interface AnalyticsMainProps {
     // ===== NEW: Assessment type change handler =====
     onAssessmentTypeChange?: (type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => void;
     assessmentType?: 'qa1' | 'qa2' | 'endOfTerm' | 'overall';
+    calculateGrade?: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string;
+    activeConfig?: any;
+    students?: any[];
+    classResults?: ClassResultStudent[];
+    currentPassRates?: any[];
 }
 
 const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
@@ -65,6 +71,11 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
     // ===== NEW: Receive the prop =====
     onAssessmentTypeChange,
     assessmentType = 'overall',
+    calculateGrade,
+    activeConfig,
+    students = [],
+    classResults = [],
+    currentPassRates = [],
 }) => {
     const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all');
     // ===== NEW: State for assessment type =====
@@ -229,31 +240,130 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
             </div>
 
             {/* Key Metrics Cards - Show class-specific note when filtered */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {keyMetrics.map((metric, idx) => (
-                    <div key={idx} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className={`p-2 bg-slate-100 rounded-lg ${metric.color}`}>
-                                {metric.icon === 'trending-up' && <TrendingUp className="w-5 h-5" />}
-                                {metric.icon === 'users' && <Users className="w-5 h-5" />}
-                                {metric.icon === 'graduation-cap' && <GraduationCap className="w-5 h-5" />}
-                                {metric.icon === 'brain' && <Brain className="w-5 h-5" />}
-                            </div>
-                            <span className={`text-xs font-medium ${metric.change > 0 ? 'text-green-600' : metric.change < 0 ? 'text-red-600' : 'text-slate-600'} bg-slate-100 px-2 py-1 rounded-full`}>
-                                {metric.change !== 0 && (metric.change > 0 ? '▲' : '▼')} {Math.abs(metric.change)}% {metric.vsText}
-                            </span>
-                        </div>
-                        <p className="text-2xl font-bold text-slate-800">{metric.value}</p>
-                        <p className="text-sm text-slate-500">
-                            {metric.label}
-                            {selectedClassFilter !== 'all' && (
-                                <span className="block text-xs text-indigo-600">(Filtered by class)</span>
-                            )}
-                        </p>
-                    </div>
-                ))}
+            {/* Key Metrics Cards - 5 boxes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+
+                {/* Box 1: Total Students (Whole School) */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <p className="text-2xl font-bold text-slate-800">{students.length}</p>
+                    <p className="text-sm text-slate-500">Total Students (Whole School)</p>
+                </div>
+
+                {/* Box 2: Class Average */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <p className="text-2xl font-bold text-indigo-600">
+                        {(() => {
+                            const filtered = selectedClassFilter !== 'all'
+                                ? classResults.filter(s => {
+                                    const student = students.find(st => st.id === s.id);
+                                    return student?.class?.id === selectedClassFilter;
+                                })
+                                : classResults;
+                            const total = filtered.reduce((sum, student) => {
+                                let totalScore = 0, count = 0;
+                                student.subjects.forEach(subject => {
+                                    let score = 0;
+                                    if (assessmentType === 'qa1') score = subject.qa1 || 0;
+                                    else if (assessmentType === 'qa2') score = subject.qa2 || 0;
+                                    else if (assessmentType === 'endOfTerm') score = subject.endOfTerm || 0;
+                                    else {
+                                        const qa1 = subject.qa1 || 0, qa2 = subject.qa2 || 0, endTerm = subject.endOfTerm || 0;
+                                        score = (qa1 + qa2 + endTerm) / 3;
+                                    }
+                                    if (score > 0) { totalScore += score; count++; }
+                                });
+                                return sum + (count > 0 ? totalScore / count : 0);
+                            }, 0);
+                            return (filtered.length > 0 ? total / filtered.length : 0).toFixed(1) + '%';
+                        })()}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Class Average ({selectedClassFilter !== 'all' ? classes.find(c => c.id === selectedClassFilter)?.name : 'All Classes'})
+                    </p>
+                </div>
+
+                {/* Box 3: Students with Scores / Total Class Students */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <p className="text-2xl font-bold text-slate-800">
+                        {(() => {
+                            const classResultsFiltered = classResults.filter(s => {
+                                const student = students.find(st => st.id === s.id);
+                                return student?.class?.id === selectedClassFilter;
+                            });
+                            const classStudents = students.filter(s => s.class?.id === selectedClassFilter);
+                            return classResultsFiltered.length + ' / ' + classStudents.length;
+                        })()}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Students with Scores ({selectedClassFilter !== 'all' ? classes.find(c => c.id === selectedClassFilter)?.name : 'All Classes'})
+                    </p>
+                </div>
+
+                {/* Box 4: Pass Rate */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <p className="text-2xl font-bold text-emerald-600">
+                        {(() => {
+                            const classObj = selectedClassFilter !== 'all' ? classes.find(c => c.id === selectedClassFilter) : null;
+                            if (classObj) {
+                                const passData = currentPassRates.find(c => c.className === classObj.name);
+                                return (passData?.qa1PassRate || 0) + '%';
+                            }
+                            const total = currentPassRates.reduce((sum, c) => sum + c.qa1PassRate, 0);
+                            return (currentPassRates.length > 0 ? total / currentPassRates.length : 0).toFixed(1) + '%';
+                        })()}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Pass Rate ({selectedClassFilter !== 'all' ? classes.find(c => c.id === selectedClassFilter)?.name : 'All Classes'})
+                    </p>
+                </div>
+
+                {/* Box 5: Passed / Failed */}
+                {/* Box 5: Passed / Failed */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <p className="text-2xl font-bold text-slate-800">
+                        {(() => {
+                            let passed = 0, failed = 0;
+                            const className = selectedClassFilter !== 'all' ? classes.find(c => c.id === selectedClassFilter)?.name : '';
+                            const filtered = selectedClassFilter !== 'all'
+                                ? classResults.filter(s => {
+                                    const student = students.find(st => st.id === s.id);
+                                    return student?.class?.id === selectedClassFilter;
+                                })
+                                : classResults;
+                            filtered.forEach(student => {
+                                // Calculate student's OVERALL average across ALL subjects
+                                let totalScore = 0, count = 0;
+                                student.subjects.forEach(subject => {
+                                    let score = 0;
+                                    if (assessmentType === 'qa1') score = subject.qa1 || 0;
+                                    else if (assessmentType === 'qa2') score = subject.qa2 || 0;
+                                    else if (assessmentType === 'endOfTerm') score = subject.endOfTerm || 0;
+                                    else {
+                                        const qa1 = subject.qa1 || 0, qa2 = subject.qa2 || 0, endTerm = subject.endOfTerm || 0;
+                                        score = (qa1 + qa2 + endTerm) / 3;
+                                    }
+                                    if (score >= 0) { totalScore += score; count++; }
+                                });
+                                if (count > 0) {
+                                    const avg = totalScore / count;
+                                    const grade = calculateGrade(avg, activeConfig?.pass_mark, false, className);
+                                    if (grade !== 'F') {
+                                        passed++;
+                                    } else {
+                                        failed++;
+                                    }
+                                }
+                            });
+                            return passed + ' / ' + failed;
+                        })()}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Passed / Failed ({selectedClassFilter !== 'all' ? classes.find(c => c.id === selectedClassFilter)?.name : 'All Classes'})
+                    </p>
+                </div>
             </div>
 
+            {/* Performance Trend */}
             {/* Performance Trend */}
             {cohortTracking && cohortTracking.data.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -262,7 +372,7 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                         {selectedClassFilter === 'all' ? 'School' : 'Class'} Performance Trend
                     </h3>
                     <p className="text-sm text-slate-500 mb-4">
-                        Overall pass rate across terms
+                        Distribution of students by score range
                         {selectedClassFilter !== 'all' && (
                             <span className="ml-2 text-indigo-600"> - {classes.find(c => c.id === selectedClassFilter)?.name}</span>
                         )}
@@ -273,7 +383,7 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                                 <div key={idx} className="flex-1 flex flex-col items-center px-2">
                                     <div
                                         className="w-full bg-indigo-500 rounded-t transition-all duration-500 hover:bg-indigo-600"
-                                        style={{ height: `${(value / 100) * 180}px`, maxHeight: '180px', minHeight: '20px' }}
+                                        style={{ height: `${Math.max(4, (value / 100) * 180)}px`, maxHeight: '180px' }}
                                     />
                                     <span className="text-xs text-slate-500 mt-2 font-medium text-center">{cohortTracking.labels[idx]}</span>
                                     <span className="text-xs font-bold text-slate-700">{value}%</span>
@@ -281,16 +391,10 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                             ))}
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
-                        <div className="text-center p-3 bg-green-50 rounded-lg">
-                            <p className="text-2xl font-bold text-green-600">{cohortTracking.improving || 0}</p>
-                            <p className="text-xs text-slate-600">Students improving for 2+ terms ✅</p>
-                        </div>
-                        <div className="text-center p-3 bg-red-50 rounded-lg">
-                            <p className="text-2xl font-bold text-red-600">{cohortTracking.declining || 0}</p>
-                            <p className="text-xs text-slate-600">Students declining for 2+ terms ⚠️</p>
-                        </div>
+                    <div className="text-center text-xs text-slate-400 mt-1">
+                        Each bar shows the percentage of students in that score range
                     </div>
+
                 </div>
             )}
 
@@ -319,14 +423,18 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                         <tbody className="divide-y divide-slate-100">
                             {filteredGradeRanking.map(grade => (
                                 <tr key={grade.rank} className="hover:bg-slate-50">
-                                    <td className="px-4 py-3 font-bold text-slate-800">#{grade.rank}</td>
+                                    <td className="px-4 py-3 font-bold text-slate-800">
+                                        #{currentPassRates
+                                            .sort((a, b) => b.qa1PassRate - a.qa1PassRate)
+                                            .findIndex(c => c.className === grade.name) + 1}
+                                    </td>
                                     <td className="px-4 py-3 font-medium text-slate-800">{grade.name}</td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-2">
                                             <div className="w-20 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${grade.passRate}%` }} />
+                                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${currentPassRates.find(c => c.className === grade.name)?.qa1PassRate || 0}%` }} />
                                             </div>
-                                            <span className="text-sm">{grade.passRate}%</span>
+                                            <span className="text-sm">{currentPassRates.find(c => c.className === grade.name)?.qa1PassRate || 0}%</span>
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 font-medium">{grade.avgScore}%</td>
@@ -440,8 +548,106 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                 <p className="text-xs text-slate-400 mt-3">👆 Click any student name to view detailed profile</p>
             </div>
 
+            {/* Top Performers Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-amber-500" />
+                    Top Performers
+                    {selectedClassFilter !== 'all' && (
+                        <span className="text-xs font-normal text-indigo-600 ml-2">(Filtered)</span>
+                    )}
+                </h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th className="text-left px-3 py-2">Rank</th>
+                                <th className="text-left px-3 py-2">Student Name</th>
+                                <th className="text-left px-3 py-2">Average Score</th>
+                                <th className="text-left px-3 py-2">Grade</th>
+                                <th className="text-left px-3 py-2">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {(() => {
+                                const studentAverages = classResults.map(student => {
+                                    let totalScore = 0;
+                                    let count = 0;
+
+                                    student.subjects.forEach(subject => {
+                                        let score = 0;
+                                        if (assessmentType === 'qa1') {
+                                            score = subject.qa1 || 0;
+                                        } else if (assessmentType === 'qa2') {
+                                            score = subject.qa2 || 0;
+                                        } else if (assessmentType === 'endOfTerm') {
+                                            score = subject.endOfTerm || 0;
+                                        } else {
+                                            const qa1 = subject.qa1 || 0;
+                                            const qa2 = subject.qa2 || 0;
+                                            const endTerm = subject.endOfTerm || 0;
+                                            score = (qa1 + qa2 + endTerm) / 3;
+                                        }
+                                        if (score > 0) {
+                                            totalScore += score;
+                                            count++;
+                                        }
+                                    });
+
+                                    return {
+                                        id: student.id,
+                                        name: student.name,
+                                        average: count > 0 ? totalScore / count : 0
+                                    };
+                                });
+
+                                const topStudents = studentAverages
+                                    .filter(s => s.average > 0)
+                                    .sort((a, b) => b.average - a.average)
+                                    .slice(0, 5);
+
+                                if (topStudents.length === 0) {
+                                    return (
+                                        <tr>
+                                            <td colSpan={5} className="text-center py-4 text-slate-500">
+                                                No scores available
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+
+                                return topStudents.map((student, index) => (
+                                    <tr key={student.id} className="hover:bg-slate-50">
+                                        <td className="px-3 py-2 font-bold text-slate-400">
+                                            {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                                        </td>
+                                        <td className="px-3 py-2 font-medium text-slate-800">{student.name}</td>
+                                        <td className="px-3 py-2 font-medium text-green-600">{student.average.toFixed(1)}%</td>
+                                        <td className="px-3 py-2">
+                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                                                {student.average >= 80 ? 'A' : student.average >= 70 ? 'B' : student.average >= 60 ? 'C' : 'D'}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <button
+                                                onClick={() => onViewStudent(student.id)}
+                                                className="px-3 py-1.5 text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-md flex items-center gap-1 transition-colors"
+                                            >
+                                                <Eye className="w-3 h-3" />
+                                                View Student
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ));
+                            })()}
+                        </tbody>
+                    </table>
+                </div>
+                <p className="text-xs text-slate-400 mt-3">👆 Click any student name to view detailed profile</p>
+            </div>
+
             {/* Subject Difficulty Ranking & Exam Gap */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
                 {/* Subject Difficulty Ranking */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
@@ -458,8 +664,8 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <div className="text-right">
-                                        <p className="text-sm font-medium">{subject.avgScore}%</p>
-                                        <p className="text-xs text-slate-500">Pass {subject.passRate}%</p>
+                                        <p className="text-sm font-medium">Subject Average Score: {subject.avgScore}%</p>
+                                        <p className="text-xs text-slate-500">Subject Pass Rate: {subject.passRate}%</p>
                                     </div>
                                     <div className={`px-2 py-1 rounded-full text-xs font-medium ${subject.action.includes('⚠️') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                                         {subject.action}
@@ -471,41 +677,7 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                 </div>
 
                 {/* CAT vs End of Term Exam Gap */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                        <Target className="w-5 h-5 text-amber-600" />
-                        CAT vs End of Term Exam Gap Analysis
-                        {selectedClassFilter !== 'all' && (
-                            <span className="text-xs font-normal text-indigo-600 ml-2">(Filtered)</span>
-                        )}
-                    </h3>
-                    <div className="space-y-4">
-                        {filteredExamGap.map(gap => (
-                            <div key={gap.grade} className="p-3 bg-slate-50 rounded-lg">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="font-medium text-slate-800">{gap.grade}</span>
-                                    <span className={`text-sm font-bold ${gap.gap > 8 ? 'text-red-600' : 'text-amber-600'}`}>
-                                        Gap: {gap.gap}%
-                                    </span>
-                                </div>
-                                <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                                    <div>
-                                        <p className="text-slate-500">Avg CAT</p>
-                                        <p className="font-medium">{gap.avgCAT}%</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-slate-500">Avg Exam</p>
-                                        <p className="font-medium">{gap.avgExam}%</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-slate-500">15%+ Drop</p>
-                                        <p className="font-medium text-red-600">{gap.studentsDrop} students</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+
             </div>
         </div>
     );

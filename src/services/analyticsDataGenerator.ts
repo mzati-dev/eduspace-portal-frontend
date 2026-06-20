@@ -97,12 +97,12 @@ export const generateAnalyticsFromResults = (
 
     // Calculate all metrics
     const keyMetrics = calculateKeyMetrics(classResults, students, assessmentType, calculateGrade);
-    const gradeRanking = calculateGradeRanking(classResults, students, assessmentType, calculateGrade);
+   const gradeRanking = calculateGradeRanking(classResults, students, assessmentType, calculateGrade, activeConfig);
     const factorAnalysis = calculateFactorAnalysis(classResults, students, assessmentType);
-    const riskStudents = identifyRiskStudents(classResults, students, assessmentType, calculateGrade);
-    const subjectDifficulty = calculateSubjectDifficulty(classResults, subjects, assessmentType);
+   const riskStudents = identifyRiskStudents(classResults, students, assessmentType, calculateGrade, activeConfig);
+   const subjectDifficulty = calculateSubjectDifficulty(classResults, subjects, assessmentType, activeConfig);
     const examGap = calculateExamGap(classResults, students, assessmentType);
-    const cohortTracking = calculateCohortTracking(classResults, students, assessmentType);
+  const cohortTracking = calculateCohortTracking(classResults, students, assessmentType, activeConfig);  // ← ADD activeConfig
 
     return {
         keyMetrics,
@@ -121,7 +121,8 @@ const calculateKeyMetrics = (
     classResults: ClassResultStudent[],
     students: Student[],
     assessmentType: 'qa1' | 'qa2' | 'endOfTerm' | 'overall',
-    calculateGrade: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string
+    calculateGrade: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string,
+    activeConfig?: GradeConfiguration | null
 ): KeyMetric[] => {
 
     // Get students with results
@@ -173,12 +174,16 @@ const calculateKeyMetrics = (
             totalScoreSum += studentAvg;
             studentCount++;
 
-            const grade = calculateGrade(studentAvg, undefined, false, '');
-            if (grade !== 'F') {
-                passedCount++;
-            } else {
-                failedCount++;
-            }
+          const passMark = activeConfig?.pass_mark || 50;
+// Find the student in the students array to get their class name
+const studentInfo = students.find(s => s.id === student.id);
+const className = studentInfo?.class?.name || '';
+const grade = calculateGrade(studentAvg, passMark, false, className);
+          if (grade !== 'F' && grade !== '9') {
+    passedCount++;
+} else {
+    failedCount++;
+}
         }
     });
 
@@ -227,7 +232,8 @@ const calculateGradeRanking = (
     classResults: ClassResultStudent[],
     students: Student[],
     assessmentType: 'qa1' | 'qa2' | 'endOfTerm' | 'overall',
-    calculateGrade: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string
+    calculateGrade: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string,
+    activeConfig?: GradeConfiguration | null
 ): GradeRanking[] => {
 
     // Group students by class
@@ -291,12 +297,13 @@ const calculateGradeRanking = (
                 totalScoreSum += studentAvg;
                 studentCount++;
 
-                const grade = calculateGrade(studentAvg, undefined, false, className);
-                if (grade !== 'F') {
-                    passedCount++;
-                } else {
-                    riskCount++;
-                }
+               const passMark = activeConfig?.pass_mark || 50;
+const grade = calculateGrade(studentAvg, passMark, false, className);
+              if (grade !== 'F' && grade !== '9') {
+    passedCount++;
+} else {
+    riskCount++;
+}
 
                 // Simulate attendance (will be replaced with real data later)
                 totalAttendance += 80 + Math.random() * 15;
@@ -435,7 +442,8 @@ const identifyRiskStudents = (
     classResults: ClassResultStudent[],
     students: Student[],
     assessmentType: 'qa1' | 'qa2' | 'endOfTerm' | 'overall',
-    calculateGrade: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string
+    calculateGrade: (score: number, passMark?: number, isAbsent?: boolean, className?: string) => string,
+    activeConfig?: GradeConfiguration | null
 ): RiskStudent[] => {
 
     const riskStudents: RiskStudent[] = [];
@@ -454,17 +462,20 @@ const identifyRiskStudents = (
 
             if (assessmentType === 'qa1') {
                 score = subject.qa1 || 0;
-                grade = calculateGrade(score, undefined, false, student.class?.name || '');
-                if (grade === 'F') failedSubjects++;
+               const passMark = activeConfig?.pass_mark || 50;
+grade = calculateGrade(score, passMark, false, student.class?.name || '');
+              if (grade === 'F' || grade === '9') failedSubjects++;
                 if (score > 0) { totalScore += score; subjectCount++; }
             } else if (assessmentType === 'qa2') {
                 score = subject.qa2 || 0;
-                grade = calculateGrade(score, undefined, false, student.class?.name || '');
+         const passMark = activeConfig?.pass_mark || 50;
+grade = calculateGrade(score, passMark, false, student.class?.name || '');
                 if (grade === 'F') failedSubjects++;
                 if (score > 0) { totalScore += score; subjectCount++; }
             } else if (assessmentType === 'endOfTerm') {
                 score = subject.endOfTerm || 0;
-                grade = calculateGrade(score, undefined, false, student.class?.name || '');
+          const passMark = activeConfig?.pass_mark || 50;
+grade = calculateGrade(score, passMark, false, student.class?.name || '');
                 if (grade === 'F') failedSubjects++;
                 if (score > 0) { totalScore += score; subjectCount++; }
             } else {
@@ -472,7 +483,8 @@ const identifyRiskStudents = (
                 const qa2 = subject.qa2 || 0;
                 const endTerm = subject.endOfTerm || 0;
                 score = (qa1 + qa2 + endTerm) / 3;
-                grade = calculateGrade(score, undefined, false, student.class?.name || '');
+           const passMark = activeConfig?.pass_mark || 50;
+grade = calculateGrade(score, passMark, false, student.class?.name || '');
                 if (grade === 'F') failedSubjects++;
                 if (score > 0) { totalScore += score; subjectCount++; }
             }
@@ -531,7 +543,8 @@ const identifyRiskStudents = (
 const calculateSubjectDifficulty = (
     classResults: ClassResultStudent[],
     subjects: SubjectRecord[],
-    assessmentType: 'qa1' | 'qa2' | 'endOfTerm' | 'overall'
+    assessmentType: 'qa1' | 'qa2' | 'endOfTerm' | 'overall',
+    activeConfig?: GradeConfiguration | null  // ← ADD THIS
 ): SubjectDifficulty[] => {
 
     // Use subject name as key instead of ID
@@ -565,7 +578,8 @@ const calculateSubjectDifficulty = (
             if (subjectData && score > 0) {
                 subjectData.scores.push(score);
                 subjectData.total++;
-                if (score >= 50) subjectData.passed++;
+             const passMark = activeConfig?.pass_mark || 50;
+if (score >= passMark) subjectData.passed++;
             }
         });
     });
@@ -674,7 +688,8 @@ const calculateExamGap = (
 const calculateCohortTracking = (
     classResults: ClassResultStudent[],
     students: Student[],
-    assessmentType: 'qa1' | 'qa2' | 'endOfTerm' | 'overall'
+    assessmentType: 'qa1' | 'qa2' | 'endOfTerm' | 'overall',
+    activeConfig?: GradeConfiguration | null  // ← ADD THIS
 ): CohortTracking | null => {
 
     // Calculate student averages
@@ -714,25 +729,26 @@ const calculateCohortTracking = (
     if (studentAverages.length === 0) return null;
 
     // Create distribution ranges
-    const ranges = [
-        { label: '0-40%', count: 0 },
-        { label: '40-55%', count: 0 },
-        { label: '55-70%', count: 0 },
-        { label: '70-85%', count: 0 },
-        { label: '85-100%', count: 0 }
-    ];
+const ranges = [
+    { label: '0-39%', count: 0 },
+    { label: '40-54%', count: 0 },
+    { label: '55-69%', count: 0 },
+    { label: '70-84%', count: 0 },
+    { label: '85-100%', count: 0 }
+];
 
-    studentAverages.forEach(avg => {
-        if (avg < 40) ranges[0].count++;
-        else if (avg < 55) ranges[1].count++;
-        else if (avg < 70) ranges[2].count++;
-        else if (avg < 85) ranges[3].count++;
-        else ranges[4].count++;
-    });
+studentAverages.forEach(avg => {
+    if (avg < 40) ranges[0].count++;
+    else if (avg < 55) ranges[1].count++;
+    else if (avg < 70) ranges[2].count++;
+    else if (avg < 85) ranges[3].count++;
+    else ranges[4].count++;
+});
 
     const total = studentAverages.length;
     const data = ranges.map(r => Math.round((r.count / total) * 100));
-    const passedCount = studentAverages.filter(a => a >= 50).length;
+    const passMark = activeConfig?.pass_mark || 50;
+const passedCount = studentAverages.filter(a => a >= passMark).length;
 
     return {
         cohort: 'Current Cohort',

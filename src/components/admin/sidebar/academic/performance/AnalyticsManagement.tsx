@@ -28,7 +28,7 @@ import {
     StudentDetail
 } from '@/services/analyticsService';
 import { API_BASE_URL } from '@/services/attendanceService';
-import { fetchClassResults } from '@/services/studentService';
+import { fetchClassResults, fetchCurrentTermPassRates } from '@/services/studentService';
 // ===== NEW: Import the data generator =====
 import { generateAnalyticsFromResults } from '@/services/analyticsDataGenerator';
 import { ClassResultStudent, Student } from '@/types/admin';
@@ -114,6 +114,7 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
     const [schoolLevel, setSchoolLevel] = useState<'primary' | 'secondary' | null>(propSchoolLevel || null);
     const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all');
     const [localClassResults, setLocalClassResults] = useState<ClassResultStudent[]>([]);
+    const [currentPassRates, setCurrentPassRates] = useState<any[]>([]);
 
     // Load available terms on mount
     useEffect(() => {
@@ -184,6 +185,14 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
             }
         }
     }, [classResults, localClassResults]);
+
+    useEffect(() => {
+    const loadPassRates = async () => {
+        const rates = await fetchCurrentTermPassRates();
+        setCurrentPassRates(rates);
+    };
+    loadPassRates();
+}, []);
 
 
     const loadMainDashboardData = async () => {
@@ -543,6 +552,11 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
                     // ===== NEW: Pass assessment type change handler =====
                     onAssessmentTypeChange={handleAssessmentTypeChange}
                     assessmentType={assessmentType}
+                     calculateGrade={calculateGrade}
+                      activeConfig={activeConfig}
+                      students={students}
+                     classResults={classResults} 
+                      currentPassRates={currentPassRates}
 
                 />
             </div>
