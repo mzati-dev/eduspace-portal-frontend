@@ -27,8 +27,8 @@ import {
     fetchTerms,
     StudentDetail
 } from '@/services/analyticsService';
-import { API_BASE_URL } from '@/services/attendanceService';
-import { fetchClassResults, fetchCurrentTermPassRates } from '@/services/studentService';
+import { API_BASE_URL, fetchStudentAttendanceRate } from '@/services/attendanceService';
+import { fetchArchivedResults, fetchClassResults, fetchCurrentTermPassRates, fetchStudentArchivedResults } from '@/services/studentService';
 // ===== NEW: Import the data generator =====
 import { generateAnalyticsFromResults } from '@/services/analyticsDataGenerator';
 import { ClassResultStudent, Student } from '@/types/admin';
@@ -49,7 +49,8 @@ interface AnalyticsManagementProps {
     // ===== ADD THESE TWO =====
     loadClassResults?: (classId: string) => Promise<void>;
     setSelectedClassForResults?: (classId: string) => void;
-    setAssessmentType?: (type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => void;  // ← ADD THIS
+    setAssessmentType?: (type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => void;
+    archivedResults?: any[];
 }
 
 const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
@@ -68,6 +69,7 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
     loadClassResults,
     setSelectedClassForResults,
     setAssessmentType,
+    archivedResults = [],
 }) => {
     // Main Tabs - Only 2: Internal and Exam
     const [activeTab, setActiveTab] = useState<'internal' | 'exam'>('internal');
@@ -187,12 +189,12 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
     }, [classResults, localClassResults]);
 
     useEffect(() => {
-    const loadPassRates = async () => {
-        const rates = await fetchCurrentTermPassRates();
-        setCurrentPassRates(rates);
-    };
-    loadPassRates();
-}, []);
+        const loadPassRates = async () => {
+            const rates = await fetchCurrentTermPassRates();
+            setCurrentPassRates(rates);
+        };
+        loadPassRates();
+    }, []);
 
 
     const loadMainDashboardData = async () => {
@@ -244,13 +246,559 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
         }
     };
 
-    // Load Student Detail
+
+
+    /////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////
+
     const loadStudentDetail = async (studentId: string, term?: string) => {
         setLoadingStudent(true);
         const selectedTermToUse = term || selectedTerm;
 
         try {
-            const studentDetail = await fetchStudentDetail(studentId, selectedTermToUse);
+            // ===== GET STUDENT INFO =====
+            const studentInfo = students.find(s => s.id === studentId);
+            const className = studentInfo?.class?.name || '';
+            const classId = studentInfo?.class?.id || '';
+            const currentTermName = studentInfo?.class?.term || '';
+
+            // ===== GET CURRENT TERM DATA =====
+            const currentTermResult = classResults.find(cr => cr.id === studentId);
+
+            // ===== GET CLASS STUDENTS =====
+            const classStudents = classResults.filter(cr => {
+                const s = students.find(st => st.id === cr.id);
+                return s?.class?.id === classId;
+            });
+
+            // ===== HELPER: Calculate subject score =====
+            const calculateSubjectScore = (subject: any): number => {
+                if (assessmentType === 'qa1') return subject.qa1 || 0;
+                if (assessmentType === 'qa2') return subject.qa2 || 0;
+                if (assessmentType === 'endOfTerm') return subject.endOfTerm || 0;
+                const qa1 = subject.qa1 || 0;
+                const qa2 = subject.qa2 || 0;
+                const endTerm = subject.endOfTerm || 0;
+                return (qa1 + qa2 + endTerm) / 3;
+            };
+
+            const getAssessmentLabel = (): string => {
+                if (assessmentType === 'qa1') return 'Test 1';
+                if (assessmentType === 'qa2') return 'Test 2';
+                if (assessmentType === 'endOfTerm') return 'End of Term';
+                return 'Overall';
+            };
+
+            // ===== GET ATTENDANCE =====
+            let attendanceRate = 0;
+            try {
+                const attendanceData = await fetchStudentAttendanceRate(studentId);
+                if (attendanceData) {
+                    attendanceRate = attendanceData.attendanceRate || 0;
+                }
+            } catch (error) {
+                console.log('No attendance data for student');
+            }
+
+            // ===== FETCH ARCHIVED DATA =====
+            let archivedData: any[] = [];
+            try {
+                archivedData = await fetchStudentArchivedResults(studentId);
+                console.log('📚 Archived data:', archivedData);
+            } catch (error) {
+                console.log('No archived data found');
+            }
+
+            // ===== GROUP ARCHIVED BY TERM (EXTRACT TERM NAME ONLY) =====
+            const termMap = new Map();
+            archivedData.forEach(archive => {
+                const termName = archive.term?.split(',')[0]?.trim() || archive.term;
+                if (!termMap.has(termName)) {
+                    termMap.set(termName, archive);
+                }
+            });
+            const uniqueArchives = Array.from(termMap.values());
+
+            // ===== EXTRACT SELECTED TERM NAME (remove year) =====
+            const selectedTermName = selectedTermToUse?.split(',')[0]?.trim() || selectedTermToUse;
+            const currentTermNameOnly = currentTermName?.split(',')[0]?.trim() || currentTermName;
+
+            console.log('📌 Selected term name:', selectedTermName);
+            console.log('📌 Current term name:', currentTermNameOnly);
+            console.log('📌 Available archive terms:', uniqueArchives.map(a => a.term?.split(',')[0]?.trim()));
+
+            // ===== DETERMINE IF SELECTED TERM IS CURRENT OR ARCHIVED =====
+            const isCurrentTerm = selectedTermName === currentTermNameOnly;
+            const archiveForTerm = uniqueArchives.find(a => {
+                const termName = a.term?.split(',')[0]?.trim() || a.term;
+                return termName === selectedTermName;
+            });
+
+            // ===== GET DATA FOR SELECTED TERM =====
+            let displayName = studentInfo?.name || 'Unknown';
+            let displayExamNumber = studentInfo?.examNumber || 'N/A';
+            let displayGrade = className;
+            let displayMarks = 0;
+            let displayAttendance = 0;
+            let displaySubjectBreakdown: any[] = [];
+            let displayFails = 0;
+
+            if (isCurrentTerm && currentTermResult) {
+                // ===== USE CURRENT TERM DATA =====
+                console.log('📊 Using CURRENT term data:', selectedTermToUse);
+                displayName = currentTermResult.name || 'Unknown';
+                displayExamNumber = currentTermResult.examNumber || 'N/A';
+                displayGrade = className;
+                displayAttendance = Math.round(attendanceRate);
+
+                let totalScore = 0;
+                let subjectCount = 0;
+                displaySubjectBreakdown = [];
+
+                const subjectAverages: { [key: string]: { total: number; count: number } } = {};
+                classStudents.forEach(cr => {
+                    cr.subjects.forEach(subject => {
+                        const score = calculateSubjectScore(subject);
+                        if (score > 0) {
+                            if (!subjectAverages[subject.name]) {
+                                subjectAverages[subject.name] = { total: 0, count: 0 };
+                            }
+                            subjectAverages[subject.name].total += score;
+                            subjectAverages[subject.name].count++;
+                        }
+                    });
+                });
+
+                const classAvgs: { [key: string]: number } = {};
+                Object.keys(subjectAverages).forEach(subjectName => {
+                    classAvgs[subjectName] = subjectAverages[subjectName].count > 0
+                        ? Math.round(subjectAverages[subjectName].total / subjectAverages[subjectName].count)
+                        : 0;
+                });
+
+                currentTermResult.subjects.forEach(subject => {
+                    const score = calculateSubjectScore(subject);
+                    const subjectName = subject.name || 'Unknown';
+                    const classAvg = classAvgs[subjectName] || 0;
+
+                    if (score > 0) {
+                        totalScore += score;
+                        subjectCount++;
+                        displaySubjectBreakdown.push({
+                            subject: subjectName,
+                            marks: Math.round(score),
+                            attendance: displayAttendance,
+                            classAvg: classAvg,
+                            gap: Math.round(score - classAvg),
+                            status: score < (activeConfig?.pass_mark || 50) ? 'Needs support' : 'On track'
+                        });
+                    }
+                });
+
+                displayMarks = subjectCount > 0 ? Math.round(totalScore / subjectCount) : 0;
+                displayFails = displaySubjectBreakdown.filter(s => s.marks < (activeConfig?.pass_mark || 50)).length;
+
+            } else if (archiveForTerm) {
+                // ===== USE ARCHIVED DATA =====
+                console.log('📚 Using ARCHIVED data for:', selectedTermToUse);
+                const reportData = archiveForTerm.reportCardData;
+
+                if (reportData) {
+                    displayName = reportData.name || displayName;
+                    displayExamNumber = reportData.examNumber || displayExamNumber;
+                    displayGrade = reportData.class || className;
+
+                    let marks = 0;
+                    if (assessmentType === 'qa1' && reportData.assessmentStats?.qa1) {
+                        marks = reportData.assessmentStats.qa1.termAverage || 0;
+                    } else if (assessmentType === 'qa2' && reportData.assessmentStats?.qa2) {
+                        marks = reportData.assessmentStats.qa2.termAverage || 0;
+                    } else if (assessmentType === 'endOfTerm' && reportData.assessmentStats?.endOfTerm) {
+                        marks = reportData.assessmentStats.endOfTerm.termAverage || 0;
+                    } else if (reportData.assessmentStats?.overall) {
+                        marks = reportData.assessmentStats.overall.termAverage || 0;
+                    }
+
+                    displayMarks = Math.round(marks);
+
+                    const att = reportData.attendance?.present && reportData.attendance?.totalSchoolDays
+                        ? Math.round((reportData.attendance.present / reportData.attendance.totalSchoolDays) * 100)
+                        : 0;
+                    displayAttendance = att;
+
+                    displaySubjectBreakdown = [];
+                    reportData.subjects?.forEach((subject: any) => {
+                        let score = 0;
+                        let hasScore = false;
+
+                        if (assessmentType === 'qa1') {
+                            score = subject.qa1 || 0;
+                            hasScore = subject.qa1 !== null && subject.qa1 !== undefined && subject.qa1 >= 0;
+                        } else if (assessmentType === 'qa2') {
+                            score = subject.qa2 || 0;
+                            hasScore = subject.qa2 !== null && subject.qa2 !== undefined && subject.qa2 >= 0;
+                        } else if (assessmentType === 'endOfTerm') {
+                            score = subject.endOfTerm || 0;
+                            hasScore = subject.endOfTerm !== null && subject.endOfTerm !== undefined && subject.endOfTerm >= 0;
+                        } else {
+                            const qa1 = subject.qa1 || 0;
+                            const qa2 = subject.qa2 || 0;
+                            const endTerm = subject.endOfTerm || 0;
+                            score = (qa1 + qa2 + endTerm) / 3;
+                            hasScore = (subject.qa1 !== null && subject.qa1 >= 0) ||
+                                (subject.qa2 !== null && subject.qa2 >= 0) ||
+                                (subject.endOfTerm !== null && subject.endOfTerm >= 0);
+                        }
+
+                        if (hasScore) {
+                            displaySubjectBreakdown.push({
+                                subject: subject.name || 'Unknown',
+                                marks: Math.round(score),
+                                attendance: att,
+                                classAvg: 0,
+                                gap: 0,
+                                status: score < (activeConfig?.pass_mark || 50) ? 'Needs support' : 'On track'
+                            });
+                        }
+                    });
+
+                    const passMark = activeConfig?.pass_mark || 50;
+                    displayFails = reportData.subjects?.filter((s: any) => {
+                        let score = 0;
+                        let hasValidScore = false;
+
+                        if (assessmentType === 'qa1') {
+                            score = s.qa1;
+                            hasValidScore = s.qa1 !== null && s.qa1 !== undefined && s.qa1 >= 0;
+                        } else if (assessmentType === 'qa2') {
+                            score = s.qa2;
+                            hasValidScore = s.qa2 !== null && s.qa2 !== undefined && s.qa2 >= 0;
+                        } else if (assessmentType === 'endOfTerm') {
+                            score = s.endOfTerm;
+                            hasValidScore = s.endOfTerm !== null && s.endOfTerm !== undefined && s.endOfTerm >= 0;
+                        } else {
+                            if (s.finalScore !== null && s.finalScore !== undefined) {
+                                score = s.finalScore;
+                                hasValidScore = s.finalScore >= 0;
+                            } else {
+                                const qa1 = s.qa1 || 0;
+                                const qa2 = s.qa2 || 0;
+                                const endTerm = s.endOfTerm || 0;
+                                score = (qa1 + qa2 + endTerm) / 3;
+                                hasValidScore = (s.qa1 !== null && s.qa1 >= 0) ||
+                                    (s.qa2 !== null && s.qa2 >= 0) ||
+                                    (s.endOfTerm !== null && s.endOfTerm >= 0);
+                            }
+                        }
+
+                        if (!hasValidScore) return false;
+                        return score < passMark;
+                    }).length || 0;
+                }
+            } else {
+                console.log('⚠️ No data found for term:', selectedTermToUse);
+            }
+
+            // ===== BUILD TIMELINE AND HISTORICAL (WITH DEDUPLICATION) =====
+            const historical: any[] = [];
+            const timeline: any[] = [];
+            const seenTerms = new Set<string>();
+
+            const termNameOnly = selectedTermToUse?.split(',')[0]?.trim() || selectedTermToUse;
+
+            historical.push({
+                term: selectedTermToUse || 'Current',
+                attendance: displayAttendance,
+                marks: displayMarks,
+                cat: 0,
+                exam: 0,
+                fails: displayFails,
+                status: displayMarks >= (activeConfig?.pass_mark || 50) ? 'Passing' : 'Failing'
+            });
+
+            timeline.push({
+                term: selectedTermToUse || 'Current',
+                marks: displayMarks,
+                attendance: displayAttendance
+            });
+
+            seenTerms.add(termNameOnly);
+
+            uniqueArchives.forEach(archive => {
+                const archiveTermName = archive.term?.split(',')[0]?.trim() || archive.term;
+                if (seenTerms.has(archiveTermName)) return;
+                seenTerms.add(archiveTermName);
+
+                const reportData = archive.reportCardData;
+                if (!reportData) return;
+
+                let marks = 0;
+                if (assessmentType === 'qa1' && reportData.assessmentStats?.qa1) {
+                    marks = reportData.assessmentStats.qa1.termAverage || 0;
+                } else if (assessmentType === 'qa2' && reportData.assessmentStats?.qa2) {
+                    marks = reportData.assessmentStats.qa2.termAverage || 0;
+                } else if (assessmentType === 'endOfTerm' && reportData.assessmentStats?.endOfTerm) {
+                    marks = reportData.assessmentStats.endOfTerm.termAverage || 0;
+                } else if (reportData.assessmentStats?.overall) {
+                    marks = reportData.assessmentStats.overall.termAverage || 0;
+                }
+
+                const att = reportData.attendance?.present && reportData.attendance?.totalSchoolDays
+                    ? Math.round((reportData.attendance.present / reportData.attendance.totalSchoolDays) * 100)
+                    : 0;
+                const passMark = activeConfig?.pass_mark || 50;
+                const fails = reportData.subjects?.filter((s: any) => {
+                    let score = 0;
+                    let hasValidScore = false;
+
+                    if (assessmentType === 'qa1') {
+                        score = s.qa1;
+                        hasValidScore = s.qa1 !== null && s.qa1 !== undefined && s.qa1 >= 0;
+                    } else if (assessmentType === 'qa2') {
+                        score = s.qa2;
+                        hasValidScore = s.qa2 !== null && s.qa2 !== undefined && s.qa2 >= 0;
+                    } else if (assessmentType === 'endOfTerm') {
+                        score = s.endOfTerm;
+                        hasValidScore = s.endOfTerm !== null && s.endOfTerm !== undefined && s.endOfTerm >= 0;
+                    } else {
+                        if (s.finalScore !== null && s.finalScore !== undefined) {
+                            score = s.finalScore;
+                            hasValidScore = s.finalScore >= 0;
+                        } else {
+                            const qa1 = s.qa1 || 0;
+                            const qa2 = s.qa2 || 0;
+                            const endTerm = s.endOfTerm || 0;
+                            score = (qa1 + qa2 + endTerm) / 3;
+                            hasValidScore = (s.qa1 !== null && s.qa1 >= 0) ||
+                                (s.qa2 !== null && s.qa2 >= 0) ||
+                                (s.endOfTerm !== null && s.endOfTerm >= 0);
+                        }
+                    }
+
+                    if (!hasValidScore) return false;
+                    return score < passMark;
+                }).length || 0;
+
+                const fullTerm = archive.academicYear ? `${archive.term}, ${archive.academicYear}` : archive.term;
+
+                historical.push({
+                    term: fullTerm,
+                    attendance: att,
+                    marks: Math.round(marks),
+                    cat: 0,
+                    exam: 0,
+                    fails: fails,
+                    status: marks >= (activeConfig?.pass_mark || 50) ? 'Passing' : 'Failing'
+                });
+
+                timeline.push({
+                    term: fullTerm,
+                    marks: Math.round(marks),
+                    attendance: att
+                });
+            });
+
+            const sortByTerm = (a: any, b: any) => {
+                const aNum = parseInt(a.term?.match(/\d+/)?.[0] || '0');
+                const bNum = parseInt(b.term?.match(/\d+/)?.[0] || '0');
+                return aNum - bNum;
+            };
+
+            historical.sort(sortByTerm);
+            timeline.sort(sortByTerm);
+
+            let termOverTerm = 0;
+            if (historical.length >= 2) {
+                termOverTerm = historical[0].marks - historical[1].marks;
+            }
+
+            // ===== CALCULATE CLASS RANK =====
+
+            const calculateStudentRank = (studentId: string): string => {
+                const studentsWithScores = classResults.map(student => {
+                    let totalScore = 0;
+                    let subjectCount = 0;
+
+                    student.subjects.forEach(subject => {
+                        let score = 0;
+                        let hasScore = false;
+
+                        if (assessmentType === 'qa1') {
+                            if (subject.qa1 !== null && subject.qa1 !== undefined && subject.qa1 >= 0) {
+                                score = subject.qa1;
+                                hasScore = true;
+                            }
+                        } else if (assessmentType === 'qa2') {
+                            if (subject.qa2 !== null && subject.qa2 !== undefined && subject.qa2 >= 0) {
+                                score = subject.qa2;
+                                hasScore = true;
+                            }
+                        } else if (assessmentType === 'endOfTerm') {
+                            if (subject.endOfTerm !== null && subject.endOfTerm !== undefined && subject.endOfTerm >= 0) {
+                                score = subject.endOfTerm;
+                                hasScore = true;
+                            }
+                        } else {
+                            const qa1 = subject.qa1 || 0;
+                            const qa2 = subject.qa2 || 0;
+                            const endTerm = subject.endOfTerm || 0;
+                            if (subject.qa1 !== null || subject.qa2 !== null || subject.endOfTerm !== null) {
+                                score = (qa1 + qa2 + endTerm) / 3;
+                                hasScore = true;
+                            }
+                        }
+
+                        if (hasScore) {
+                            totalScore += score;
+                            subjectCount++;
+                        }
+                    });
+
+                    const avgScore = subjectCount > 0 ? totalScore / subjectCount : 0;
+
+                    return {
+                        studentId: student.id,
+                        totalScore: avgScore
+                    };
+                });
+
+                const rankedStudents = studentsWithScores.sort((a, b) => b.totalScore - a.totalScore);
+
+                let currentRank = 1;
+                let previousScore: number | null = null;
+                let studentRank = 0;
+
+                for (let i = 0; i < rankedStudents.length; i++) {
+                    const student = rankedStudents[i];
+
+                    if (i === 0) {
+                        currentRank = 1;
+                    } else if (previousScore !== null && Math.abs(student.totalScore - previousScore) > 0.01) {
+                        currentRank++;
+                    }
+
+                    if (student.studentId === studentId) {
+                        studentRank = currentRank;
+                        break;
+                    }
+
+                    previousScore = student.totalScore;
+                }
+
+                return studentRank > 0 ? studentRank.toString() : 'N/A';
+            };
+
+            // ===== GET RANK FROM ARCHIVED CLASS RESULTS (SINGLE SOURCE OF TRUTH) =====
+            let classRank = 'N/A';
+
+            if (isCurrentTerm) {
+                classRank = calculateStudentRank(studentId);
+            } else if (archiveForTerm) {
+                // ===== ADD THESE THREE LINES HERE =====
+                console.log('🔍 Searching for archive with:', {
+                    classId: archiveForTerm.classId,
+                    term: selectedTermToUse,
+                    academicYear: archiveForTerm.academicYear
+                });
+                console.log('📦 archivedResults prop:', archivedResults);
+                // ===== END ADD =====
+                try {
+                    let archive = null;
+
+                    // First check props
+                    // Get archive directly from API
+                    if (!archive) {
+                        const results = await fetchArchivedResults(
+                            archiveForTerm.classId,
+                            selectedTermToUse,
+                            archiveForTerm.academicYear
+                        );
+                        if (results && results.length > 0) {
+                            archive = results[0];
+                        }
+                    }
+                    // If not in props, fetch from API
+                    // if (!archive) {
+                    //     const results = await fetchArchivedResults(
+                    //         archiveForTerm.classId,
+                    //         selectedTermToUse,
+                    //         archiveForTerm.academicYear
+                    //     );
+                    //     if (results && results.length > 0) {
+                    //         archive = results[0];
+                    //     }
+                    // }
+                    if (!archive) {
+                        // Use the archived term name (e.g., "Term 2") not the full string
+                        const archivedTermName = archiveForTerm.term?.split(',')[0]?.trim() || archiveForTerm.term;
+                        const results = await fetchArchivedResults(
+                            archiveForTerm.classId,
+                            archivedTermName,
+                            archiveForTerm.academicYear
+                        );
+                        if (results && results.length > 0) {
+                            archive = results[0];
+                        }
+                    }
+                    // Get rank from the archive
+                    if (archive) {
+                        let results = [];
+                        if (assessmentType === 'qa1') results = archive.results?.qa1 || [];
+                        else if (assessmentType === 'qa2') results = archive.results?.qa2 || [];
+                        else if (assessmentType === 'endOfTerm') results = archive.results?.endOfTerm || [];
+                        else results = archive.results?.overall || [];
+
+                        const studentData = results.find((s: any) => s.id === studentId);
+                        if (studentData && studentData.rank) {
+                            classRank = studentData.rank.toString();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to get archived rank:', error);
+                }
+            }
+
+            // ===== BUILD STUDENT DETAIL =====
+            const studentDetail: StudentDetail = {
+                id: studentId,
+                name: displayName,
+                examNumber: displayExamNumber,
+                grade: displayGrade,
+                classTeacher: 'Not Assigned',
+                status: displayMarks < 35 ? 'At-Risk (Critical)' :
+                    displayMarks < 45 ? 'At-Risk (High)' :
+                        displayMarks < 55 ? 'At-Risk (Medium)' : 'On Track',
+                currentMarks: displayMarks,
+                currentAttendance: displayAttendance,
+                termOverTerm: termOverTerm,
+                classRank: classRank,
+                timeline: timeline,
+                factorBreakdown: [
+                    {
+                        factor: `Academic Performance (${getAssessmentLabel()})`,
+                        studentValue: `${displayMarks}%`,
+                        classAvg: '0%',
+                        status: displayMarks < (activeConfig?.pass_mark || 50) ? 'Below Average' : 'On Track',
+                        impact: 'High'
+                    },
+                    {
+                        factor: 'Attendance',
+                        studentValue: `${displayAttendance}%`,
+                        classAvg: '0%',
+                        status: displayAttendance < 75 ? 'Below Average' : 'On Track',
+                        impact: 'Medium'
+                    }
+                ],
+                subjectBreakdown: displaySubjectBreakdown,
+                historical: historical,
+                recommendations: [
+                    ...(displayMarks < (activeConfig?.pass_mark || 50) ? [`Provide additional academic support and tutoring (${getAssessmentLabel()} marks below passing)`] : []),
+                    ...(displayAttendance < 75 ? ['Monitor attendance and follow up with parents'] : []),
+                    ...(displayMarks < 40 ? ['Schedule parent-teacher meeting to discuss progress'] : []),
+                    ...(displayMarks >= (activeConfig?.pass_mark || 50) && displayAttendance >= 75 ? ['Student is performing well. Continue current support.'] : [])
+                ]
+            };
+
             setSelectedStudent(studentDetail);
         } catch (error: any) {
             console.error('Failed to load student details:', error);
@@ -259,6 +807,727 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
             setLoadingStudent(false);
         }
     };
+
+
+
+    // const loadStudentDetail = async (studentId: string, term?: string) => {
+    //     setLoadingStudent(true);
+    //     const selectedTermToUse = term || selectedTerm;
+
+    //     try {
+    //         // ===== GET STUDENT INFO =====
+    //         const studentInfo = students.find(s => s.id === studentId);
+    //         const className = studentInfo?.class?.name || '';
+    //         const classId = studentInfo?.class?.id || '';
+    //         const currentTermName = studentInfo?.class?.term || '';
+
+    //         // ===== GET CURRENT TERM DATA =====
+    //         const currentTermResult = classResults.find(cr => cr.id === studentId);
+
+    //         // ===== GET CLASS STUDENTS =====
+    //         const classStudents = classResults.filter(cr => {
+    //             const s = students.find(st => st.id === cr.id);
+    //             return s?.class?.id === classId;
+    //         });
+
+    //         // ===== HELPER: Calculate subject score =====
+    //         const calculateSubjectScore = (subject: any): number => {
+    //             if (assessmentType === 'qa1') return subject.qa1 || 0;
+    //             if (assessmentType === 'qa2') return subject.qa2 || 0;
+    //             if (assessmentType === 'endOfTerm') return subject.endOfTerm || 0;
+    //             const qa1 = subject.qa1 || 0;
+    //             const qa2 = subject.qa2 || 0;
+    //             const endTerm = subject.endOfTerm || 0;
+    //             return (qa1 + qa2 + endTerm) / 3;
+    //         };
+
+    //         const getAssessmentLabel = (): string => {
+    //             if (assessmentType === 'qa1') return 'Test 1';
+    //             if (assessmentType === 'qa2') return 'Test 2';
+    //             if (assessmentType === 'endOfTerm') return 'End of Term';
+    //             return 'Overall';
+    //         };
+
+    //         // ===== FETCH ARCHIVED DATA =====
+    //         let archivedData: any[] = [];
+    //         try {
+    //             archivedData = await fetchStudentArchivedResults(studentId);
+    //             console.log('📚 Archived data:', archivedData);
+    //         } catch (error) {
+    //             console.log('No archived data found');
+    //         }
+
+    //         // ===== GROUP ARCHIVED BY TERM (EXTRACT TERM NAME ONLY) =====
+    //         const termMap = new Map();
+    //         archivedData.forEach(archive => {
+    //             // Extract just the term name (e.g., "Term 2" from "Term 2, 2025/2026")
+    //             const termName = archive.term?.split(',')[0]?.trim() || archive.term;
+    //             if (!termMap.has(termName)) {
+    //                 termMap.set(termName, archive);
+    //             }
+    //         });
+    //         const uniqueArchives = Array.from(termMap.values());
+
+    //         // ===== EXTRACT SELECTED TERM NAME (remove year) =====
+    //         const selectedTermName = selectedTermToUse?.split(',')[0]?.trim() || selectedTermToUse;
+    //         const currentTermNameOnly = currentTermName?.split(',')[0]?.trim() || currentTermName;
+
+    //         console.log('📌 Selected term name:', selectedTermName);
+    //         console.log('📌 Current term name:', currentTermNameOnly);
+    //         console.log('📌 Available archive terms:', uniqueArchives.map(a => a.term?.split(',')[0]?.trim()));
+
+    //         // ===== DETERMINE IF SELECTED TERM IS CURRENT OR ARCHIVED =====
+    //         const isCurrentTerm = selectedTermName === currentTermNameOnly;
+    //         const archiveForTerm = uniqueArchives.find(a => {
+    //             const termName = a.term?.split(',')[0]?.trim() || a.term;
+    //             return termName === selectedTermName;
+    //         });
+
+    //         // ===== GET DATA FOR SELECTED TERM =====
+    //         let displayName = studentInfo?.name || 'Unknown';
+    //         let displayExamNumber = studentInfo?.examNumber || 'N/A';
+    //         let displayGrade = className;
+    //         let displayMarks = 0;
+    //         let displayAttendance = 0;
+    //         let displaySubjectBreakdown: any[] = [];
+    //         let displayFails = 0;
+
+    //         if (isCurrentTerm && currentTermResult) {
+    //             // ===== USE CURRENT TERM DATA =====
+    //             console.log('📊 Using CURRENT term data:', selectedTermToUse);
+    //             displayName = currentTermResult.name || 'Unknown';
+    //             displayExamNumber = currentTermResult.examNumber || 'N/A';
+    //             displayGrade = className;
+
+    //             // Get attendance
+    //             try {
+    //                 const attData = await fetchStudentAttendanceRate(studentId);
+    //                 if (attData) {
+    //                     displayAttendance = Math.round(attData.attendanceRate || 0);
+    //                 }
+    //             } catch (e) { }
+
+    //             // Calculate marks
+    //             let totalScore = 0;
+    //             let subjectCount = 0;
+    //             displaySubjectBreakdown = [];
+
+    //             // Calculate class averages
+    //             const subjectAverages: { [key: string]: { total: number; count: number } } = {};
+    //             classStudents.forEach(cr => {
+    //                 cr.subjects.forEach(subject => {
+    //                     const score = calculateSubjectScore(subject);
+    //                     if (score > 0) {
+    //                         if (!subjectAverages[subject.name]) {
+    //                             subjectAverages[subject.name] = { total: 0, count: 0 };
+    //                         }
+    //                         subjectAverages[subject.name].total += score;
+    //                         subjectAverages[subject.name].count++;
+    //                     }
+    //                 });
+    //             });
+
+    //             const classAvgs: { [key: string]: number } = {};
+    //             Object.keys(subjectAverages).forEach(subjectName => {
+    //                 classAvgs[subjectName] = subjectAverages[subjectName].count > 0
+    //                     ? Math.round(subjectAverages[subjectName].total / subjectAverages[subjectName].count)
+    //                     : 0;
+    //             });
+
+    //             currentTermResult.subjects.forEach(subject => {
+    //                 const score = calculateSubjectScore(subject);
+    //                 const subjectName = subject.name || 'Unknown';
+    //                 const classAvg = classAvgs[subjectName] || 0;
+
+    //                 if (score > 0) {
+    //                     totalScore += score;
+    //                     subjectCount++;
+    //                     displaySubjectBreakdown.push({
+    //                         subject: subjectName,
+    //                         marks: Math.round(score),
+    //                         attendance: displayAttendance,
+    //                         classAvg: classAvg,
+    //                         gap: Math.round(score - classAvg),
+    //                         status: score < 50 ? 'Needs support' : 'On track'
+    //                     });
+    //                 }
+    //             });
+
+    //             displayMarks = subjectCount > 0 ? Math.round(totalScore / subjectCount) : 0;
+    //             displayFails = displaySubjectBreakdown.filter(s => s.marks < 50).length;
+
+    //         } else if (archiveForTerm) {
+    //             // ===== USE ARCHIVED DATA =====
+    //             console.log('📚 Using ARCHIVED data for:', selectedTermToUse);
+    //             const reportData = archiveForTerm.reportCardData;
+
+    //             if (reportData) {
+    //                 displayName = reportData.name || displayName;
+    //                 displayExamNumber = reportData.examNumber || displayExamNumber;
+    //                 displayGrade = reportData.class || className;
+
+    //                 // Get marks based on assessment type
+    //                 let marks = 0;
+    //                 if (assessmentType === 'qa1' && reportData.assessmentStats?.qa1) {
+    //                     marks = reportData.assessmentStats.qa1.termAverage || 0;
+    //                 } else if (assessmentType === 'qa2' && reportData.assessmentStats?.qa2) {
+    //                     marks = reportData.assessmentStats.qa2.termAverage || 0;
+    //                 } else if (assessmentType === 'endOfTerm' && reportData.assessmentStats?.endOfTerm) {
+    //                     marks = reportData.assessmentStats.endOfTerm.termAverage || 0;
+    //                 } else if (reportData.assessmentStats?.overall) {
+    //                     marks = reportData.assessmentStats.overall.termAverage || 0;
+    //                 }
+
+    //                 displayMarks = Math.round(marks);
+
+    //                 // Get attendance
+    //                 const att = reportData.attendance?.present && reportData.attendance?.totalSchoolDays
+    //                     ? Math.round((reportData.attendance.present / reportData.attendance.totalSchoolDays) * 100)
+    //                     : 0;
+    //                 displayAttendance = att;
+
+    //                 // Build subject breakdown
+    //                 displaySubjectBreakdown = [];
+    //                 reportData.subjects?.forEach((subject: any) => {
+    //                     let score = 0;
+    //                     if (assessmentType === 'qa1') score = subject.qa1 || 0;
+    //                     else if (assessmentType === 'qa2') score = subject.qa2 || 0;
+    //                     else if (assessmentType === 'endOfTerm') score = subject.endOfTerm || 0;
+    //                     else {
+    //                         const qa1 = subject.qa1 || 0;
+    //                         const qa2 = subject.qa2 || 0;
+    //                         const endTerm = subject.endOfTerm || 0;
+    //                         score = (qa1 + qa2 + endTerm) / 3;
+    //                     }
+
+    //                     if (score > 0) {
+    //                         displaySubjectBreakdown.push({
+    //                             subject: subject.name || 'Unknown',
+    //                             marks: Math.round(score),
+    //                             attendance: att,
+    //                             classAvg: 0,
+    //                             gap: 0,
+    //                             status: score < 50 ? 'Needs support' : 'On track'
+    //                         });
+    //                     }
+    //                 });
+
+    //                 displayFails = displaySubjectBreakdown.filter(s => s.marks < 50).length;
+    //                 if (displaySubjectBreakdown.length === 0 && reportData.subjects) {
+    //                     displayFails = reportData.subjects.filter((s: any) => s.grade === 'F' || s.grade === '9').length || 0;
+    //                 }
+    //             }
+    //         } else {
+    //             console.log('⚠️ No data found for term:', selectedTermToUse);
+    //         }
+
+    //         // ===== BUILD TIMELINE AND HISTORICAL =====
+    //         const historical: any[] = [];
+    //         const timeline: any[] = [];
+    //         const seenTerms = new Set<string>();
+
+    //         // Add selected term
+    //         historical.push({
+    //             term: selectedTermToUse || 'Current',
+    //             attendance: displayAttendance,
+    //             marks: displayMarks,
+    //             cat: 0,
+    //             exam: 0,
+    //             fails: displayFails,
+    //             status: displayMarks >= 50 ? 'Passing' : 'Failing'
+    //         });
+
+    //         timeline.push({
+    //             term: selectedTermToUse || 'Current',
+    //             marks: displayMarks,
+    //             attendance: displayAttendance
+    //         });
+
+    //         seenTerms.add(selectedTermToUse || 'Current');
+
+    //         // Add other archived terms
+    //         uniqueArchives.forEach(archive => {
+    //             const termName = archive.term?.split(',')[0]?.trim() || archive.term;
+    //             if (seenTerms.has(termName)) return;
+    //             seenTerms.add(termName);
+
+    //             const reportData = archive.reportCardData;
+    //             if (!reportData) return;
+
+    //             let marks = 0;
+    //             if (assessmentType === 'qa1' && reportData.assessmentStats?.qa1) {
+    //                 marks = reportData.assessmentStats.qa1.termAverage || 0;
+    //             } else if (assessmentType === 'qa2' && reportData.assessmentStats?.qa2) {
+    //                 marks = reportData.assessmentStats.qa2.termAverage || 0;
+    //             } else if (assessmentType === 'endOfTerm' && reportData.assessmentStats?.endOfTerm) {
+    //                 marks = reportData.assessmentStats.endOfTerm.termAverage || 0;
+    //             } else if (reportData.assessmentStats?.overall) {
+    //                 marks = reportData.assessmentStats.overall.termAverage || 0;
+    //             }
+
+    //             const att = reportData.attendance?.present && reportData.attendance?.totalSchoolDays
+    //                 ? Math.round((reportData.attendance.present / reportData.attendance.totalSchoolDays) * 100)
+    //                 : 0;
+
+    //             const fails = reportData.subjects?.filter((s: any) => s.grade === 'F' || s.grade === '9' || s.grade === 'AB').length || 0;
+
+    //             historical.push({
+    //                 term: archive.term,
+    //                 attendance: att,
+    //                 marks: Math.round(marks),
+    //                 cat: 0,
+    //                 exam: 0,
+    //                 fails: fails,
+    //                 status: marks >= 50 ? 'Passing' : 'Failing'
+    //             });
+
+    //             timeline.push({
+    //                 term: archive.term,
+    //                 marks: Math.round(marks),
+    //                 attendance: att
+    //             });
+    //         });
+
+    //         // Sort
+    //         const sortByTerm = (a: any, b: any) => {
+    //             const aNum = parseInt(a.term?.match(/\d+/)?.[0] || '0');
+    //             const bNum = parseInt(b.term?.match(/\d+/)?.[0] || '0');
+    //             return aNum - bNum;
+    //         };
+
+    //         historical.sort(sortByTerm);
+    //         timeline.sort(sortByTerm);
+
+    //         // Calculate term-over-term
+    //         let termOverTerm = 0;
+    //         if (historical.length >= 2) {
+    //             termOverTerm = historical[0].marks - historical[1].marks;
+    //         }
+
+    //         // ===== BUILD STUDENT DETAIL =====
+    //         const studentDetail: StudentDetail = {
+    //             id: studentId,
+    //             name: displayName,
+    //             examNumber: displayExamNumber,
+    //             grade: displayGrade,
+    //             classTeacher: 'Not Assigned',
+    //             status: displayMarks < 35 ? 'At-Risk (Critical)' :
+    //                 displayMarks < 45 ? 'At-Risk (High)' :
+    //                     displayMarks < 55 ? 'At-Risk (Medium)' : 'On Track',
+    //             currentMarks: displayMarks,
+    //             currentAttendance: displayAttendance,
+    //             termOverTerm: termOverTerm,
+    //             classRank: 'N/A',
+    //             timeline: timeline,
+    //             factorBreakdown: [
+    //                 {
+    //                     factor: `Academic Performance (${getAssessmentLabel()})`,
+    //                     studentValue: `${displayMarks}%`,
+    //                     classAvg: '0%',
+    //                     status: displayMarks < 50 ? 'Below Average' : 'On Track',
+    //                     impact: 'High'
+    //                 },
+    //                 {
+    //                     factor: 'Attendance',
+    //                     studentValue: `${displayAttendance}%`,
+    //                     classAvg: '0%',
+    //                     status: displayAttendance < 75 ? 'Below Average' : 'On Track',
+    //                     impact: 'Medium'
+    //                 }
+    //             ],
+    //             subjectBreakdown: displaySubjectBreakdown,
+    //             historical: historical,
+    //             recommendations: [
+    //                 ...(displayMarks < 50 ? [`Provide additional academic support and tutoring (${getAssessmentLabel()} marks below passing)`] : []),
+    //                 ...(displayAttendance < 75 ? ['Monitor attendance and follow up with parents'] : []),
+    //                 ...(displayMarks < 40 ? ['Schedule parent-teacher meeting to discuss progress'] : []),
+    //                 ...(displayMarks >= 50 && displayAttendance >= 75 ? ['Student is performing well. Continue current support.'] : [])
+    //             ]
+    //         };
+
+    //         setSelectedStudent(studentDetail);
+    //     } catch (error: any) {
+    //         console.error('Failed to load student details:', error);
+    //         showMessage(error.message || 'Failed to load student details', true);
+    //     } finally {
+    //         setLoadingStudent(false);
+    //     }
+    // };
+
+
+    // const loadStudentDetail = async (studentId: string, term?: string) => {
+    //     setLoadingStudent(true);
+    //     const selectedTermToUse = term || selectedTerm;
+
+    //     try {
+    //         // Find student in classResults
+    //         const studentResult = classResults.find(cr => cr.id === studentId);
+
+    //         if (!studentResult) {
+    //             showMessage('Student results not found', true);
+    //             setLoadingStudent(false);
+    //             return;
+    //         }
+
+    //         // Get the student's class name from the students array
+    //         const studentInfo = students.find(s => s.id === studentId);
+    //         const className = studentInfo?.class?.name || '';
+    //         const classId = studentInfo?.class?.id || '';
+
+    //         // Get all students in the same class to calculate class averages
+    //         const classStudents = classResults.filter(cr => {
+    //             const s = students.find(st => st.id === cr.id);
+    //             return s?.class?.id === classId;
+    //         });
+
+    //         // Get attendance data
+    //         let attendanceRate = 0;
+    //         try {
+    //             const attendanceData = await fetchStudentAttendanceRate(studentId);
+    //             if (attendanceData) {
+    //                 attendanceRate = attendanceData.attendanceRate || 0;
+    //             }
+    //         } catch (error) {
+    //             console.log('No attendance data for student');
+    //         }
+
+    //         // Helper: Calculate subject score based on assessment type
+    //         const calculateSubjectScore = (subject: any): number => {
+    //             if (assessmentType === 'qa1') return subject.qa1 || 0;
+    //             if (assessmentType === 'qa2') return subject.qa2 || 0;
+    //             if (assessmentType === 'endOfTerm') return subject.endOfTerm || 0;
+    //             // Overall
+    //             const qa1 = subject.qa1 || 0;
+    //             const qa2 = subject.qa2 || 0;
+    //             const endTerm = subject.endOfTerm || 0;
+    //             return (qa1 + qa2 + endTerm) / 3;
+    //         };
+
+    //         // Helper: Get assessment label
+    //         const getAssessmentLabel = (): string => {
+    //             if (assessmentType === 'qa1') return 'Test 1';
+    //             if (assessmentType === 'qa2') return 'Test 2';
+    //             if (assessmentType === 'endOfTerm') return 'End of Term';
+    //             return 'Overall';
+    //         };
+
+    //         // Calculate subject scores and class averages
+    //         let totalScore = 0;
+    //         let subjectCount = 0;
+    //         const subjectBreakdown: any[] = [];
+    //         const subjectAverages: { [key: string]: { total: number; count: number } } = {};
+
+    //         // First pass: collect all subject scores for class average calculation
+    //         classStudents.forEach(cr => {
+    //             cr.subjects.forEach(subject => {
+    //                 const score = calculateSubjectScore(subject);
+    //                 if (score > 0) {
+    //                     if (!subjectAverages[subject.name]) {
+    //                         subjectAverages[subject.name] = { total: 0, count: 0 };
+    //                     }
+    //                     subjectAverages[subject.name].total += score;
+    //                     subjectAverages[subject.name].count++;
+    //                 }
+    //             });
+    //         });
+
+    //         // Calculate class averages
+    //         const classAvgs: { [key: string]: number } = {};
+    //         Object.keys(subjectAverages).forEach(subjectName => {
+    //             classAvgs[subjectName] = subjectAverages[subjectName].count > 0
+    //                 ? Math.round(subjectAverages[subjectName].total / subjectAverages[subjectName].count)
+    //                 : 0;
+    //         });
+
+    //         // Second pass: build student's subject breakdown
+    //         studentResult.subjects.forEach(subject => {
+    //             const score = calculateSubjectScore(subject);
+    //             const subjectName = subject.name || 'Unknown';
+    //             const classAvg = classAvgs[subjectName] || 0;
+
+    //             if (score > 0) {
+    //                 totalScore += score;
+    //                 subjectCount++;
+
+    //                 subjectBreakdown.push({
+    //                     subject: subjectName,
+    //                     marks: Math.round(score),
+    //                     attendance: Math.round(attendanceRate),
+    //                     classAvg: classAvg,
+    //                     gap: Math.round(classAvg - score),
+    //                     status: score < 50 ? 'Needs support' : 'On track'
+    //                 });
+    //             }
+    //         });
+
+    //         const averageMarks = subjectCount > 0 ? Math.round(totalScore / subjectCount) : 0;
+
+    //         // Build historical data from all terms (archive)
+    //         // This would come from API - for now use current term
+    //         const historical = [];
+
+    //         // Add current term
+    //         historical.push({
+    //             term: selectedTermToUse || 'Current',
+    //             attendance: Math.round(attendanceRate),
+    //             marks: averageMarks,
+    //             cat: assessmentType === 'qa1' || assessmentType === 'qa2' ? averageMarks : Math.round(averageMarks * 0.6),
+    //             exam: assessmentType === 'endOfTerm' ? averageMarks : Math.round(averageMarks * 0.4),
+    //             fails: subjectBreakdown.filter(s => s.marks < 50).length,
+    //             status: averageMarks < 50 ? 'Failing' : 'Passing'
+    //         });
+
+    //         // Build timeline
+    //         const timeline = historical.map(record => ({
+    //             term: record.term,
+    //             marks: record.marks,
+    //             attendance: record.attendance
+    //         }));
+
+    //         // Calculate term-over-term change
+    //         const termOverTerm = historical.length > 1
+    //             ? historical[0].marks - historical[1].marks
+    //             : 0;
+
+    //         // Build student detail
+    //         const studentDetail: StudentDetail = {
+    //             id: studentId,
+    //             name: studentResult.name || 'Unknown',
+    //             examNumber: studentResult.examNumber || 'N/A',
+    //             grade: className,
+    //             classTeacher: 'Not Assigned',
+    //             status: averageMarks < 35 ? 'At-Risk (Critical)' :
+    //                 averageMarks < 45 ? 'At-Risk (High)' :
+    //                     averageMarks < 55 ? 'At-Risk (Medium)' : 'On Track',
+    //             currentMarks: averageMarks,
+    //             currentAttendance: Math.round(attendanceRate),
+    //             termOverTerm: termOverTerm,
+    //             classRank: 'N/A',
+    //             timeline: timeline,
+    //             factorBreakdown: [
+    //                 {
+    //                     factor: `Academic Performance (${getAssessmentLabel()})`,
+    //                     studentValue: `${averageMarks}%`,
+    //                     classAvg: `${Math.round(classStudents.reduce((acc, cr) => {
+    //                         let total = 0, count = 0;
+    //                         cr.subjects.forEach(s => {
+    //                             const score = calculateSubjectScore(s);
+    //                             if (score > 0) { total += score; count++; }
+    //                         });
+    //                         return acc + (count > 0 ? total / count : 0);
+    //                     }, 0) / (classStudents.length || 1))}%`,
+    //                     status: averageMarks < 50 ? 'Below Average' : 'On Track',
+    //                     impact: 'High'
+    //                 },
+    //                 {
+    //                     factor: 'Attendance',
+    //                     studentValue: `${Math.round(attendanceRate)}%`,
+    //                     classAvg: '0%',
+    //                     status: attendanceRate < 75 ? 'Below Average' : 'On Track',
+    //                     impact: 'Medium'
+    //                 }
+    //             ],
+    //             subjectBreakdown: subjectBreakdown,
+    //             historical: historical,
+    //             recommendations: [
+    //                 ...(averageMarks < 50 ? [`Provide additional academic support and tutoring (${getAssessmentLabel()} marks below passing)`] : []),
+    //                 ...(attendanceRate < 75 ? ['Monitor attendance and follow up with parents'] : []),
+    //                 ...(averageMarks < 40 ? ['Schedule parent-teacher meeting to discuss progress'] : []),
+    //                 ...(averageMarks >= 50 && attendanceRate >= 75 ? ['Student is performing well. Continue current support.'] : [])
+    //             ]
+    //         };
+
+    //         setSelectedStudent(studentDetail);
+    //     } catch (error: any) {
+    //         console.error('Failed to load student details:', error);
+    //         showMessage(error.message || 'Failed to load student details', true);
+    //     } finally {
+    //         setLoadingStudent(false);
+    //     }
+    // };
+    // const loadStudentDetail = async (studentId: string, term?: string) => {
+    //     setLoadingStudent(true);
+    //     const selectedTermToUse = term || selectedTerm;
+
+    //     try {
+    //         // Find student in classResults
+    //         const studentResult = classResults.find(cr => cr.id === studentId);
+
+    //         if (!studentResult) {
+    //             showMessage('Student results not found', true);
+    //             setLoadingStudent(false);
+    //             return;
+    //         }
+
+    //         // Get the student's class name from the students array
+    //         const studentInfo = students.find(s => s.id === studentId);
+    //         const className = studentInfo?.class?.name || '';
+    //         const classId = studentInfo?.class?.id || '';
+
+    //         // Get all students in the same class to calculate class averages
+    //         const classStudents = classResults.filter(cr => {
+    //             const s = students.find(st => st.id === cr.id);
+    //             return s?.class?.id === classId;
+    //         });
+
+    //         // Get attendance data
+    //         let attendanceRate = 0;
+    //         try {
+    //             const attendanceData = await fetchStudentAttendanceRate(studentId);
+    //             if (attendanceData) {
+    //                 attendanceRate = attendanceData.attendanceRate || 0;
+    //             }
+    //         } catch (error) {
+    //             console.log('No attendance data for student');
+    //         }
+
+    //         // Calculate marks per subject and class averages
+    //         let totalScore = 0;
+    //         let subjectCount = 0;
+    //         const subjectBreakdown: any[] = [];
+    //         const subjectAverages: { [key: string]: { total: number; count: number } } = {};
+
+    //         // First pass: collect all subject scores for class average calculation
+    //         classStudents.forEach(cr => {
+    //             cr.subjects.forEach(subject => {
+    //                 const score = calculateSubjectScore(subject);
+    //                 if (score > 0) {
+    //                     if (!subjectAverages[subject.name]) {
+    //                         subjectAverages[subject.name] = { total: 0, count: 0 };
+    //                     }
+    //                     subjectAverages[subject.name].total += score;
+    //                     subjectAverages[subject.name].count++;
+    //                 }
+    //             });
+    //         });
+
+    //         // Calculate class averages
+    //         const classAvgs: { [key: string]: number } = {};
+    //         Object.keys(subjectAverages).forEach(subjectName => {
+    //             classAvgs[subjectName] = subjectAverages[subjectName].count > 0
+    //                 ? Math.round(subjectAverages[subjectName].total / subjectAverages[subjectName].count)
+    //                 : 0;
+    //         });
+
+    //         // Second pass: build student's subject breakdown
+    //         studentResult.subjects.forEach(subject => {
+    //             const score = calculateSubjectScore(subject);
+    //             const subjectName = subject.name || 'Unknown';
+    //             const classAvg = classAvgs[subjectName] || 0;
+
+    //             if (score > 0) {
+    //                 totalScore += score;
+    //                 subjectCount++;
+
+    //                 subjectBreakdown.push({
+    //                     subject: subjectName,
+    //                     marks: Math.round(score),
+    //                     attendance: attendanceRate,
+    //                     classAvg: classAvg,
+    //                     gap: Math.round(classAvg - score),
+    //                     status: score < 50 ? 'Needs support' : 'On track'
+    //                 });
+    //             }
+    //         });
+
+    //         const averageMarks = subjectCount > 0 ? Math.round(totalScore / subjectCount) : 0;
+
+    //         // Helper function to calculate subject score
+    //         function calculateSubjectScore(subject: any): number {
+    //             if (assessmentType === 'qa1') return subject.qa1 || 0;
+    //             if (assessmentType === 'qa2') return subject.qa2 || 0;
+    //             if (assessmentType === 'endOfTerm') return subject.endOfTerm || 0;
+    //             const qa1 = subject.qa1 || 0;
+    //             const qa2 = subject.qa2 || 0;
+    //             const endTerm = subject.endOfTerm || 0;
+    //             return (qa1 + qa2 + endTerm) / 3;
+    //         }
+
+    //         // Build historical data from all terms (if available)
+    //         // For now, we'll use the current term data
+    //         const historical = [];
+
+    //         // Add current term as historical data
+    //         historical.push({
+    //             term: selectedTermToUse || 'Current',
+    //             attendance: Math.round(attendanceRate),
+    //             marks: averageMarks,
+    //             cat: assessmentType === 'qa1' || assessmentType === 'qa2' ? averageMarks : Math.round(averageMarks * 0.6),
+    //             exam: assessmentType === 'endOfTerm' ? averageMarks : Math.round(averageMarks * 0.4),
+    //             fails: subjectBreakdown.filter(s => s.marks < 50).length,
+    //             status: averageMarks < 50 ? 'Failing' : 'Passing'
+    //         });
+
+    //         // Build timeline from historical data
+    //         const timeline = historical.map(record => ({
+    //             term: record.term,
+    //             marks: record.marks,
+    //             attendance: record.attendance
+    //         }));
+
+    //         // Calculate term-over-term change
+    //         const termOverTerm = historical.length > 1
+    //             ? historical[0].marks - historical[1].marks
+    //             : 0;
+
+    //         // Build student detail
+    //         const studentDetail: StudentDetail = {
+    //             id: studentId,
+    //             name: studentResult.name || 'Unknown',
+    //             examNumber: studentResult.examNumber || 'N/A',
+    //             grade: className,
+    //             classTeacher: 'Not Assigned',
+    //             status: averageMarks < 35 ? 'At-Risk (Critical)' :
+    //                 averageMarks < 45 ? 'At-Risk (High)' :
+    //                     averageMarks < 55 ? 'At-Risk (Medium)' : 'On Track',
+    //             currentMarks: averageMarks,
+    //             currentAttendance: Math.round(attendanceRate),
+    //             termOverTerm: termOverTerm,
+    //             classRank: 'N/A',
+    //             timeline: timeline,
+    //             factorBreakdown: [
+    //                 {
+    //                     factor: 'Academic Performance',
+    //                     studentValue: `${averageMarks}%`,
+    //                     classAvg: `${Math.round(classStudents.reduce((acc, cr) => {
+    //                         let total = 0, count = 0;
+    //                         cr.subjects.forEach(s => {
+    //                             const score = calculateSubjectScore(s);
+    //                             if (score > 0) { total += score; count++; }
+    //                         });
+    //                         return acc + (count > 0 ? total / count : 0);
+    //                     }, 0) / (classStudents.length || 1))}%`,
+    //                     status: averageMarks < 50 ? 'Below Average' : 'On Track',
+    //                     impact: 'High'
+    //                 },
+    //                 {
+    //                     factor: 'Attendance',
+    //                     studentValue: `${Math.round(attendanceRate)}%`,
+    //                     classAvg: '0%',
+    //                     status: attendanceRate < 75 ? 'Below Average' : 'On Track',
+    //                     impact: 'Medium'
+    //                 }
+    //             ],
+    //             subjectBreakdown: subjectBreakdown,
+    //             historical: historical,
+    //             recommendations: [
+    //                 ...(averageMarks < 50 ? ['Provide additional academic support and tutoring'] : []),
+    //                 ...(attendanceRate < 75 ? ['Monitor attendance and follow up with parents'] : []),
+    //                 ...(averageMarks < 40 ? ['Schedule parent-teacher meeting to discuss progress'] : []),
+    //                 ...(averageMarks >= 50 && attendanceRate >= 75 ? ['Student is performing well. Continue current support.'] : [])
+    //             ]
+    //         };
+
+    //         setSelectedStudent(studentDetail);
+    //     } catch (error: any) {
+    //         console.error('Failed to load student details:', error);
+    //         showMessage(error.message || 'Failed to load student details', true);
+    //     } finally {
+    //         setLoadingStudent(false);
+    //     }
+    // };
+
+
 
     // Load Compare Data
     const loadCompareData = async () => {
@@ -278,11 +1547,99 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
 
     // Load Grade Students
     const loadGradeStudents = async (gradeName: string) => {
-        if (!selectedTerm) return;
         setLoadingGradeStudents(true);
         try {
-            const studentsList = await fetchGradeStudents(gradeName, selectedTerm);
-            setGradeStudents(studentsList);
+            // Filter students by class name
+            const filteredStudents = students.filter(s => s.class?.name === gradeName);
+
+            // Calculate performance data for each student using classResults
+            const studentsWithData = await Promise.all(filteredStudents.map(async (student) => {
+                // Find the student's results
+                const results = classResults.find(cr => cr.id === student.id);
+
+                // ===== FETCH REAL ATTENDANCE DATA =====
+                let attendanceRate = 0;
+                let presentCount = 0;
+                let totalDays = 0;
+
+                try {
+                    const attendanceData = await fetchStudentAttendanceRate(student.id);
+                    if (attendanceData) {
+                        attendanceRate = attendanceData.attendanceRate || 0;
+                        presentCount = attendanceData.presentCount || 0;
+                        totalDays = attendanceData.totalDays || 0;
+                    }
+                } catch (error) {
+                    console.log(`No attendance data for ${student.name}`);
+                }
+
+                if (!results) {
+                    return {
+                        ...student,
+                        attendance: attendanceRate,
+                        presentDays: presentCount,
+                        totalDays: totalDays,
+                        catScore: 0,
+                        currentMarks: 0,
+                        fails: 0,
+                        passed: 0,
+                        riskLevel: 'low'
+                    };
+                }
+
+                // Calculate average score across subjects
+                let totalScore = 0;
+                let subjectCount = 0;
+                let failedSubjects = 0;
+                let passedSubjects = 0;
+
+                results.subjects.forEach(subject => {
+                    let score = 0;
+                    if (assessmentType === 'qa1') score = subject.qa1 || 0;
+                    else if (assessmentType === 'qa2') score = subject.qa2 || 0;
+                    else if (assessmentType === 'endOfTerm') score = subject.endOfTerm || 0;
+                    else {
+                        const qa1 = subject.qa1 || 0;
+                        const qa2 = subject.qa2 || 0;
+                        const endTerm = subject.endOfTerm || 0;
+                        score = (qa1 + qa2 + endTerm) / 3;
+                    }
+
+                    if (score > 0) {
+                        totalScore += score;
+                        subjectCount++;
+                        // Check if subject is failed
+                        const grade = calculateGrade(score, activeConfig?.pass_mark, false, gradeName);
+                        if (grade === 'F' || grade === '9') {
+                            failedSubjects++;
+                        } else {
+                            passedSubjects++;
+                        }
+                    }
+                });
+
+                const avgScore = subjectCount > 0 ? totalScore / subjectCount : 0;
+
+                // Determine risk level
+                let riskLevel = 'low';
+                if (avgScore < 35 || failedSubjects >= 3) riskLevel = 'critical';
+                else if (avgScore < 45 || failedSubjects >= 2) riskLevel = 'high';
+                else if (avgScore < 55) riskLevel = 'medium';
+
+                return {
+                    ...student,
+                    attendance: attendanceRate,        // ← REAL ATTENDANCE RATE (%)
+                    presentDays: presentCount,          // ← Days present
+                    totalDays: totalDays,               // ← Total school days
+                    catScore: Math.round(avgScore),
+                    currentMarks: Math.round(avgScore),
+                    fails: failedSubjects,
+                    passed: passedSubjects,
+                    riskLevel: riskLevel
+                };
+            }));
+
+            setGradeStudents(studentsWithData);
         } catch (error: any) {
             console.error('Failed to load grade students:', error);
             showMessage(error.message || 'Failed to load grade students', true);
@@ -290,6 +1647,90 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
             setLoadingGradeStudents(false);
         }
     };
+    // const loadGradeStudents = async (gradeName: string) => {
+    //     setLoadingGradeStudents(true);
+    //     try {
+    //         // Filter students by class name
+    //         const filteredStudents = students.filter(s => s.class?.name === gradeName);
+
+    //         // Calculate performance data for each student using classResults
+    //         const studentsWithData = filteredStudents.map(student => {
+    //             // Find the student's results
+    //             const results = classResults.find(cr => cr.id === student.id);
+
+    //             if (!results) {
+    //                 return {
+    //                     ...student,
+    //                     attendance: 0,
+    //                     catScore: 0,
+    //                     currentMarks: 0,
+    //                     fails: 0,
+    //                     passed: 0,
+    //                     riskLevel: 'low'
+    //                 };
+    //             }
+
+    //             // Calculate average score across subjects
+    //             let totalScore = 0;
+    //             let subjectCount = 0;
+    //             let failedSubjects = 0;
+    //             let passedSubjects = 0;
+
+    //             results.subjects.forEach(subject => {
+    //                 let score = 0;
+    //                 if (assessmentType === 'qa1') score = subject.qa1 || 0;
+    //                 else if (assessmentType === 'qa2') score = subject.qa2 || 0;
+    //                 else if (assessmentType === 'endOfTerm') score = subject.endOfTerm || 0;
+    //                 else {
+    //                     const qa1 = subject.qa1 || 0;
+    //                     const qa2 = subject.qa2 || 0;
+    //                     const endTerm = subject.endOfTerm || 0;
+    //                     score = (qa1 + qa2 + endTerm) / 3;
+    //                 }
+
+    //                 if (score > 0) {
+    //                     totalScore += score;
+    //                     subjectCount++;
+    //                     // Check if subject is failed
+    //                     const grade = calculateGrade(score, activeConfig?.pass_mark, false, gradeName);
+    //                     if (grade === 'F' || grade === '9') {
+    //                         failedSubjects++;
+    //                     } else {
+    //                         passedSubjects++;
+    //                     }
+    //                 }
+    //             });
+
+    //             const avgScore = subjectCount > 0 ? totalScore / subjectCount : 0;
+
+    //             // Determine risk level
+    //             let riskLevel = 'low';
+    //             if (avgScore < 35 || failedSubjects >= 3) riskLevel = 'critical';
+    //             else if (avgScore < 45 || failedSubjects >= 2) riskLevel = 'high';
+    //             else if (avgScore < 55) riskLevel = 'medium';
+
+    //             return {
+    //                 ...student,
+    //                 attendance: 80 + Math.random() * 15, // Simulated
+    //                 catScore: Math.round(avgScore),
+    //                 currentMarks: Math.round(avgScore),
+    //                 fails: failedSubjects,
+    //                 passed: passedSubjects,  // ← ADD THIS
+    //                 riskLevel: riskLevel
+    //             };
+    //         });
+
+    //         setGradeStudents(studentsWithData);
+    //     } catch (error: any) {
+    //         console.error('Failed to load grade students:', error);
+    //         showMessage(error.message || 'Failed to load grade students', true);
+    //     } finally {
+    //         setLoadingGradeStudents(false);
+    //     }
+    // };
+
+
+
 
     const handleViewStudent = (studentId: string) => {
         loadStudentDetail(studentId, selectedTerm);
@@ -413,13 +1854,13 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
 
     // Show data source indicator
     const DataSourceIndicator = () => {
-        const hasLocalData = classResults && classResults.length > 0;
+        const hasData = classResults && classResults.length > 0;
         return (
             <div className="text-right text-xs text-slate-400 mt-2">
-                {hasLocalData ? (
-                    <span className="text-green-600">✓ Using real data from {classResults.length} students</span>
+                {hasData ? (
+                    <span className="text-green-600">✓ Showing results for {classResults.length} students</span>
                 ) : (
-                    <span className="text-amber-600">⚠ Using sample data (no results found)</span>
+                    <span className="text-amber-600">⚠ Select a class and assessment type to view performance analysis</span>
                 )}
             </div>
         );
@@ -445,6 +1886,7 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
                         loadStudentDetail(selectedStudent.id, newTerm);
                     }}
                     availableTerms={availableTerms}
+                    assessmentType={assessmentType}
                 />
             );
         }
@@ -552,11 +1994,11 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
                     // ===== NEW: Pass assessment type change handler =====
                     onAssessmentTypeChange={handleAssessmentTypeChange}
                     assessmentType={assessmentType}
-                     calculateGrade={calculateGrade}
-                      activeConfig={activeConfig}
-                      students={students}
-                     classResults={classResults} 
-                      currentPassRates={currentPassRates}
+                    calculateGrade={calculateGrade}
+                    activeConfig={activeConfig}
+                    students={students}
+                    classResults={classResults}
+                    currentPassRates={currentPassRates}
 
                 />
             </div>

@@ -106,53 +106,61 @@ const GradeDrillDown: React.FC<GradeDrillDownProps> = ({
                             <tr>
                                 <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Student</th>
                                 <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Exam No</th>
-                                <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Attendance</th>
-                                <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">CAT Score</th>
-                                <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Current Marks</th>
-                                <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Failed Subjects</th>
+                                <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Average Score</th>
+                                <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Attendance</th>  {/* ← ADD THIS LINE */}
+                                <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Subjects Passed</th>
+                                <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Subjects Failed</th>
                                 <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Risk Level</th>
                                 <th className="text-left px-4 py-3 text-sm font-semibold text-slate-600">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {students.map((student) => (
-                                <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-4 py-3 font-medium text-slate-800">{student.name}</td>
-                                    <td className="px-4 py-3 font-mono text-sm text-indigo-600">{student.examNumber}</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`font-medium ${student.attendance < 60 ? 'text-red-600' : student.attendance < 75 ? 'text-yellow-600' : 'text-green-600'}`}>
-                                            {Math.round(student.attendance)}%
-                                        </span>
-                                        <div className="w-16 h-1 bg-slate-200 rounded-full mt-1 overflow-hidden">
-                                            <div className={`h-full rounded-full ${student.attendance < 60 ? 'bg-red-500' : student.attendance < 75 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${student.attendance}%` }} />
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span className={`font-medium ${student.catScore < 50 ? 'text-red-600' : student.catScore < 65 ? 'text-yellow-600' : 'text-green-600'}`}>
-                                            {Math.round(student.catScore)}%
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span className={`font-medium ${student.currentMarks < 50 ? 'text-red-600' : student.currentMarks < 65 ? 'text-yellow-600' : 'text-green-600'}`}>
-                                            {Math.round(student.currentMarks)}%
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${student.fails > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                            {student.fails}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3">{getRiskBadge(student.riskLevel)}</td>
-                                    <td className="px-4 py-3">
-                                        <button
-                                            onClick={() => onViewStudent(student.id)}
-                                            className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors"
-                                        >
-                                            View Profile
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {students.map((student) => {
+                                const passedCount = student.passed || 0;
+
+                                return (
+                                    <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-4 py-3 font-medium text-slate-800">{student.name}</td>
+                                        <td className="px-4 py-3 font-mono text-sm text-indigo-600">{student.examNumber}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`font-medium ${student.currentMarks < 50 ? 'text-red-600' : student.currentMarks < 65 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                                {Math.round(student.currentMarks)}%
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {student.attendance ? (
+                                                <span className={`font-medium ${student.attendance >= 90 ? 'text-emerald-600' :
+                                                        student.attendance >= 75 ? 'text-blue-600' :
+                                                            student.attendance >= 60 ? 'text-yellow-600' : 'text-red-600'
+                                                    }`}>
+                                                    {Math.round(student.attendance)}%
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-400 text-sm">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className="font-medium text-emerald-600">
+                                                {passedCount}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`font-medium ${student.fails > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                {student.fails}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3">{getRiskBadge(student.riskLevel)}</td>
+                                        <td className="px-4 py-3">
+                                            <button
+                                                onClick={() => onViewStudent(student.id)}
+                                                className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors"
+                                            >
+                                                View Profile
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

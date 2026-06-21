@@ -1366,3 +1366,31 @@ export const fetchSubjectPerformance = async () => {
     return { qa1: [], qa2: [], endOfTerm: [] };
   }
 };
+/**
+ * Fetch archived results for a specific student
+ * Gets all archived report cards for a student across all terms
+ */
+export const fetchStudentArchivedResults = async (studentId: string) => {
+  const schoolId = getSchoolId();
+
+  try {
+    const url = `${API_BASE_URL}/api/classes/student-report-archives?schoolId=${schoolId}`;
+
+    const res = await fetch(url, {
+      headers: authHeaders()
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) return [];
+      throw new Error('Failed to fetch student archived results');
+    }
+
+    const data = await res.json();
+
+    // Filter archives by studentId
+    return data.filter((archive: any) => archive.studentId === studentId);
+  } catch (error) {
+    console.error('Error fetching student archived results:', error);
+    return [];
+  }
+};

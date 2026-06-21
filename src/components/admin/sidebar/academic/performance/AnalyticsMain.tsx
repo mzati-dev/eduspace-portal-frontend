@@ -402,7 +402,7 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                     <Trophy className="w-5 h-5 text-amber-500" />
-                    Grade/Class Performance Ranking
+                    Class Performance Ranking
                     {selectedClassFilter !== 'all' && (
                         <span className="text-sm font-normal text-indigo-600 ml-2">(Filtered)</span>
                     )}

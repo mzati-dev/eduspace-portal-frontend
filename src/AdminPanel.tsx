@@ -1585,6 +1585,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                         loadClassResults={loadClassResults}
                         setSelectedClassForResults={setSelectedClassForResults}
                         setAssessmentType={setActiveAssessmentType}
+                        archivedResults={archivedResults}
                     />
                 ) : activeMainMenu === 'timetable' ? (
                     <TimetableManagement
