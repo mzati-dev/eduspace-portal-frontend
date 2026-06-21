@@ -607,9 +607,16 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
             historical.sort(sortByTerm);
             timeline.sort(sortByTerm);
 
+            // let termOverTerm = 0;
+            // if (historical.length >= 2) {
+            //     termOverTerm = historical[0].marks - historical[1].marks;
+            // }
             let termOverTerm = 0;
             if (historical.length >= 2) {
-                termOverTerm = historical[0].marks - historical[1].marks;
+                // Get the last two terms (most recent and previous)
+                const currentIndex = historical.length - 1;
+                const previousIndex = historical.length - 2;
+                termOverTerm = historical[currentIndex].marks - historical[previousIndex].marks;
             }
 
             // ===== CALCULATE CLASS RANK =====
@@ -764,7 +771,10 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
                 name: displayName,
                 examNumber: displayExamNumber,
                 grade: displayGrade,
-                classTeacher: 'Not Assigned',
+                classTeacher: (() => {
+                    const classObj = classes.find(c => c.id === studentInfo?.class?.id);
+                    return classObj?.classTeacher?.name || 'Not Assigned';
+                })(),
                 status: displayMarks < 35 ? 'At-Risk (Critical)' :
                     displayMarks < 45 ? 'At-Risk (High)' :
                         displayMarks < 55 ? 'At-Risk (Medium)' : 'On Track',

@@ -243,7 +243,7 @@ const StudentDrillDown: React.FC<StudentDrillDownProps> = ({
                                 <div key={idx} className="flex-1 flex flex-col items-center px-2">
                                     <div
                                         className="w-full bg-indigo-500 rounded-t transition-all duration-500 hover:bg-indigo-600"
-                                        style={{ height: `${Math.min(point.marks * 1.5, 100)}px`, maxHeight: '100px' }}
+                                        style={{ height: `${Math.max(10, point.marks * 1.2)}px` }}
                                     />
                                     <span className="text-xs text-slate-500 mt-2">{point.term}</span>
                                     <span className="text-xs font-medium">{point.marks}%</span>

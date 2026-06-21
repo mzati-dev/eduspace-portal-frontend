@@ -506,17 +506,17 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                 </h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50">
-                            <tr>
-                                <th className="text-left px-3 py-2">Student</th>
-                                <th className="text-left px-3 py-2">Grade</th>
-                                <th className="text-left px-3 py-2">Att</th>
-                                <th className="text-left px-3 py-2">CAT</th>
-                                <th className="text-left px-3 py-2">Fails</th>
-                                <th className="text-left px-3 py-2">Prev Drop</th>
-                                <th className="text-left px-3 py-2">Risk Level</th>
-                            </tr>
-                        </thead>
+                      <thead className="bg-slate-50">
+    <tr>
+        <th className="text-left px-3 py-2">Student</th>
+        <th className="text-left px-3 py-2">Grade</th>
+        <th className="text-left px-3 py-2">Attendance</th>
+        <th className="text-left px-3 py-2">Average Score</th>
+        <th className="text-left px-3 py-2">Failed Subjects</th>
+        <th className="text-left px-3 py-2">Performance Drop</th>
+        <th className="text-left px-3 py-2">Risk Level</th>
+    </tr>
+</thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredRiskStudents.map(student => (
                                 <tr key={student.id} className="hover:bg-slate-50">
@@ -549,7 +549,138 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
             </div>
 
             {/* Top Performers Section */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            {/* Top Performers Section */}
+<div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+        <Trophy className="w-5 h-5 text-amber-500" />
+        Top Performers
+        {selectedClassFilter !== 'all' && (
+            <span className="text-xs font-normal text-indigo-600 ml-2">(Filtered)</span>
+        )}
+    </h3>
+    <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+            <thead className="bg-slate-50">
+                <tr>
+                    <th className="text-left px-3 py-2">Rank</th>
+                    <th className="text-left px-3 py-2">Student Name</th>
+                    <th className="text-left px-3 py-2">Average Score</th>
+                    <th className="text-left px-3 py-2">Grade</th>
+                    <th className="text-left px-3 py-2">Action</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+                {(() => {
+                    // Filter classResults by selected class
+                    const filteredClassResults = selectedClassFilter !== 'all'
+                        ? classResults.filter(student => {
+                            const studentInfo = students.find(s => s.id === student.id);
+                            return studentInfo?.class?.id === selectedClassFilter;
+                        })
+                        : classResults;
+
+                    const studentAverages = filteredClassResults.map(student => {
+                        let totalScore = 0;
+                        let subjectCount = 0;
+
+                        student.subjects.forEach(subject => {
+                            let score = 0;
+                            let isAbsent = false;
+
+                            if (assessmentType === 'qa1') {
+                                score = subject.qa1 || 0;
+                                isAbsent = subject.qa1_absent || false;
+                            } else if (assessmentType === 'qa2') {
+                                score = subject.qa2 || 0;
+                                isAbsent = subject.qa2_absent || false;
+                            } else if (assessmentType === 'endOfTerm') {
+                                score = subject.endOfTerm || 0;
+                                isAbsent = subject.endOfTerm_absent || false;
+                            } else {
+                                const qa1 = subject.qa1 || 0;
+                                const qa2 = subject.qa2 || 0;
+                                const endTerm = subject.endOfTerm || 0;
+                                score = (qa1 + qa2 + endTerm) / 3;
+                                isAbsent = subject.qa1_absent || subject.qa2_absent || subject.endOfTerm_absent;
+                            }
+
+                            // Count ALL subjects (including absent) for the average
+                            // This matches the class results table behavior
+                            if (isAbsent) {
+                                // Absent counts as 0
+                                totalScore += 0;
+                                subjectCount++;
+                            } else if (score !== null && score >= 0) {
+                                totalScore += score;
+                                subjectCount++;
+                            }
+                        });
+
+                        return {
+                            id: student.id,
+                            name: student.name,
+                            average: subjectCount > 0 ? totalScore / subjectCount : 0
+                        };
+                    });
+
+                    const topStudents = studentAverages
+                        .filter(s => s.average > 0)
+                        .sort((a, b) => b.average - a.average)
+                        .slice(0, 5);
+
+                    if (topStudents.length === 0) {
+                        return (
+                            <tr>
+                                <td colSpan={5} className="text-center py-4 text-slate-500">
+                                    No scores available
+                                </td>
+                            </tr>
+                        );
+                    }
+
+                    return topStudents.map((student, index) => {
+                        let grade = 'F';
+                        if (student.average >= 80) grade = 'A';
+                        else if (student.average >= 70) grade = 'B';
+                        else if (student.average >= 60) grade = 'C';
+                        else if (student.average >= 50) grade = 'D';
+
+                        return (
+                            <tr key={student.id} className="hover:bg-slate-50">
+                                <td className="px-3 py-2 font-bold text-slate-400">
+                                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                                </td>
+                                <td className="px-3 py-2 font-medium text-slate-800">{student.name}</td>
+                                <td className="px-3 py-2 font-medium text-green-600">{student.average.toFixed(1)}%</td>
+                                <td className="px-3 py-2">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                        grade === 'A' ? 'bg-emerald-100 text-emerald-700' :
+                                        grade === 'B' ? 'bg-blue-100 text-blue-700' :
+                                        grade === 'C' ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-red-100 text-red-700'
+                                    }`}>
+                                        {grade}
+                                    </span>
+                                </td>
+                                <td className="px-3 py-2">
+                                    <button
+                                        onClick={() => onViewStudent(student.id)}
+                                        className="px-3 py-1.5 text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-md flex items-center gap-1 transition-colors"
+                                    >
+                                        <Eye className="w-3 h-3" />
+                                        View Student
+                                    </button>
+                                </td>
+                            </tr>
+                        );
+                    });
+                })()}
+            </tbody>
+        </table>
+    </div>
+    <p className="text-xs text-slate-400 mt-3">👆 Click any student name to view detailed profile</p>
+</div>
+            {/* <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                     <Trophy className="w-5 h-5 text-amber-500" />
                     Top Performers
@@ -644,7 +775,7 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                     </table>
                 </div>
                 <p className="text-xs text-slate-400 mt-3">👆 Click any student name to view detailed profile</p>
-            </div>
+            </div> */}
 
             {/* Subject Difficulty Ranking & Exam Gap */}
             <div className="grid grid-cols-1 gap-6">
