@@ -126,21 +126,61 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
     const loadTerms = async () => {
         try {
             const terms = await fetchTerms();
-            setAvailableTerms(terms);
-            if (terms.length > 0) {
-                setSelectedTerm(terms[0].value);
-                if (terms.length >= 2) {
-                    setCompareTerm1(terms[0].value);
-                    setCompareTerm2(terms[1].value);
+
+            // Sort: Most recent first
+            const sortedTerms = [...terms].sort((a, b) => {
+                // Extract year (the first 4 digits)
+                const yearA = parseInt(a.label.match(/\d{4}/)?.[0] || '0');
+                const yearB = parseInt(b.label.match(/\d{4}/)?.[0] || '0');
+
+                // Most recent year first
+                if (yearA !== yearB) {
+                    return yearB - yearA;
+                }
+
+                // Same year: Term 3 > Term 2 > Term 1
+                const termA = parseInt(a.label.match(/Term (\d+)/)?.[1] || '0');
+                const termB = parseInt(b.label.match(/Term (\d+)/)?.[1] || '0');
+                return termB - termA;
+            });
+
+            setAvailableTerms(sortedTerms);
+
+            if (sortedTerms.length > 0) {
+                // Now terms[0] is the most recent term (current)
+                setSelectedTerm(sortedTerms[0].value);
+
+                if (sortedTerms.length >= 2) {
+                    setCompareTerm1(sortedTerms[0].value);
+                    setCompareTerm2(sortedTerms[1].value);
                 } else {
-                    setCompareTerm1(terms[0].value);
-                    setCompareTerm2(terms[0].value);
+                    setCompareTerm1(sortedTerms[0].value);
+                    setCompareTerm2(sortedTerms[0].value);
                 }
             }
         } catch (error) {
             console.error('Failed to load terms:', error);
         }
     };
+
+    // const loadTerms = async () => {
+    //     try {
+    //         const terms = await fetchTerms();
+    //         setAvailableTerms(terms);
+    //         if (terms.length > 0) {
+    //             setSelectedTerm(terms[0].value);
+    //             if (terms.length >= 2) {
+    //                 setCompareTerm1(terms[0].value);
+    //                 setCompareTerm2(terms[1].value);
+    //             } else {
+    //                 setCompareTerm1(terms[0].value);
+    //                 setCompareTerm2(terms[0].value);
+    //             }
+    //         }
+    //     } catch (error) {
+    //         console.error('Failed to load terms:', error);
+    //     }
+    // };
 
     useEffect(() => {
         if (propSchoolLevel) {
