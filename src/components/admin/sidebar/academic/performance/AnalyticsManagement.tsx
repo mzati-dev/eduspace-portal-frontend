@@ -1595,99 +1595,213 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
         }
     };
 
-    // Load Grade Students
-    const loadGradeStudents = async (gradeName: string) => {
+    const loadGradeStudents = async (gradeName: string, term?: string) => {
         setLoadingGradeStudents(true);
+        const selectedTermToUse = term || selectedTerm;
+
         try {
             // Filter students by class name
             const filteredStudents = students.filter(s => s.class?.name === gradeName);
+            const classObj = classes.find(c => c.name === gradeName);
+            const classId = classObj?.id;
+            const currentTermName = classObj?.term || '';
 
-            // Calculate performance data for each student using classResults
-            const studentsWithData = await Promise.all(filteredStudents.map(async (student) => {
-                // Find the student's results
-                const results = classResults.find(cr => cr.id === student.id);
+            // Extract term name (remove year)
+            const selectedTermName = selectedTermToUse?.split(',')[0]?.trim() || selectedTermToUse;
+            const currentTermNameOnly = currentTermName?.split(',')[0]?.trim() || currentTermName;
 
-                // ===== FETCH REAL ATTENDANCE DATA =====
-                let attendanceRate = 0;
-                let presentCount = 0;
-                let totalDays = 0;
+            console.log('📌 Selected term name:', selectedTermName);
+            console.log('📌 Current term name:', currentTermNameOnly);
 
-                try {
-                    const attendanceData = await fetchStudentAttendanceRate(student.id);
-                    if (attendanceData) {
-                        attendanceRate = attendanceData.attendanceRate || 0;
-                        presentCount = attendanceData.presentCount || 0;
-                        totalDays = attendanceData.totalDays || 0;
+            // Determine if selected term is current or archived
+            const isCurrentTerm = selectedTermName === currentTermNameOnly;
+
+            let studentsWithData = [];
+
+            if (isCurrentTerm) {
+                // ===== USE CURRENT TERM DATA =====
+                console.log('📊 Using CURRENT term data for grade:', gradeName);
+                studentsWithData = await Promise.all(filteredStudents.map(async (student) => {
+                    const results = classResults.find(cr => cr.id === student.id);
+
+                    let attendanceRate = 0;
+                    let presentCount = 0;
+                    let totalDays = 0;
+
+                    try {
+                        const attendanceData = await fetchStudentAttendanceRate(student.id);
+                        if (attendanceData) {
+                            attendanceRate = attendanceData.attendanceRate || 0;
+                            presentCount = attendanceData.presentCount || 0;
+                            totalDays = attendanceData.totalDays || 0;
+                        }
+                    } catch (error) {
+                        console.log(`No attendance data for ${student.name}`);
                     }
-                } catch (error) {
-                    console.log(`No attendance data for ${student.name}`);
-                }
 
-                if (!results) {
+                    if (!results) {
+                        return {
+                            ...student,
+                            attendance: attendanceRate,
+                            presentDays: presentCount,
+                            totalDays: totalDays,
+                            catScore: 0,
+                            currentMarks: 0,
+                            fails: 0,
+                            passed: 0,
+                            riskLevel: 'low'
+                        };
+                    }
+
+                    let totalScore = 0;
+                    let subjectCount = 0;
+                    let failedSubjects = 0;
+                    let passedSubjects = 0;
+
+                    results.subjects.forEach(subject => {
+                        let score = 0;
+                        if (assessmentType === 'qa1') score = subject.qa1 || 0;
+                        else if (assessmentType === 'qa2') score = subject.qa2 || 0;
+                        else if (assessmentType === 'endOfTerm') score = subject.endOfTerm || 0;
+                        else {
+                            const qa1 = subject.qa1 || 0;
+                            const qa2 = subject.qa2 || 0;
+                            const endTerm = subject.endOfTerm || 0;
+                            score = (qa1 + qa2 + endTerm) / 3;
+                        }
+
+                        if (score > 0) {
+                            totalScore += score;
+                            subjectCount++;
+                            const grade = calculateGrade(score, activeConfig?.pass_mark, false, gradeName);
+                            if (grade === 'F' || grade === '9') {
+                                failedSubjects++;
+                            } else {
+                                passedSubjects++;
+                            }
+                        }
+                    });
+
+                    const avgScore = subjectCount > 0 ? totalScore / subjectCount : 0;
+
+                    let riskLevel = 'low';
+                    if (avgScore < 35 || failedSubjects >= 3) riskLevel = 'critical';
+                    else if (avgScore < 45 || failedSubjects >= 2) riskLevel = 'high';
+                    else if (avgScore < 55) riskLevel = 'medium';
+
                     return {
                         ...student,
                         attendance: attendanceRate,
                         presentDays: presentCount,
                         totalDays: totalDays,
-                        catScore: 0,
-                        currentMarks: 0,
-                        fails: 0,
-                        passed: 0,
-                        riskLevel: 'low'
+                        catScore: Math.round(avgScore),
+                        currentMarks: Math.round(avgScore),
+                        fails: failedSubjects,
+                        passed: passedSubjects,
+                        riskLevel: riskLevel
                     };
-                }
+                }));
+            } else {
+                // ===== USE ARCHIVED DATA - PER STUDENT (WORKING APPROACH) =====
+                console.log('📚 Using ARCHIVED data for grade:', gradeName, 'term:', selectedTermToUse);
 
-                // Calculate average score across subjects
-                let totalScore = 0;
-                let subjectCount = 0;
-                let failedSubjects = 0;
-                let passedSubjects = 0;
+                // Use Promise.all with a limit to avoid too many concurrent requests
+                studentsWithData = await Promise.all(
+                    filteredStudents.map(async (student) => {
+                        try {
+                            // Fetch student's archived results
+                            const studentArchives = await fetchStudentArchivedResults(student.id);
 
-                results.subjects.forEach(subject => {
-                    let score = 0;
-                    if (assessmentType === 'qa1') score = subject.qa1 || 0;
-                    else if (assessmentType === 'qa2') score = subject.qa2 || 0;
-                    else if (assessmentType === 'endOfTerm') score = subject.endOfTerm || 0;
-                    else {
-                        const qa1 = subject.qa1 || 0;
-                        const qa2 = subject.qa2 || 0;
-                        const endTerm = subject.endOfTerm || 0;
-                        score = (qa1 + qa2 + endTerm) / 3;
-                    }
+                            // Find archive for this term
+                            const archiveForTerm = studentArchives.find(a => {
+                                const termName = a.term?.split(',')[0]?.trim() || a.term;
+                                return termName === selectedTermName;
+                            });
 
-                    if (score > 0) {
-                        totalScore += score;
-                        subjectCount++;
-                        // Check if subject is failed
-                        const grade = calculateGrade(score, activeConfig?.pass_mark, false, gradeName);
-                        if (grade === 'F' || grade === '9') {
-                            failedSubjects++;
-                        } else {
-                            passedSubjects++;
+                            if (archiveForTerm && archiveForTerm.reportCardData) {
+                                const reportData = archiveForTerm.reportCardData;
+
+                                let avgScore = 0;
+                                let failedSubjects = 0;
+                                let passedSubjects = 0;
+                                let attendanceRate = 0;
+
+                                // Get attendance
+                                if (reportData.attendance) {
+                                    attendanceRate = reportData.attendance.present && reportData.attendance.totalSchoolDays
+                                        ? Math.round((reportData.attendance.present / reportData.attendance.totalSchoolDays) * 100)
+                                        : 0;
+                                }
+
+                                // Calculate marks
+                                if (reportData.subjects && reportData.subjects.length > 0) {
+                                    let totalScore = 0;
+                                    let subjectCount = 0;
+
+                                    reportData.subjects.forEach((subject: any) => {
+                                        let score = 0;
+                                        let hasScore = false;
+
+                                        if (assessmentType === 'qa1') {
+                                            score = subject.qa1 || 0;
+                                            hasScore = subject.qa1 !== null && subject.qa1 !== undefined && subject.qa1 >= 0;
+                                        } else if (assessmentType === 'qa2') {
+                                            score = subject.qa2 || 0;
+                                            hasScore = subject.qa2 !== null && subject.qa2 !== undefined && subject.qa2 >= 0;
+                                        } else if (assessmentType === 'endOfTerm') {
+                                            score = subject.endOfTerm || 0;
+                                            hasScore = subject.endOfTerm !== null && subject.endOfTerm !== undefined && subject.endOfTerm >= 0;
+                                        } else {
+                                            const qa1 = subject.qa1 || 0;
+                                            const qa2 = subject.qa2 || 0;
+                                            const endTerm = subject.endOfTerm || 0;
+                                            score = (qa1 + qa2 + endTerm) / 3;
+                                            hasScore = (subject.qa1 !== null && subject.qa1 >= 0) ||
+                                                (subject.qa2 !== null && subject.qa2 >= 0) ||
+                                                (subject.endOfTerm !== null && subject.endOfTerm >= 0);
+                                        }
+
+                                        if (hasScore) {
+                                            totalScore += score;
+                                            subjectCount++;
+                                            const grade = calculateGrade(score, activeConfig?.pass_mark, false, gradeName);
+                                            if (grade === 'F' || grade === '9') {
+                                                failedSubjects++;
+                                            } else {
+                                                passedSubjects++;
+                                            }
+                                        }
+                                    });
+
+                                    avgScore = subjectCount > 0 ? totalScore / subjectCount : 0;
+                                }
+
+                                let riskLevel = 'low';
+                                if (avgScore < 35 || failedSubjects >= 3) riskLevel = 'critical';
+                                else if (avgScore < 45 || failedSubjects >= 2) riskLevel = 'high';
+                                else if (avgScore < 55) riskLevel = 'medium';
+
+                                return {
+                                    ...student,
+                                    attendance: attendanceRate,
+                                    currentMarks: Math.round(avgScore),
+                                    catScore: Math.round(avgScore),
+                                    fails: failedSubjects,
+                                    passed: passedSubjects,
+                                    riskLevel: riskLevel,
+                                    hasData: true
+                                };
+                            }
+                        } catch (error) {
+                            console.log(`No archive for student ${student.name}`);
                         }
-                    }
-                });
+                        return null;
+                    })
+                );
 
-                const avgScore = subjectCount > 0 ? totalScore / subjectCount : 0;
-
-                // Determine risk level
-                let riskLevel = 'low';
-                if (avgScore < 35 || failedSubjects >= 3) riskLevel = 'critical';
-                else if (avgScore < 45 || failedSubjects >= 2) riskLevel = 'high';
-                else if (avgScore < 55) riskLevel = 'medium';
-
-                return {
-                    ...student,
-                    attendance: attendanceRate,        // ← REAL ATTENDANCE RATE (%)
-                    presentDays: presentCount,          // ← Days present
-                    totalDays: totalDays,               // ← Total school days
-                    catScore: Math.round(avgScore),
-                    currentMarks: Math.round(avgScore),
-                    fails: failedSubjects,
-                    passed: passedSubjects,
-                    riskLevel: riskLevel
-                };
-            }));
+                // Filter out students with no data
+                studentsWithData = studentsWithData.filter(student => student !== null && student.hasData === true);
+            }
 
             setGradeStudents(studentsWithData);
         } catch (error: any) {
@@ -1697,6 +1811,329 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
             setLoadingGradeStudents(false);
         }
     };
+
+    // const loadGradeStudents = async (gradeName: string, term?: string) => {
+    //     setLoadingGradeStudents(true);
+    //     const selectedTermToUse = term || selectedTerm;
+
+    //     try {
+    //         // Filter students by class name
+    //         const filteredStudents = students.filter(s => s.class?.name === gradeName);
+    //         const classObj = classes.find(c => c.name === gradeName);
+    //         const classId = classObj?.id;
+    //         const currentTermName = classObj?.term || '';
+
+    //         // Extract term name (remove year) - SAME AS loadStudentDetail
+    //         const selectedTermName = selectedTermToUse?.split(',')[0]?.trim() || selectedTermToUse;
+    //         const currentTermNameOnly = currentTermName?.split(',')[0]?.trim() || currentTermName;
+
+    //         console.log('📌 Selected term name:', selectedTermName);
+    //         console.log('📌 Current term name:', currentTermNameOnly);
+
+    //         // Determine if selected term is current or archived - SAME AS loadStudentDetail
+    //         const isCurrentTerm = selectedTermName === currentTermNameOnly;
+
+    //         let studentsWithData = [];
+
+    //         if (isCurrentTerm) {
+    //             // ===== USE CURRENT TERM DATA - SAME AS BEFORE =====
+    //             console.log('📊 Using CURRENT term data for grade:', gradeName);
+    //             studentsWithData = await Promise.all(filteredStudents.map(async (student) => {
+    //                 const results = classResults.find(cr => cr.id === student.id);
+
+    //                 let attendanceRate = 0;
+    //                 let presentCount = 0;
+    //                 let totalDays = 0;
+
+    //                 try {
+    //                     const attendanceData = await fetchStudentAttendanceRate(student.id);
+    //                     if (attendanceData) {
+    //                         attendanceRate = attendanceData.attendanceRate || 0;
+    //                         presentCount = attendanceData.presentCount || 0;
+    //                         totalDays = attendanceData.totalDays || 0;
+    //                     }
+    //                 } catch (error) {
+    //                     console.log(`No attendance data for ${student.name}`);
+    //                 }
+
+    //                 if (!results) {
+    //                     return {
+    //                         ...student,
+    //                         attendance: attendanceRate,
+    //                         presentDays: presentCount,
+    //                         totalDays: totalDays,
+    //                         catScore: 0,
+    //                         currentMarks: 0,
+    //                         fails: 0,
+    //                         passed: 0,
+    //                         riskLevel: 'low'
+    //                     };
+    //                 }
+
+    //                 let totalScore = 0;
+    //                 let subjectCount = 0;
+    //                 let failedSubjects = 0;
+    //                 let passedSubjects = 0;
+
+    //                 results.subjects.forEach(subject => {
+    //                     let score = 0;
+    //                     if (assessmentType === 'qa1') score = subject.qa1 || 0;
+    //                     else if (assessmentType === 'qa2') score = subject.qa2 || 0;
+    //                     else if (assessmentType === 'endOfTerm') score = subject.endOfTerm || 0;
+    //                     else {
+    //                         const qa1 = subject.qa1 || 0;
+    //                         const qa2 = subject.qa2 || 0;
+    //                         const endTerm = subject.endOfTerm || 0;
+    //                         score = (qa1 + qa2 + endTerm) / 3;
+    //                     }
+
+    //                     if (score > 0) {
+    //                         totalScore += score;
+    //                         subjectCount++;
+    //                         const grade = calculateGrade(score, activeConfig?.pass_mark, false, gradeName);
+    //                         if (grade === 'F' || grade === '9') {
+    //                             failedSubjects++;
+    //                         } else {
+    //                             passedSubjects++;
+    //                         }
+    //                     }
+    //                 });
+
+    //                 const avgScore = subjectCount > 0 ? totalScore / subjectCount : 0;
+
+    //                 let riskLevel = 'low';
+    //                 if (avgScore < 35 || failedSubjects >= 3) riskLevel = 'critical';
+    //                 else if (avgScore < 45 || failedSubjects >= 2) riskLevel = 'high';
+    //                 else if (avgScore < 55) riskLevel = 'medium';
+
+    //                 return {
+    //                     ...student,
+    //                     attendance: attendanceRate,
+    //                     presentDays: presentCount,
+    //                     totalDays: totalDays,
+    //                     catScore: Math.round(avgScore),
+    //                     currentMarks: Math.round(avgScore),
+    //                     fails: failedSubjects,
+    //                     passed: passedSubjects,
+    //                     riskLevel: riskLevel
+    //                 };
+    //             }));
+    //         } else {
+    //             // ===== USE ARCHIVED DATA =====
+    //             console.log('📚 Using ARCHIVED data for grade:', gradeName, 'term:', selectedTermToUse);
+
+    //             // For each student, fetch their archived data
+    //             studentsWithData = await Promise.all(filteredStudents.map(async (student) => {
+    //                 try {
+    //                     // Fetch student's archived results
+    //                     const studentArchives = await fetchStudentArchivedResults(student.id);
+
+    //                     // Find archive for this term
+    //                     const archiveForTerm = studentArchives.find(a => {
+    //                         const termName = a.term?.split(',')[0]?.trim() || a.term;
+    //                         return termName === selectedTermName;
+    //                     });
+
+    //                     if (archiveForTerm && archiveForTerm.reportCardData) {
+    //                         const reportData = archiveForTerm.reportCardData;
+
+    //                         let avgScore = 0;
+    //                         let failedSubjects = 0;
+    //                         let passedSubjects = 0;
+    //                         let attendanceRate = 0;
+
+    //                         // Get attendance
+    //                         if (reportData.attendance) {
+    //                             attendanceRate = reportData.attendance.present && reportData.attendance.totalSchoolDays
+    //                                 ? Math.round((reportData.attendance.present / reportData.attendance.totalSchoolDays) * 100)
+    //                                 : 0;
+    //                         }
+
+    //                         // Calculate marks
+    //                         if (reportData.subjects && reportData.subjects.length > 0) {
+    //                             let totalScore = 0;
+    //                             let subjectCount = 0;
+
+    //                             reportData.subjects.forEach((subject: any) => {
+    //                                 let score = 0;
+    //                                 let hasScore = false;
+
+    //                                 if (assessmentType === 'qa1') {
+    //                                     score = subject.qa1 || 0;
+    //                                     hasScore = subject.qa1 !== null && subject.qa1 !== undefined && subject.qa1 >= 0;
+    //                                 } else if (assessmentType === 'qa2') {
+    //                                     score = subject.qa2 || 0;
+    //                                     hasScore = subject.qa2 !== null && subject.qa2 !== undefined && subject.qa2 >= 0;
+    //                                 } else if (assessmentType === 'endOfTerm') {
+    //                                     score = subject.endOfTerm || 0;
+    //                                     hasScore = subject.endOfTerm !== null && subject.endOfTerm !== undefined && subject.endOfTerm >= 0;
+    //                                 } else {
+    //                                     const qa1 = subject.qa1 || 0;
+    //                                     const qa2 = subject.qa2 || 0;
+    //                                     const endTerm = subject.endOfTerm || 0;
+    //                                     score = (qa1 + qa2 + endTerm) / 3;
+    //                                     hasScore = (subject.qa1 !== null && subject.qa1 >= 0) ||
+    //                                         (subject.qa2 !== null && subject.qa2 >= 0) ||
+    //                                         (subject.endOfTerm !== null && subject.endOfTerm >= 0);
+    //                                 }
+
+    //                                 if (hasScore) {
+    //                                     totalScore += score;
+    //                                     subjectCount++;
+    //                                     const grade = calculateGrade(score, activeConfig?.pass_mark, false, gradeName);
+    //                                     if (grade === 'F' || grade === '9') {
+    //                                         failedSubjects++;
+    //                                     } else {
+    //                                         passedSubjects++;
+    //                                     }
+    //                                 }
+    //                             });
+
+    //                             avgScore = subjectCount > 0 ? totalScore / subjectCount : 0;
+    //                         }
+
+    //                         let riskLevel = 'low';
+    //                         if (avgScore < 35 || failedSubjects >= 3) riskLevel = 'critical';
+    //                         else if (avgScore < 45 || failedSubjects >= 2) riskLevel = 'high';
+    //                         else if (avgScore < 55) riskLevel = 'medium';
+
+    //                         return {
+    //                             ...student,
+    //                             attendance: attendanceRate,
+    //                             currentMarks: Math.round(avgScore),
+    //                             catScore: Math.round(avgScore),
+    //                             fails: failedSubjects,
+    //                             passed: passedSubjects,
+    //                             riskLevel: riskLevel,
+    //                             hasData: true // ← Mark that this student has data
+    //                         };
+    //                     }
+    //                 } catch (error) {
+    //                     console.log(`No archive for student ${student.name}`);
+    //                 }
+
+    //                 // Return null if no archive found (will be filtered out)
+    //                 return null;
+    //             }));
+
+    //             // ← FILTER OUT students with no data
+    //             studentsWithData = studentsWithData.filter(student => student !== null && student.hasData === true);
+    //         }
+
+    //         setGradeStudents(studentsWithData);
+    //     } catch (error: any) {
+    //         console.error('Failed to load grade students:', error);
+    //         showMessage(error.message || 'Failed to load grade students', true);
+    //     } finally {
+    //         setLoadingGradeStudents(false);
+    //     }
+    // };
+
+
+    // Load Grade Students
+    // const loadGradeStudents = async (gradeName: string) => {
+    //     setLoadingGradeStudents(true);
+    //     try {
+    //         // Filter students by class name
+    //         const filteredStudents = students.filter(s => s.class?.name === gradeName);
+
+    //         // Calculate performance data for each student using classResults
+    //         const studentsWithData = await Promise.all(filteredStudents.map(async (student) => {
+    //             // Find the student's results
+    //             const results = classResults.find(cr => cr.id === student.id);
+
+    //             // ===== FETCH REAL ATTENDANCE DATA =====
+    //             let attendanceRate = 0;
+    //             let presentCount = 0;
+    //             let totalDays = 0;
+
+    //             try {
+    //                 const attendanceData = await fetchStudentAttendanceRate(student.id);
+    //                 if (attendanceData) {
+    //                     attendanceRate = attendanceData.attendanceRate || 0;
+    //                     presentCount = attendanceData.presentCount || 0;
+    //                     totalDays = attendanceData.totalDays || 0;
+    //                 }
+    //             } catch (error) {
+    //                 console.log(`No attendance data for ${student.name}`);
+    //             }
+
+    //             if (!results) {
+    //                 return {
+    //                     ...student,
+    //                     attendance: attendanceRate,
+    //                     presentDays: presentCount,
+    //                     totalDays: totalDays,
+    //                     catScore: 0,
+    //                     currentMarks: 0,
+    //                     fails: 0,
+    //                     passed: 0,
+    //                     riskLevel: 'low'
+    //                 };
+    //             }
+
+    //             // Calculate average score across subjects
+    //             let totalScore = 0;
+    //             let subjectCount = 0;
+    //             let failedSubjects = 0;
+    //             let passedSubjects = 0;
+
+    //             results.subjects.forEach(subject => {
+    //                 let score = 0;
+    //                 if (assessmentType === 'qa1') score = subject.qa1 || 0;
+    //                 else if (assessmentType === 'qa2') score = subject.qa2 || 0;
+    //                 else if (assessmentType === 'endOfTerm') score = subject.endOfTerm || 0;
+    //                 else {
+    //                     const qa1 = subject.qa1 || 0;
+    //                     const qa2 = subject.qa2 || 0;
+    //                     const endTerm = subject.endOfTerm || 0;
+    //                     score = (qa1 + qa2 + endTerm) / 3;
+    //                 }
+
+    //                 if (score > 0) {
+    //                     totalScore += score;
+    //                     subjectCount++;
+    //                     // Check if subject is failed
+    //                     const grade = calculateGrade(score, activeConfig?.pass_mark, false, gradeName);
+    //                     if (grade === 'F' || grade === '9') {
+    //                         failedSubjects++;
+    //                     } else {
+    //                         passedSubjects++;
+    //                     }
+    //                 }
+    //             });
+
+    //             const avgScore = subjectCount > 0 ? totalScore / subjectCount : 0;
+
+    //             // Determine risk level
+    //             let riskLevel = 'low';
+    //             if (avgScore < 35 || failedSubjects >= 3) riskLevel = 'critical';
+    //             else if (avgScore < 45 || failedSubjects >= 2) riskLevel = 'high';
+    //             else if (avgScore < 55) riskLevel = 'medium';
+
+    //             return {
+    //                 ...student,
+    //                 attendance: attendanceRate,        // ← REAL ATTENDANCE RATE (%)
+    //                 presentDays: presentCount,          // ← Days present
+    //                 totalDays: totalDays,               // ← Total school days
+    //                 catScore: Math.round(avgScore),
+    //                 currentMarks: Math.round(avgScore),
+    //                 fails: failedSubjects,
+    //                 passed: passedSubjects,
+    //                 riskLevel: riskLevel
+    //             };
+    //         }));
+
+    //         setGradeStudents(studentsWithData);
+    //     } catch (error: any) {
+    //         console.error('Failed to load grade students:', error);
+    //         showMessage(error.message || 'Failed to load grade students', true);
+    //     } finally {
+    //         setLoadingGradeStudents(false);
+    //     }
+    // };
+
+
     // const loadGradeStudents = async (gradeName: string) => {
     //     setLoadingGradeStudents(true);
     //     try {
@@ -1789,9 +2226,15 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
 
     const handleViewGrade = (gradeName: string) => {
         setSelectedGrade(gradeName);
-        loadGradeStudents(gradeName);
+        loadGradeStudents(gradeName, selectedTerm);
         setInternalView('grade');
     };
+
+    // const handleViewGrade = (gradeName: string) => {
+    //     setSelectedGrade(gradeName);
+    //     loadGradeStudents(gradeName);
+    //     setInternalView('grade');
+    // };
 
     const loadExamData = async () => {
         setLoadingExam(true);
@@ -1826,7 +2269,13 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
 
     const handleTermChange = (newTerm: string) => {
         setSelectedTerm(newTerm);
+        if (internalView === 'grade' && selectedGrade) {
+            loadGradeStudents(selectedGrade, newTerm);
+        }
     };
+    // const handleTermChange = (newTerm: string) => {
+    //     setSelectedTerm(newTerm);
+    // };
 
     // ===== NEW: Handle assessment type change from AnalyticsMain =====
     const handleAssessmentTypeChange = (type: 'qa1' | 'qa2' | 'endOfTerm' | 'overall') => {
@@ -1955,6 +2404,7 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
                     selectedTerm={selectedTerm}
                     availableTerms={availableTerms}
                     onTermChange={handleTermChange}
+                    loading={loadingGradeStudents}
                 />
             );
         }
