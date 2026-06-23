@@ -447,7 +447,7 @@ const AnalyticsMain: React.FC<AnalyticsMainProps> = ({
                                     <td className="px-4 py-3">
                                         <span className={`flex items-center gap-1 text-sm ${grade.trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                             {grade.trend > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                                            {Math.abs(grade.trend)}%
+                                           {Math.abs(grade.trend).toFixed(2)}%
                                         </span>
                                     </td>
                                     <td className="px-4 py-3">

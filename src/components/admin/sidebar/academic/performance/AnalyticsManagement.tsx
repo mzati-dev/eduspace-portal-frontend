@@ -535,7 +535,9 @@ const AnalyticsManagement: React.FC<AnalyticsManagementProps> = ({
                         return score < passMark;
                     }).length || 0;
                 }
-            } else {
+            } 
+            
+            else {
                 console.log('⚠️ No data found for term:', selectedTermToUse);
             }
 

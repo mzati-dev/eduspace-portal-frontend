@@ -312,6 +312,27 @@ const StudentDrillDown: React.FC<StudentDrillDownProps> = ({
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {student.subjectBreakdown.map((subject, idx) => {
+                                    const isAboveAvg = subject.gap >= 0;
+                                    return (
+                                        <tr key={idx}>
+                                            <td className="px-3 py-2 font-medium">{subject.subject}</td>
+                                            <td className={`px-3 py-2 font-medium ${subject.marks >= 70 ? 'text-emerald-600' : subject.marks >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                                {subject.marks}%
+                                            </td>
+                                            <td className="px-3 py-2">{subject.attendance}%</td>
+                                            <td className="px-3 py-2">{subject.classAvg}%</td>
+                                            <td className={`px-3 py-2 font-medium ${isAboveAvg ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                {isAboveAvg ? '+' : ''}{subject.gap}%
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <span className={`px-2 py-1 rounded-full text-xs ${subject.status === 'On track' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {subject.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {/* {student.subjectBreakdown.map((subject, idx) => {
                                     const isAboveAvg = subject.gap <= 0;
                                     return (
                                         <tr key={idx}>
@@ -332,7 +353,7 @@ const StudentDrillDown: React.FC<StudentDrillDownProps> = ({
                                             </td>
                                         </tr>
                                     );
-                                })}
+                                })} */}
                             </tbody>
                         </table>
                     </div>
