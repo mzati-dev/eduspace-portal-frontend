@@ -60,7 +60,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({
     // }
 
     //TEMPORARILY SHOW QA1 OR QA2 IF END OF TERM NOT PUBLISHED (FOR TESTING PURPOSES)
-    let activeView: 'qa1' | 'qa2' | null = 'qa1';
+    let activeView: 'qa1' | 'qa2' | null = 'qa2';
 
     // If nothing published, show message
     if (!activeView) {
