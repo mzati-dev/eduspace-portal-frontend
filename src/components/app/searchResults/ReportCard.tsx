@@ -5,6 +5,7 @@ import { Download, Printer, CheckCircle, AlertCircle, TrendingUp, Calendar, User
 import autoTable from 'jspdf-autotable';
 import jsPDF from 'jspdf';
 import StudentAcademicInfo from './StudentAcademicInfo';
+import { fetchCurrentTerm, fetchStudentAttendanceSummary } from '@/services/attendanceService';
 
 interface ReportCardProps {
     studentData: StudentData;
@@ -30,7 +31,44 @@ const ReportCard: React.FC<ReportCardProps> = ({
     const [isDownloading, setIsDownloading] = useState(false)
     // 1. State for the School Name
     const [schoolName, setSchoolName] = useState<string>('Loading School...');
-    const [showInfo, setShowInfo] = useState(false);
+const [showInfo, setShowInfo] = useState(false);
+
+    const [attendance, setAttendance] = useState({ present: 0, absent: 0, late: 0, total: 0 });
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
+
+    useEffect(() => {
+        const loadAttendance = async () => {
+            if (!studentData.studentId) {
+                setAttendance({
+                    present: studentData.attendance?.present ?? 0,
+                    absent: studentData.attendance?.absent ?? 0,
+                    late: studentData.attendance?.late ?? 0,
+                    total: (studentData.attendance?.present ?? 0) + (studentData.attendance?.absent ?? 0),
+                });
+                return;
+            }
+            setAttendanceLoading(true);
+            try {
+                const term = await fetchCurrentTerm();
+                if (!term?.startDate || !term?.endDate) return;
+                const summary = await fetchStudentAttendanceSummary(studentData.studentId, term.startDate, term.endDate);
+                setAttendance({
+                    present: summary.present ?? 0,
+                    absent: summary.absent ?? 0,
+                    late: summary.late ?? 0,
+                    total: summary.total ?? (summary.present ?? 0) + (summary.absent ?? 0),
+                });
+            } catch (error) {
+                console.error('Failed to fetch attendance for report card:', error);
+            } finally {
+                setAttendanceLoading(false);
+            }
+        };
+        loadAttendance();
+    }, [studentData.studentId]);
+
+    const totalSchoolDays = attendance.total > 0 ? attendance.total : (attendance.present + attendance.absent);
+    const attendanceRate = totalSchoolDays > 0 ? Math.round((attendance.present / totalSchoolDays) * 100) : 0;
 
 
     useEffect(() => {
@@ -1169,20 +1207,17 @@ const ReportCard: React.FC<ReportCardProps> = ({
             y += 4;
             doc.setFont('helvetica', 'normal');
 
-            const totalDays = studentData.attendance.present + studentData.attendance.absent;
-            const attendanceRate = totalDays > 0 ? Math.round((studentData.attendance.present / totalDays) * 100) : 0;
-
-            doc.text(`Total School Days: ${totalDays}`, 14, y);
+            doc.text(`Total School Days: ${totalSchoolDays}`, 14, y);
             doc.text(`Attendance Rate: ${attendanceRate}%`, 120, y);
 
             y += 4;
 
-            doc.text(`Days Present: ${studentData.attendance.present}`, 14, y);
-            doc.text(`Days Absent: ${studentData.attendance.absent}`, 120, y);
+            doc.text(`Days Present: ${attendance.present}`, 14, y);
+            doc.text(`Days Absent: ${attendance.absent}`, 120, y);
 
             y += 4;
 
-            doc.text(`Days Late: ${studentData.attendance.late}`, 14, y);
+            doc.text(`Days Late: ${attendance.late}`, 14, y);
 
             y += 6;
 
@@ -2254,35 +2289,26 @@ const ReportCard: React.FC<ReportCardProps> = ({
                     Attendance Details
                 </h5>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
                         <p className="text-2xl font-bold text-blue-700">
-                            {studentData.attendance.present + studentData.attendance.absent}
+                            {totalSchoolDays}
                         </p>
                         <p className="text-sm text-blue-600">Total School Days</p>
                     </div>
 
-                    <div className={`${Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100) >= 75
+                    <div className={`${attendanceRate >= 75
                         ? 'bg-gradient-to-br from-green-50 to-green-100'
                         : 'bg-gradient-to-br from-orange-50 to-orange-100'
                         } rounded-xl p-4`}>
-                        <p className={`text-sm font-medium ${Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100) >= 75
-                            ? 'text-green-800'
-                            : 'text-orange-800'
-                            }`}>
+                        <p className={`text-sm font-medium ${attendanceRate >= 75 ? 'text-green-800' : 'text-orange-800'}`}>
                             Attendance Rate
                         </p>
-                        <p className={`text-2xl font-bold ${Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100) >= 75
-                            ? 'text-green-900'
-                            : 'text-orange-900'
-                            }`}>
-                            {Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100)}%
+                        <p className={`text-2xl font-bold ${attendanceRate >= 75 ? 'text-green-900' : 'text-orange-900'}`}>
+                            {attendanceRate}%
                         </p>
-                        <p className={`text-xs mt-1 ${Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100) >= 75
-                            ? 'text-green-700'
-                            : 'text-orange-700'
-                            }`}>
-                            {studentData.attendance.present}/{studentData.attendance.present + studentData.attendance.absent}
+                        <p className={`text-xs mt-1 ${attendanceRate >= 75 ? 'text-green-700' : 'text-orange-700'}`}>
+                            {attendance.present}/{totalSchoolDays}
                         </p>
                     </div>
 
@@ -2290,11 +2316,11 @@ const ReportCard: React.FC<ReportCardProps> = ({
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-sm text-emerald-600">Days Present</p>
-                                <p className="text-2xl font-bold text-emerald-700">{studentData.attendance.present}</p>
+                                <p className="text-2xl font-bold text-emerald-700">{attendance.present}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-rose-600">Days Absent</p>
-                                <p className="text-2xl font-bold text-rose-700">{studentData.attendance.absent}</p>
+                                <p className="text-2xl font-bold text-rose-700">{attendance.absent}</p>
                             </div>
                         </div>
                     </div>
@@ -2302,7 +2328,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
                     <div className="text-center p-4 bg-amber-50 rounded-lg">
                         <p className="text-sm text-amber-600">Days Late</p>
                         <p className="text-2xl font-bold text-amber-700">
-                            {studentData.attendance.late}
+                            {attendance.late}
                         </p>
                     </div>
                 </div>
@@ -2313,20 +2339,22 @@ const ReportCard: React.FC<ReportCardProps> = ({
                         <div className="w-full bg-slate-200 rounded-full h-2">
                             <div
                                 className="bg-emerald-500 h-2 rounded-full"
-                                style={{ width: `${Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100)}%` }}
+                                style={{ width: `${attendanceRate}%` }}
                             ></div>
                         </div>
                         <span className="ml-4 text-sm font-semibold text-slate-700">
-                            {Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100)}%
+                            {attendanceRate}%
                         </span>
                     </div>
 
                     <div className="mt-3 text-sm text-slate-500">
-                        {Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100) >= 95
-                            ? '✓ Excellent attendance! Keep it up.'
-                            : Math.round((studentData.attendance.present / (studentData.attendance.present + studentData.attendance.absent)) * 100) >= 80
-                                ? '✓ Good attendance record.'
-                                : '⚠ Needs improvement in attendance.'}
+                        {totalSchoolDays === 0
+                            ? 'No attendance records found for this term yet.'
+                            : attendanceRate >= 95
+                                ? '✓ Excellent attendance! Keep it up.'
+                                : attendanceRate >= 80
+                                    ? '✓ Good attendance record.'
+                                    : '⚠ Needs improvement in attendance.'}
                     </div>
                 </div>
             </div>
