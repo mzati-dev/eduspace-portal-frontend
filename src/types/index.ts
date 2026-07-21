@@ -2,6 +2,7 @@
 
 // Or keep your local type but make it match exactly:
 export interface StudentData {
+    studentId?: string;
     name: string;
     examNumber: string;
     class: string;
