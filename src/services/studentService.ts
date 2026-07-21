@@ -168,10 +168,17 @@ export async function fetchStudentByExamNumber(examNumber: string): Promise<Stud
       ? `${API_BASE_URL}/api/students/results/${examNumber}?schoolId=${schoolId}`
       : `${API_BASE_URL}/api/students/results/${examNumber}`;
 
+    // const response = await fetch(url);
+    // if (!response.ok) return null;
+    // const data = await response.json();
+    // return data;
     const response = await fetch(url);
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data;
+if (!response.ok) return null;
+const data = await response.json();
+return {
+  ...data,
+  studentId: data.studentId ?? data.id ?? data.student_id,
+};
   } catch (error) {
     console.error('Failed to fetch student data:', error);
     return null;
