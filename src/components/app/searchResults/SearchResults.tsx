@@ -31,8 +31,10 @@ const SearchResults: React.FC<SearchResultsProps> = ({
         );
     }
 
-    // Get published assessment type
-    const reportCard = studentData.reportCards?.[0];
+    // Get published assessment type — match by current term, not just index 0
+    const reportCard = studentData.reportCards?.find(
+        rc => rc.term === studentData.term
+    ) ?? studentData.reportCards?.[0];
 
     // If End Term is published, show ONLY Report Card
     if (reportCard?.endOfTerm_published) {
@@ -51,16 +53,44 @@ const SearchResults: React.FC<SearchResultsProps> = ({
     }
 
     // Otherwise, show QA1 or QA2 if published
-    // let activeView: 'qa1' | 'qa2' | null = null;
+    let activeView: 'qa1' | 'qa2' | null = null;
 
-    // if (reportCard?.qa2_published) {
-    //     activeView = 'qa2';
-    // } else if (reportCard?.qa1_published) {
-    //     activeView = 'qa1';
+    if (reportCard?.qa2_published) {
+        activeView = 'qa2';
+    } else if (reportCard?.qa1_published) {
+        activeView = 'qa1';
+    }
+
+    // // Get published assessment type
+    // const reportCard = studentData.reportCards?.[0];
+
+    // // If End Term is published, show ONLY Report Card
+    // if (reportCard?.endOfTerm_published) {
+    //     return (
+    //         <div className="space-y-6">
+    //             <div className="bg-white rounded-2xl shadow-lg border border-slate-200">
+    //                 <div className="p-6">
+    //                     <ReportCard
+    //                         studentData={studentData}
+    //                         onPrint={onPrint}
+    //                     />
+    //                 </div>
+    //             </div>
+    //         </div>
+    //     );
     // }
 
-    //TEMPORARILY SHOW QA1 OR QA2 IF END OF TERM NOT PUBLISHED (FOR TESTING PURPOSES)
-    let activeView: 'qa1' | 'qa2' | null = 'qa2';
+    // // Otherwise, show QA1 or QA2 if published
+    // // let activeView: 'qa1' | 'qa2' | null = null;
+
+    // // if (reportCard?.qa2_published) {
+    // //     activeView = 'qa2';
+    // // } else if (reportCard?.qa1_published) {
+    // //     activeView = 'qa1';
+    // // }
+
+    // //TEMPORARILY SHOW QA1 OR QA2 IF END OF TERM NOT PUBLISHED (FOR TESTING PURPOSES)
+    // let activeView: 'qa1' | 'qa2' | null = 'qa2';
 
     // If nothing published, show message
     if (!activeView) {
