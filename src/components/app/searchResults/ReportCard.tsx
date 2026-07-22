@@ -1228,7 +1228,8 @@ const [showInfo, setShowInfo] = useState(false);
             } else if (attendanceRate >= 80) {
                 attendanceComment = 'Good attendance record.';
             } else {
-                attendanceComment = 'Needs improvement in attendance.';
+               // attendanceComment = 'Needs improvement in attendance.';
+                attendanceComment = 'No aatendance records found for this term yet.';
             }
 
             doc.setFont('helvetica', 'normal');
