@@ -1229,7 +1229,7 @@ const [showInfo, setShowInfo] = useState(false);
                 attendanceComment = 'Good attendance record.';
             } else {
                // attendanceComment = 'Needs improvement in attendance.';
-                attendanceComment = 'No aatendance records found for this term yet.';
+                attendanceComment = 'No attendance records found for this term yet.';
             }
 
             doc.setFont('helvetica', 'normal');
