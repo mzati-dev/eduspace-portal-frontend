@@ -32,7 +32,7 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
     teacherClasses,
     students,
     teacherSubjects,
-     assignments = [], 
+    assignments = [],
     termInfo,
     totalDays,
     recordedDays,
@@ -274,23 +274,7 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                     </button>
                 </div>
             </div>
-            {/* <div className="mb-8">
-                <h3 className="text-md font-semibold text-slate-700 mb-3">Quick Actions</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                        <FileText className="w-4 h-4" /> Manage Results
-                    </button>
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                        <CheckSquare className="w-4 h-4" /> Record Attendance
-                    </button>
-                    <button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                        <Users className="w-4 h-4" /> View My Classes
-                    </button>
-                    <button className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                        <Calendar className="w-4 h-4" /> My Timetable
-                    </button>
-                </div>
-            </div> */}
+
 
             {/* Stats Cards - Teacher Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -416,47 +400,47 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                                     <th className="text-left py-3 text-sm font-semibold text-slate-600">End Term Pass Rate</th>
                                 </tr>
                             </thead>
-<tbody>
-    {assignments.map((assignment, idx) => {
-        const subject = teacherSubjects.find(s => s.id === assignment.subjectId);
-        const cls = teacherClasses.find(c => c.id === assignment.classId);
-        const className = cls?.name || 'Unknown';
-        const subjectPerformance = currentPassRates.find(rate => rate.className === className);
+                            <tbody>
+                                {assignments.map((assignment, idx) => {
+                                    const subject = teacherSubjects.find(s => s.id === assignment.subjectId);
+                                    const cls = teacherClasses.find(c => c.id === assignment.classId);
+                                    const className = cls?.name || 'Unknown';
+                                    const subjectPerformance = currentPassRates.find(rate => rate.className === className);
 
-        if (!subject) return null;
+                                    if (!subject) return null;
 
-        return (
-            <tr key={idx} className="border-b border-slate-100">
-                <td className="py-3 text-sm font-medium text-slate-800">{subject.name}</td>
-                <td className="py-3 text-sm text-slate-600">{className}</td>
-                <td className="py-3">
-                    <div className="flex items-center gap-2">
-                        <div className="w-20 bg-slate-200 rounded-full h-2">
-                            <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa1PassRate || 0}%` }}></div>
-                        </div>
-                        <span className="text-sm font-medium">{subjectPerformance?.qa1PassRate || 0}%</span>
-                    </div>
-                </td>
-                <td className="py-3">
-                    <div className="flex items-center gap-2">
-                        <div className="w-20 bg-slate-200 rounded-full h-2">
-                            <div className="bg-green-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa2PassRate || 0}%` }}></div>
-                        </div>
-                        <span className="text-sm font-medium">{subjectPerformance?.qa2PassRate || 0}%</span>
-                    </div>
-                </td>
-                <td className="py-3">
-                    <div className="flex items-center gap-2">
-                        <div className="w-20 bg-slate-200 rounded-full h-2">
-                            <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.endOfTermPassRate || 0}%` }}></div>
-                        </div>
-                        <span className="text-sm font-medium">{subjectPerformance?.endOfTermPassRate || 0}%</span>
-                    </div>
-                </td>
-            </tr>
-        );
-    })}
-</tbody>
+                                    return (
+                                        <tr key={idx} className="border-b border-slate-100">
+                                            <td className="py-3 text-sm font-medium text-slate-800">{subject.name}</td>
+                                            <td className="py-3 text-sm text-slate-600">{className}</td>
+                                            <td className="py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-20 bg-slate-200 rounded-full h-2">
+                                                        <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa1PassRate || 0}%` }}></div>
+                                                    </div>
+                                                    <span className="text-sm font-medium">{subjectPerformance?.qa1PassRate || 0}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-20 bg-slate-200 rounded-full h-2">
+                                                        <div className="bg-green-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa2PassRate || 0}%` }}></div>
+                                                    </div>
+                                                    <span className="text-sm font-medium">{subjectPerformance?.qa2PassRate || 0}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-20 bg-slate-200 rounded-full h-2">
+                                                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.endOfTermPassRate || 0}%` }}></div>
+                                                    </div>
+                                                    <span className="text-sm font-medium">{subjectPerformance?.endOfTermPassRate || 0}%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
                         </table>
                     </div>
                 )}
