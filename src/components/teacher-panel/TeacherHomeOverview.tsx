@@ -7,6 +7,7 @@ interface TeacherHomeOverviewProps {
     teacherClasses: any[];
     students: any[];
     teacherSubjects: any[];
+     assignments?: any[];
     termInfo: {
         name: string;
         startDate: string;
@@ -31,6 +32,7 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
     teacherClasses,
     students,
     teacherSubjects,
+     assignments = [], 
     termInfo,
     totalDays,
     recordedDays,
@@ -414,46 +416,47 @@ const TeacherHomeOverview: React.FC<TeacherHomeOverviewProps> = ({
                                     <th className="text-left py-3 text-sm font-semibold text-slate-600">End Term Pass Rate</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {teacherSubjects.map((subject, idx) => {
-                                    const className = teacherClasses.find(c => c.id === subject.classId)?.name || 'Unknown';
-                                    const subjectPerformance = currentPassRates.find(rate =>
-                                        rate.className === className
-                                    );
-                                    console.log('teacherSubjects:', teacherSubjects);
-                                    console.log('teacherClasses:', teacherClasses);
-                                    return (
-                                        <tr key={idx} className="border-b border-slate-100">
-                                            <td className="py-3 text-sm font-medium text-slate-800">{subject.name}</td>
-                                            <td className="py-3 text-sm text-slate-600">{className}</td>
-                                            <td className="py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-20 bg-slate-200 rounded-full h-2">
-                                                        <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa1PassRate || 0}%` }}></div>
-                                                    </div>
-                                                    <span className="text-sm font-medium">{subjectPerformance?.qa1PassRate || 0}%</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-20 bg-slate-200 rounded-full h-2">
-                                                        <div className="bg-green-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa2PassRate || 0}%` }}></div>
-                                                    </div>
-                                                    <span className="text-sm font-medium">{subjectPerformance?.qa2PassRate || 0}%</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-20 bg-slate-200 rounded-full h-2">
-                                                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.endOfTermPassRate || 0}%` }}></div>
-                                                    </div>
-                                                    <span className="text-sm font-medium">{subjectPerformance?.endOfTermPassRate || 0}%</span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
+<tbody>
+    {assignments.map((assignment, idx) => {
+        const subject = teacherSubjects.find(s => s.id === assignment.subjectId);
+        const cls = teacherClasses.find(c => c.id === assignment.classId);
+        const className = cls?.name || 'Unknown';
+        const subjectPerformance = currentPassRates.find(rate => rate.className === className);
+
+        if (!subject) return null;
+
+        return (
+            <tr key={idx} className="border-b border-slate-100">
+                <td className="py-3 text-sm font-medium text-slate-800">{subject.name}</td>
+                <td className="py-3 text-sm text-slate-600">{className}</td>
+                <td className="py-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-20 bg-slate-200 rounded-full h-2">
+                            <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa1PassRate || 0}%` }}></div>
+                        </div>
+                        <span className="text-sm font-medium">{subjectPerformance?.qa1PassRate || 0}%</span>
+                    </div>
+                </td>
+                <td className="py-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-20 bg-slate-200 rounded-full h-2">
+                            <div className="bg-green-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.qa2PassRate || 0}%` }}></div>
+                        </div>
+                        <span className="text-sm font-medium">{subjectPerformance?.qa2PassRate || 0}%</span>
+                    </div>
+                </td>
+                <td className="py-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-20 bg-slate-200 rounded-full h-2">
+                            <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${subjectPerformance?.endOfTermPassRate || 0}%` }}></div>
+                        </div>
+                        <span className="text-sm font-medium">{subjectPerformance?.endOfTermPassRate || 0}%</span>
+                    </div>
+                </td>
+            </tr>
+        );
+    })}
+</tbody>
                         </table>
                     </div>
                 )}
