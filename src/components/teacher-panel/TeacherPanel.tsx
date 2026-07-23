@@ -692,6 +692,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ onBack }) => {
                         teacherClasses={teacherClasses}
                         students={students}
                         teacherSubjects={teacherSubjects}
+                         assignments={assignments} 
                         termInfo={termInfo}
                         totalDays={totalDays}
                         recordedDays={recordedDays}
