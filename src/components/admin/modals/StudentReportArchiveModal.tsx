@@ -339,10 +339,11 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
 
         y += 4;
 
-        const tableBody = studentData?.subjects
+    const filteredSubjects = studentData?.subjects
             ?.filter((sub: any) => sub.qa1 !== null || sub.qa2 !== null || sub.endOfTerm !== null ||
-                sub.qa1_absent || sub.qa2_absent || sub.endOfTerm_absent)
-            .map((sub: any, index: number) => {
+                sub.qa1_absent || sub.qa2_absent || sub.endOfTerm_absent) || [];
+
+        const tableBody = filteredSubjects.map((sub: any, index: number) => {
                 if (type === 'overall') {
                     const avg = sub.finalScore ||
                         ((sub.qa1 || 0) + (sub.qa2 || 0) + (sub.endOfTerm || 0)) / 3;
@@ -369,21 +370,22 @@ const StudentReportArchiveModal: React.FC<StudentReportArchiveModalProps> = ({
             }) || [];
 
         // Calculate totals
-        const totalPossible = (studentData?.subjects?.length || 0) * 100;
+    
+        const totalPossible = filteredSubjects.length * 100;
         let totalScored = 0;
 
         if (type === 'overall') {
-            totalScored = studentData?.subjects?.reduce((sum: number, sub: any) => {
+            totalScored = filteredSubjects.reduce((sum: number, sub: any) => {
                 const avg = sub.finalScore || ((sub.qa1 || 0) + (sub.qa2 || 0) + (sub.endOfTerm || 0)) / 3;
                 return sum + avg;
-            }, 0) || 0;
+            }, 0);
         } else {
-            totalScored = studentData?.subjects?.reduce((sum: number, sub: any) => {
+            totalScored = filteredSubjects.reduce((sum: number, sub: any) => {
                 if (type === 'qa1' && sub.qa1_absent) return sum;
                 if (type === 'qa2' && sub.qa2_absent) return sum;
                 if (type === 'endOfTerm' && sub.endOfTerm_absent) return sum;
                 return sum + (sub[type] || 0);
-            }, 0) || 0;
+            }, 0);
         }
 
         let overallGrade = 'N/A';
