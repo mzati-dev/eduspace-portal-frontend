@@ -1222,15 +1222,17 @@ const [showInfo, setShowInfo] = useState(false);
             y += 6;
 
             // Attendance comment
-            let attendanceComment = '';
-            if (attendanceRate >= 95) {
-                attendanceComment = 'Excellent attendance! Keep it up.';
-            } else if (attendanceRate >= 80) {
-                attendanceComment = 'Good attendance record.';
-            } else {
-               // attendanceComment = 'Needs improvement in attendance.';
-                attendanceComment = 'No attendance records found for this term yet.';
-            }
+         // Attendance comment
+let attendanceComment = '';
+if (totalSchoolDays === 0) {
+    attendanceComment = 'No attendance records found for this term yet.';
+} else if (attendanceRate >= 95) {
+    attendanceComment = 'Excellent attendance! Keep it up.';
+} else if (attendanceRate >= 80) {
+    attendanceComment = 'Good attendance record.';
+} else {
+    attendanceComment = 'Needs improvement in attendance.';
+}
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(10);
